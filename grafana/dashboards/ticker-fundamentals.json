@@ -1,0 +1,283 @@
+{
+  "uid": "fintracker-ticker-fundamentals",
+  "title": "Ticker Fundamentals",
+  "description": "Ten years of valuation and fundamentals for a single ticker, computed from SEC XBRL facts via the equity_metric_series view (migration 0002).",
+  "tags": ["fintracker"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "",
+  "time": { "from": "now-10y", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "ticker",
+        "label": "Ticker",
+        "type": "query",
+        "datasource": { "type": "postgres", "uid": "fintracker-pg" },
+        "query": "SELECT symbol FROM instruments WHERE kind = 'equity' AND taxonomy IS NOT NULL ORDER BY symbol",
+        "definition": "SELECT symbol FROM instruments WHERE kind = 'equity' AND taxonomy IS NOT NULL ORDER BY symbol",
+        "refresh": 1,
+        "sort": 0,
+        "multi": false,
+        "includeAll": false,
+        "current": {}
+      },
+      {
+        "name": "metric_left",
+        "label": "Left axis",
+        "type": "custom",
+        "query": "P/E : pe, Revenue : revenue, Operating margin : op_margin, P/FCF : pfcf, Total debt : debt",
+        "multi": false,
+        "includeAll": false,
+        "current": { "selected": true, "text": "P/E", "value": "pe" },
+        "options": [
+          { "selected": true, "text": "P/E", "value": "pe" },
+          { "selected": false, "text": "Revenue", "value": "revenue" },
+          { "selected": false, "text": "Operating margin", "value": "op_margin" },
+          { "selected": false, "text": "P/FCF", "value": "pfcf" },
+          { "selected": false, "text": "Total debt", "value": "debt" }
+        ]
+      },
+      {
+        "name": "metric_right",
+        "label": "Right axis",
+        "type": "custom",
+        "query": "P/E : pe, Revenue : revenue, Operating margin : op_margin, P/FCF : pfcf, Total debt : debt",
+        "multi": false,
+        "includeAll": false,
+        "current": { "selected": true, "text": "Revenue", "value": "revenue" },
+        "options": [
+          { "selected": false, "text": "P/E", "value": "pe" },
+          { "selected": true, "text": "Revenue", "value": "revenue" },
+          { "selected": false, "text": "Operating margin", "value": "op_margin" },
+          { "selected": false, "text": "P/FCF", "value": "pfcf" },
+          { "selected": false, "text": "Total debt", "value": "debt" }
+        ]
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "$ticker — $metric_left (left) vs $metric_right (right)",
+      "description": "Pick any two metrics with the 'Left axis' / 'Right axis' selectors above; each gets its own y-axis scale. Quarterly metrics connect across report dates (spanNulls).",
+      "datasource": { "type": "postgres", "uid": "fintracker-pg" },
+      "gridPos": { "h": 13, "w": 24, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "spanNulls": true,
+            "showPoints": "auto",
+            "pointSize": 5,
+            "axisPlacement": "left"
+          },
+          "unit": "none"
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byFrameRefID", "options": "B" },
+            "properties": [
+              { "id": "custom.axisPlacement", "value": "right" },
+              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [10, 6] } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "P/E (TTM)" },
+            "properties": [
+              { "id": "decimals", "value": 1 },
+              { "id": "custom.axisLabel", "value": "P/E" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "P/FCF (TTM)" },
+            "properties": [
+              { "id": "decimals", "value": 1 },
+              { "id": "custom.axisLabel", "value": "P/FCF" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Revenue (TTM)" },
+            "properties": [
+              { "id": "unit", "value": "currencyUSD" },
+              { "id": "custom.axisLabel", "value": "Revenue" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Operating margin (TTM)" },
+            "properties": [
+              { "id": "unit", "value": "percent" },
+              { "id": "custom.axisLabel", "value": "Operating margin" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Total debt" },
+            "properties": [
+              { "id": "unit", "value": "currencyUSD" },
+              { "id": "custom.axisLabel", "value": "Total debt" }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "min", "max"] },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value FROM equity_metric_series s JOIN instruments i ON i.id = s.instrument_id WHERE i.symbol = '$ticker' AND s.metric = '$metric_left' AND $__timeFilter(s.\"time\") ORDER BY 1"
+        },
+        {
+          "refId": "B",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value FROM equity_metric_series s JOIN instruments i ON i.id = s.instrument_id WHERE i.symbol = '$ticker' AND s.metric = '$metric_right' AND $__timeFilter(s.\"time\") ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "P/E (TTM)",
+      "description": "Daily close divided by trailing-twelve-month diluted EPS (quarterly EPS summed, Q4 derived from the 10-K). No point is drawn while TTM EPS is negative or the last report is older than ~15 months.",
+      "datasource": { "type": "postgres", "uid": "fintracker-pg" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true },
+          "unit": "none",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value FROM equity_metric_series s JOIN instruments i ON i.id = s.instrument_id WHERE i.symbol = '$ticker' AND s.metric = 'pe' AND $__timeFilter(s.\"time\") ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Revenue (TTM)",
+      "description": "Trailing-twelve-month revenue: one point per reported quarter end (annual filers get one point per fiscal year).",
+      "datasource": { "type": "postgres", "uid": "fintracker-pg" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true, "showPoints": "always", "pointSize": 5 },
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value FROM equity_metric_series s JOIN instruments i ON i.id = s.instrument_id WHERE i.symbol = '$ticker' AND s.metric = 'revenue' AND $__timeFilter(s.\"time\") ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Operating margin (TTM)",
+      "description": "TTM operating income over TTM revenue. Stands in for ROIC, which cannot be computed reliably from curated SEC facts (it needs tax and invested-capital detail that filers tag inconsistently).",
+      "datasource": { "type": "postgres", "uid": "fintracker-pg" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 21 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true, "showPoints": "always", "pointSize": 5 },
+          "unit": "percent",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value FROM equity_metric_series s JOIN instruments i ON i.id = s.instrument_id WHERE i.symbol = '$ticker' AND s.metric = 'op_margin' AND $__timeFilter(s.\"time\") ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "P/FCF (TTM)",
+      "description": "Market cap (daily close × latest weighted diluted shares) over TTM free cash flow (operating cash flow minus capex). No point is drawn while TTM FCF is negative; missing if the filer doesn't tag capex.",
+      "datasource": { "type": "postgres", "uid": "fintracker-pg" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 21 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true },
+          "unit": "none",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value FROM equity_metric_series s JOIN instruments i ON i.id = s.instrument_id WHERE i.symbol = '$ticker' AND s.metric = 'pfcf' AND $__timeFilter(s.\"time\") ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Total debt",
+      "description": "Balance-sheet debt at each report date, composed from the components the filer tags (long-term debt incl. current portion, plus short-term borrowings) without double counting.",
+      "datasource": { "type": "postgres", "uid": "fintracker-pg" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 29 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true, "showPoints": "always", "pointSize": 5 },
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value FROM equity_metric_series s JOIN instruments i ON i.id = s.instrument_id WHERE i.symbol = '$ticker' AND s.metric = 'debt' AND $__timeFilter(s.\"time\") ORDER BY 1"
+        }
+      ]
+    }
+  ]
+}
