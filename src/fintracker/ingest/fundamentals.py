@@ -186,6 +186,43 @@ def _upsert_facts(session: Session, instrument_id: int, facts: list[dict[str, An
         )
 
 
+def ingest_instrument_facts(
+    session: Session,
+    client: SecClient,
+    inst: Instrument,
+    company_facts: dict[str, Any] | None = None,
+) -> int:
+    """Record new filings and upsert curated facts for one instrument.
+
+    Requires `inst.cik` and `inst.taxonomy`. Pass `company_facts` to reuse an
+    already-fetched payload. Returns the number of facts upserted.
+    """
+    assert inst.cik is not None and inst.taxonomy is not None
+
+    known = set(
+        session.scalars(select(Filing.accession_no).where(Filing.instrument_id == inst.id))
+    )
+    new_filings = select_new_filings(client.submissions(inst.cik), known)
+    for filing in new_filings:
+        session.add(Filing(instrument_id=inst.id, **filing))
+    if new_filings:
+        log.info(
+            "Found %d new filing(s) for %s: %s",
+            len(new_filings),
+            inst.symbol,
+            ", ".join(f["form"] for f in new_filings),
+        )
+    else:
+        log.info("No new filings for %s — refreshing facts anyway.", inst.symbol)
+
+    if company_facts is None:
+        company_facts = client.company_facts(inst.cik)
+    facts = extract_facts(company_facts, inst.taxonomy, CURATED_TAGS[inst.taxonomy])
+    _upsert_facts(session, inst.id, facts)
+    log.info("Upserted %d facts for %s.", len(facts), inst.symbol)
+    return len(facts)
+
+
 def ingest_fundamentals() -> None:
     settings = get_settings()
     if not settings.sec_user_agent:
@@ -217,29 +254,6 @@ def ingest_fundamentals() -> None:
                     inst.cik = cik
                     log.info("Resolved CIK for %s: %s", inst.symbol, cik)
 
-                known = set(
-                    session.scalars(
-                        select(Filing.accession_no).where(Filing.instrument_id == inst.id)
-                    )
-                )
-                new_filings = select_new_filings(client.submissions(inst.cik), known)
-                for filing in new_filings:
-                    session.add(Filing(instrument_id=inst.id, **filing))
-                if new_filings:
-                    log.info(
-                        "Found %d new filing(s) for %s: %s",
-                        len(new_filings),
-                        inst.symbol,
-                        ", ".join(f["form"] for f in new_filings),
-                    )
-                else:
-                    log.info("No new filings for %s — refreshing facts anyway.", inst.symbol)
-
-                assert inst.taxonomy is not None
-                facts = extract_facts(
-                    client.company_facts(inst.cik), inst.taxonomy, CURATED_TAGS[inst.taxonomy]
-                )
-                _upsert_facts(session, inst.id, facts)
-                log.info("Upserted %d facts for %s.", len(facts), inst.symbol)
+                ingest_instrument_facts(session, client, inst)
             except Exception:
                 log.exception("Fundamentals ingest failed for %s", inst.symbol)

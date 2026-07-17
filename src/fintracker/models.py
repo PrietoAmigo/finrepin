@@ -120,6 +120,25 @@ class Fundamental(Base):
     filed_at: Mapped[dt.date | None] = mapped_column(Date)
 
 
+class TickerRequest(Base):
+    """On-demand ticker requests queued from the Grafana search box.
+
+    status: pending -> done | not_found | error. Rows are kept after
+    processing so the dashboard's insert-on-refresh stays idempotent.
+    """
+
+    __tablename__ = "ticker_requests"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    symbol: Mapped[str] = mapped_column(String(32), unique=True)
+    status: Mapped[str] = mapped_column(String(16), server_default="pending")
+    note: Mapped[str | None] = mapped_column(String(256))
+    requested_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    processed_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class EarningsDate(Base):
     """Next upcoming earnings date per equity (one row per instrument)."""
 
