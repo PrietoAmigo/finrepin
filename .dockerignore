@@ -24,4 +24,5 @@ venv/
 compose*.yaml
 grafana/
 tests/
-financial-tracker-plan.md
+.github/
+backups/

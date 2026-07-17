@@ -67,6 +67,26 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # One-shot dump of the whole DB, gzipped into ./backups.
+  # Run on demand (or from host cron): docker compose run --rm backup
+  backup:
+    image: postgres:16
+    profiles: ["backup"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+    volumes:
+      - ./backups:/backups
+    entrypoint:
+      - sh
+      - -c
+      - pg_dump | gzip > "/backups/fintracker-$$(date +%F-%H%M%S).sql.gz"
+
 volumes:
   pgdata:
   grafana-storage:

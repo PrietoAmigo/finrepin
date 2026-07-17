@@ -1,13 +1,10 @@
 # fintracker
 
-A self-hosted, single-user financial tracker. It pulls **daily market data**
-(stocks, crypto, forex) into Postgres, surfaces it in **Grafana**, and (from a
-later milestone) pulls **SEC XBRL fundamentals** and sends a **weekly email**.
-The whole thing runs under Docker Compose and schedules itself — no external
-cron.
-
-This repository is the foundation described in `financial-tracker-plan.md`.
-It implements the plan's build order through **milestone 3**.
+A self-hosted, single-user financial tracker (this repository is `finrepin`;
+the application/package is `fintracker`). It pulls **daily market data**
+(stocks, crypto, forex) into Postgres, surfaces it in **Grafana**, pulls
+**SEC XBRL fundamentals**, and sends a **weekly email** report. The whole
+thing runs under Docker Compose and schedules itself — no external cron.
 
 ## What's implemented (M1–M6)
 
@@ -33,8 +30,8 @@ It implements the plan's build order through **milestone 3**.
 - **Grafana** — provisioned Postgres datasource + a starter *Market Overview*
   dashboard.
 
-All of the plan's core features are in. What remains is **M7/M8 polish**:
-richer dashboards and observability/retry hardening.
+All core features are in. What remains is **M7/M8 polish**: richer
+dashboards and deeper observability.
 
 ## Sending a test email now
 
@@ -52,8 +49,12 @@ Pure parsing logic (SEC fact extraction, submissions filtering) is covered in
 `tests/` and runs without any network or database:
 
 ```bash
-PYTHONPATH=src python tests/test_fundamentals.py
+uv sync --frozen --extra dev
+uv run pytest
 ```
+
+CI (GitHub Actions) runs ruff, mypy, pytest, and an offline Alembic SQL
+sanity check on every push and pull request.
 
 ## Quick start
 
@@ -84,40 +85,54 @@ Key knobs: `TZ`, `DAILY_HOUR`/`DAILY_MINUTE` (daily ingest), `WEEKLY_*` (email),
 
 ### Security note
 
-- The Gmail app password and CoinMarketCap key shared earlier in plaintext are
-  **compromised** — rotate the Gmail one before enabling email (M6); the CMC key
-  is no longer used at all (crypto now comes from CoinGecko).
+- Use a dedicated [Gmail app password](https://support.google.com/accounts/answer/185833)
+  for `EMAIL_PASS`, never your account password. If a secret ever leaks
+  (pasted into a chat, committed, logged), treat it as compromised and rotate
+  it immediately.
 - `.env` is git-ignored. Never commit real secrets.
+
+## Backups
+
+All state lives in the `pgdata` Docker volume. Dump the database on demand
+(gzipped, into `./backups/`, which is git-ignored):
+
+```bash
+docker compose run --rm backup
+```
+
+Schedule that command from host cron if you want periodic backups.
 
 ## Layout
 
 ```
 .
-├── compose.yaml                # db + app + grafana
+├── compose.yaml                # db + app + grafana (+ on-demand backup profile)
 ├── compose.override.yaml       # dev: expose Postgres to localhost
-├── Dockerfile                  # multi-stage, uv, non-root, heartbeat healthcheck
+├── Dockerfile                  # multi-stage, uv (locked deps), non-root, heartbeat healthcheck
 ├── alembic.ini
+├── uv.lock                     # pinned dependency set (Docker + CI install from it)
 ├── migrations/                 # Alembic env + initial schema
 ├── grafana/                    # provisioned datasource + dashboards
-└── src/fintracker/
-    ├── config.py               # env -> Settings
-    ├── db.py                    # engine, session, wait-for-db
-    ├── models.py                # SQLAlchemy schema
-    ├── seed.py                  # instruments registry
-    ├── migrate.py               # Alembic upgrade at boot
-    ├── scheduler.py             # APScheduler jobs
-    ├── heartbeat.py / healthcheck.py
-    ├── run.py                   # entrypoint
-    ├── ingest/                  # prices, forex, crypto, market orchestrator,
-    │                            #   fundamentals + sec_client, earnings
-    └── report/                  # weekly email: data (queries), render (HTML/text), email_report (SMTP)
-tests/                          # pure-parsing unit tests (no network/DB)
+├── src/fintracker/
+│   ├── config.py               # env -> Settings
+│   ├── db.py                   # engine, session, wait-for-db
+│   ├── models.py               # SQLAlchemy schema
+│   ├── seed.py                 # instruments registry (edit to change holdings)
+│   ├── migrate.py              # Alembic upgrade at boot
+│   ├── scheduler.py            # APScheduler jobs
+│   ├── heartbeat.py / healthcheck.py
+│   ├── run.py                  # entrypoint
+│   ├── ingest/                 # prices, forex, crypto, market orchestrator,
+│   │                           #   fundamentals + sec_client, earnings
+│   └── report/                 # weekly email: data (queries), render (HTML/text), email_report (SMTP)
+├── tests/                      # pure-parsing unit tests (no network/DB)
+└── .github/workflows/ci.yml    # ruff + mypy + pytest + alembic offline check
 ```
 
 ## Local development without Docker
 
 ```bash
-uv venv && uv pip install -e ".[dev]"
+uv sync --frozen --extra dev
 # point at a local Postgres:
 export DB_HOST=localhost DB_PORT=5432 DB_NAME=fintracker DB_USER=fintracker DB_PASSWORD=...
 python -m fintracker.run          # migrates, seeds, ingests on start, schedules
@@ -136,5 +151,5 @@ alembic upgrade head
 - **Prices/forex:** Yahoo via `yfinance` — the only free source that reliably
   covers the `.TO`, `.MC`, and `.V` tickers here.
 - **Crypto:** CoinGecko's free `simple/price` endpoint (no key).
-- **Fundamentals (M4):** SEC `data.sec.gov` XBRL — numbers only, no documents;
+- **Fundamentals:** SEC `data.sec.gov` XBRL — numbers only, no documents;
   requires a descriptive `SEC_USER_AGENT` with a contact email.
