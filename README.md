@@ -12,8 +12,12 @@ thing runs under Docker Compose and schedules itself — no external cron.
   `grafana`), env-based config, no secrets in source.
 - **Schema + seed** — SQLAlchemy models + an Alembic initial migration; the six
   holdings plus BTC/ETH and EUR/USD are seeded into `instruments`.
-- **Market ingestion** — daily prices (yfinance), EUR/USD (yfinance), and crypto
-  (CoinGecko, no API key) upserted into `prices`.
+- **Market ingestion** — daily OHLCV for equities, EUR/USD, and crypto
+  (BTC-USD/ETH-USD) via yfinance, plus the live crypto spot from CoinGecko
+  (no API key), upserted into `prices`. The first run **backfills the entire
+  available history** per instrument; every run after that is **incremental**
+  (it re-fetches only a few days back from the latest stored bar, so gaps
+  self-heal).
 - **SEC XBRL fundamentals** — resolves CIKs from `company_tickers.json`, detects
   new filings via the submissions feed (logged in `filings`), and upserts curated
   `us-gaap` (UNH/PRM) and `ifrs-full` (BN) facts into `fundamentals`. No documents
@@ -199,7 +203,10 @@ alembic upgrade head
 ## Notes on data sources
 
 - **Prices/forex:** Yahoo via `yfinance` — the only free source that reliably
-  covers the `.TO`, `.MC`, and `.V` tickers here.
-- **Crypto:** CoinGecko's free `simple/price` endpoint (no key).
+  covers the `.TO`, `.MC`, and `.V` tickers here. Full history is available
+  (`period="max"`), which is what the initial backfill uses.
+- **Crypto:** daily history via Yahoo (`BTC-USD`, `ETH-USD` — CoinGecko's
+  keyless API caps history at 365 days), latest spot via CoinGecko's free
+  `simple/price` endpoint (no key).
 - **Fundamentals:** SEC `data.sec.gov` XBRL — numbers only, no documents;
   requires a descriptive `SEC_USER_AGENT` with a contact email.

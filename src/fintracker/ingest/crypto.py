@@ -17,7 +17,7 @@ from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_ex
 
 from fintracker.config import get_settings
 from fintracker.db import session_scope
-from fintracker.ingest.prices import upsert_price_rows
+from fintracker.ingest.prices import ingest_yahoo_prices, upsert_price_rows
 from fintracker.models import Instrument
 
 log = logging.getLogger(__name__)
@@ -47,6 +47,11 @@ def _today() -> dt.date:
     except Exception:
         tz = ZoneInfo("UTC")
     return dt.datetime.now(tz).date()
+
+
+def ingest_crypto_history() -> int:
+    """Full-history backfill + incremental daily bars via Yahoo (BTC-USD, ETH-USD)."""
+    return ingest_yahoo_prices("crypto")
 
 
 def ingest_crypto_prices() -> int:
