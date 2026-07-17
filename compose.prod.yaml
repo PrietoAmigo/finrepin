@@ -4,30 +4,18 @@
 #   docker compose -f compose.yaml -f compose.prod.yaml up -d
 #
 # - `app` runs the image CI publishes to GHCR on every green main build.
-# - Watchtower polls the registry and restarts `app` when a new image appears
-#   (label-scoped: it never touches db or grafana).
+# - deploy/deploy.sh (run every 5 minutes by the finrepin-deploy systemd
+#   timer) keeps the whole stack current: it fast-forwards the checkout to
+#   origin/main, pulls newer images, and re-runs `up -d`, so app updates,
+#   Grafana dashboards/provisioning, and compose changes all apply within
+#   minutes of a push to main.
 # - Loading files explicitly with -f skips compose.override.yaml, so the
 #   Postgres port stays internal.
 #
-# If the GHCR package is private, `docker login ghcr.io` once on the server
-# (PAT with read:packages); the login is mounted into Watchtower below.
+# If the GHCR package is private, `sudo docker login ghcr.io` once on the
+# server (PAT with read:packages) — as root, because the timer runs as root.
 
 services:
   app:
     image: ghcr.io/prietoamigo/finrepin:latest
     pull_policy: always
-    labels:
-      - com.centurylinklabs.watchtower.enable=true
-
-  watchtower:
-    image: containrrr/watchtower:1.7.1
-    restart: unless-stopped
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ~/.docker/config.json:/config.json:ro
-    command: --label-enable --cleanup --interval 300
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
