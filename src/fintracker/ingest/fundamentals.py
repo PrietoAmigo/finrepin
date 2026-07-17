@@ -5,7 +5,9 @@ The parsing helpers (`resolve_cik`, `iter_recent_filings`, `select_new_filings`,
 unit-tested without network or database access. `ingest_fundamentals` is the
 scheduled orchestrator: it detects new filings per instrument via the
 submissions feed, logs them in `filings`, and upserts curated facts into
-`fundamentals`.
+`fundamentals`. Facts are re-extracted on every run — not only when a new
+filing appears — so additions to CURATED_TAGS backfill their full history
+on the next run (one extra companyfacts request per instrument per run).
 """
 
 from __future__ import annotations
@@ -32,6 +34,8 @@ FORMS_WITH_FINANCIALS = frozenset(
 )
 
 # Curated tags per taxonomy — the fundamentals we store, nothing more.
+# The Grafana metric views (migration 0002) group these into metric families
+# (revenue, eps, op_income, ocf, capex, shares, debt); keep both in sync.
 CURATED_TAGS: dict[str, tuple[str, ...]] = {
     "us-gaap": (
         "Revenues",
@@ -43,6 +47,19 @@ CURATED_TAGS: dict[str, tuple[str, ...]] = {
         "Liabilities",
         "StockholdersEquity",
         "CashAndCashEquivalentsAtCarryingValue",
+        # Cash flow: free cash flow = operating cash flow - capex.
+        "NetCashProvidedByUsedInOperatingActivities",
+        "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations",
+        "PaymentsToAcquirePropertyPlantAndEquipment",
+        "PaymentsToAcquireProductiveAssets",
+        # Share count for per-share ratios (P/FCF).
+        "WeightedAverageNumberOfDilutedSharesOutstanding",
+        # Debt components (instant facts).
+        "LongTermDebt",
+        "LongTermDebtCurrent",
+        "LongTermDebtNoncurrent",
+        "DebtCurrent",
+        "ShortTermBorrowings",
     ),
     "ifrs-full": (
         "Revenue",
@@ -52,6 +69,16 @@ CURATED_TAGS: dict[str, tuple[str, ...]] = {
         "Liabilities",
         "Equity",
         "CashAndCashEquivalents",
+        "DilutedEarningsLossPerShare",
+        "ProfitLossFromOperatingActivities",
+        "CashFlowsFromUsedInOperatingActivities",
+        "PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities",
+        "AdjustedWeightedAverageShares",
+        "WeightedAverageShares",
+        "Borrowings",
+        "LongtermBorrowings",
+        "ShorttermBorrowings",
+        "CurrentPortionOfLongtermBorrowings",
     ),
 }
 
@@ -196,18 +223,17 @@ def ingest_fundamentals() -> None:
                     )
                 )
                 new_filings = select_new_filings(client.submissions(inst.cik), known)
-                if not new_filings:
-                    log.info("No new filings for %s.", inst.symbol)
-                    continue
-
                 for filing in new_filings:
                     session.add(Filing(instrument_id=inst.id, **filing))
-                log.info(
-                    "Found %d new filing(s) for %s: %s",
-                    len(new_filings),
-                    inst.symbol,
-                    ", ".join(f["form"] for f in new_filings),
-                )
+                if new_filings:
+                    log.info(
+                        "Found %d new filing(s) for %s: %s",
+                        len(new_filings),
+                        inst.symbol,
+                        ", ".join(f["form"] for f in new_filings),
+                    )
+                else:
+                    log.info("No new filings for %s — refreshing facts anyway.", inst.symbol)
 
                 assert inst.taxonomy is not None
                 facts = extract_facts(

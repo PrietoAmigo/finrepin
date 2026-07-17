@@ -32,7 +32,10 @@ thing runs under Docker Compose and schedules itself — no external cron.
 - **Self-scheduling** — APScheduler in the `app` container, timezone-aware
   (daily market/earnings/SEC checks, weekly email).
 - **Grafana** — provisioned Postgres datasource + a starter *Market Overview*
-  dashboard.
+  dashboard and a *Ticker Fundamentals* dashboard (pick one ticker; 10-year
+  P/E, revenue, operating margin, P/FCF, and total debt, with a combined
+  dual-axis panel to compare any two). Backed by SQL views (migration 0002)
+  that derive TTM series from the SEC facts.
 
 All core features are in. What remains is **M7/M8 polish**: richer
 dashboards and deeper observability.
