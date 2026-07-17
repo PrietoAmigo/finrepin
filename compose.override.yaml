@@ -1,0 +1,9 @@
+# Development overrides, auto-merged by `docker compose` (no -f needed).
+# Exposes Postgres to localhost so you can inspect it with psql / a GUI.
+# In production, run with only the base file so the DB port stays internal:
+#   docker compose -f compose.yaml up -d
+
+services:
+  db:
+    ports:
+      - "127.0.0.1:5432:5432"

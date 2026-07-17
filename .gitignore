@@ -1,0 +1,23 @@
+# Secrets / local env
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Data / backups (if ever written to the repo dir)
+*.sql
+*.sql.gz
