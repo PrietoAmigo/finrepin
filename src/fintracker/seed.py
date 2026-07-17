@@ -52,12 +52,13 @@ INSTRUMENTS: list[dict[str, Any]] = [
         "yahoo_symbol": "CSU.TO",
         "taxonomy": None,
     },
-    # Crypto (CoinGecko ids).
+    # Crypto: Yahoo for full daily OHLCV history, CoinGecko for the live spot.
     {
         "symbol": "BTC",
         "name": "Bitcoin",
         "kind": "crypto",
         "currency": "USD",
+        "yahoo_symbol": "BTC-USD",
         "coingecko_id": "bitcoin",
     },
     {
@@ -65,6 +66,7 @@ INSTRUMENTS: list[dict[str, Any]] = [
         "name": "Ethereum",
         "kind": "crypto",
         "currency": "USD",
+        "yahoo_symbol": "ETH-USD",
         "coingecko_id": "ethereum",
     },
     # Forex.
