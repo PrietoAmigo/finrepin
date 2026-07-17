@@ -68,7 +68,7 @@ docker compose logs -f app        # watch the boot + first ingest
 With `RUN_ON_START=true` (the default in the template) the app runs one market
 ingest immediately, so data shows up without waiting for the scheduled time.
 
-Then open Grafana at **http://localhost:3000** (user `admin`, password from
+Then open Grafana at **http://localhost:3007** (user `admin`, password from
 `GF_SECURITY_ADMIN_PASSWORD`) and look at the *Market Overview* dashboard.
 
 Production (keep the DB port internal — don't load the dev override):
@@ -98,7 +98,7 @@ Key knobs: `TZ`, `DAILY_HOUR`/`DAILY_MINUTE` (daily ingest), `WEEKLY_*` (email),
 
 The deployment model is pull-based, so the server needs no inbound access
 from the internet (and no reverse proxy or TLS — everything stays plain HTTP
-on your LAN, with Grafana at `http://server:3000`):
+on your LAN, with Grafana at `http://server:3007`):
 
 1. On every push to `main`, CI runs the checks and — only if they pass —
    builds the image and publishes it as `ghcr.io/prietoamigo/finrepin:latest`

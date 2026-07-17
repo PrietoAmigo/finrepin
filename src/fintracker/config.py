@@ -106,7 +106,7 @@ def get_settings() -> Settings:
         email_pass=_str("EMAIL_PASS"),
         email_to=_str("EMAIL_TO"),
         report_lookback_days=_int("REPORT_LOOKBACK_DAYS", 7),
-        grafana_url=_str("GRAFANA_URL", "http://localhost:3000"),
+        grafana_url=_str("GRAFANA_URL", "http://localhost:3007"),
         sec_user_agent=_str("SEC_USER_AGENT"),
         heartbeat_file=_str("HEARTBEAT_FILE", "/tmp/fintracker-heartbeat"),
     )
