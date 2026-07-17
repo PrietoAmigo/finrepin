@@ -110,10 +110,13 @@ on your LAN, with Grafana at `http://server:3007`):
 1. On every push to `main`, CI runs the checks and — only if they pass —
    builds the image and publishes it as `ghcr.io/prietoamigo/finrepin:latest`
    (plus a per-commit `sha-...` tag for rollbacks).
-2. On the server, [Watchtower](https://containrrr.dev/watchtower/) polls the
-   registry every 5 minutes and restarts `app` on a new image. It is
-   label-scoped: `db` and `grafana` are never auto-updated. Migrations run at
-   boot, so schema changes apply themselves.
+2. On the server, a systemd timer (`finrepin-deploy.timer`, every 5 minutes)
+   runs `deploy/deploy.sh`: it fast-forwards the checkout to `origin/main`,
+   pulls newer images, and re-runs `docker compose up -d`. Compose recreates
+   only containers whose image or configuration changed, so **everything**
+   deploys itself — the app image, Grafana dashboards and provisioning,
+   compose-file changes, and db/grafana image-tag bumps. Migrations run at
+   app boot, so schema changes apply themselves too.
 
 ### One-time server setup (Debian 12)
 
@@ -123,29 +126,36 @@ Debian's own `docker.io`/`docker-compose` packages are too old for these
 compose files. Then:
 
 ```bash
-git clone https://github.com/PrietoAmigo/finrepin.git && cd finrepin
-cp .env.example .env        # set real passwords, email, SEC_USER_AGENT
+sudo git clone https://github.com/PrietoAmigo/finrepin.git /opt/finrepin
+cd /opt/finrepin
+sudo cp .env.example .env   # then set real passwords, email, SEC_USER_AGENT
 
 # GHCR packages are private by default; use a GitHub PAT with read:packages.
-# (Also creates ~/.docker/config.json, which Watchtower mounts.)
-docker login ghcr.io -u <github-username>
+# Log in as root — the deploy timer runs as root.
+sudo docker login ghcr.io -u <github-username>
 
-docker compose -f compose.yaml -f compose.prod.yaml up -d
+# Install the deploy timer; its first run brings the whole stack up.
+sudo cp deploy/finrepin-deploy.service deploy/finrepin-deploy.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now finrepin-deploy.timer
 ```
 
 That's it — new pushes to `main` deploy themselves within ~5 minutes of CI
-finishing.
+finishing. Deploy logs: `journalctl -u finrepin-deploy.service`.
 
 ### Notes
 
-- Only the **app image** auto-updates. Changes to the compose files, Grafana
-  provisioning, or `.env` still need a `git pull` and a re-run of the
-  `up -d` command above (rare).
-- To roll back, pin `app`'s image to a `sha-...` tag in `compose.prod.yaml`
-  and `up -d` again.
-- Prefer not to run Watchtower? Delete its service from `compose.prod.yaml`
-  and put the equivalent in cron instead:
-  `docker compose -f compose.yaml -f compose.prod.yaml pull app && docker compose -f compose.yaml -f compose.prod.yaml up -d app`
+- The server checkout is a **deploy artifact, not a workspace**: `deploy.sh`
+  hard-resets it to `origin/main`, discarding local edits to tracked files.
+  Untracked files (`.env`, `backups/`) are never touched — configure the
+  server through `.env`, everything else through git.
+- The units assume the checkout lives at `/opt/finrepin`; adjust the paths in
+  `deploy/finrepin-deploy.service` if yours differs. If the unit files
+  themselves change in git, re-run the `cp`/`daemon-reload` step (rare).
+- To roll back, revert the offending commit on `main` (the deploy follows) —
+  or stop the timer (`sudo systemctl stop finrepin-deploy.timer`), pin
+  `app`'s image to a `sha-...` tag in `compose.prod.yaml`, and `up -d`
+  manually while you investigate.
 
 ## Backups
 
