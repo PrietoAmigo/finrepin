@@ -15,6 +15,7 @@ from fintracker.config import Settings, get_settings
 from fintracker.ingest.earnings import ingest_earnings_dates
 from fintracker.ingest.fundamentals import ingest_fundamentals
 from fintracker.ingest.market import ingest_market_data
+from fintracker.ingest.ondemand import process_ticker_requests
 from fintracker.report.email_report import send_weekly_report
 
 log = logging.getLogger(__name__)
@@ -50,6 +51,12 @@ def build_scheduler() -> BlockingScheduler:
     )
 
     scheduler.add_job(heartbeat.beat, IntervalTrigger(minutes=1, timezone=tz), id="heartbeat")
+    # Dashboard search-box requests; minutely so a typed ticker lands fast.
+    scheduler.add_job(
+        _guarded("ticker-requests", process_ticker_requests),
+        IntervalTrigger(minutes=1, timezone=tz),
+        id="ticker-requests",
+    )
     jobs: tuple[tuple[str, Callable[[], object], CronTrigger], ...] = (
         (
             "daily-market",

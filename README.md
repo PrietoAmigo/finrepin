@@ -35,7 +35,10 @@ thing runs under Docker Compose and schedules itself — no external cron.
   dashboard and a *Ticker Fundamentals* dashboard (pick one ticker; 10-year
   P/E, revenue, operating margin, P/FCF, and total debt, with a combined
   dual-axis panel to compare any two). Backed by SQL views (migration 0002)
-  that derive TTM series from the SEC facts.
+  that derive TTM series from the SEC facts. An *Add ticker* search box on
+  the dashboard queues any new symbol: the app validates it against SEC
+  EDGAR and Yahoo Finance and ingests its full price + fundamentals history
+  within a minute or two (unknown tickers are marked not found).
 
 All core features are in. What remains is **M7/M8 polish**: richer
 dashboards and deeper observability.

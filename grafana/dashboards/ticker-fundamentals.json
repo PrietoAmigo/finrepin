@@ -6,7 +6,7 @@
   "timezone": "browser",
   "schemaVersion": 39,
   "version": 1,
-  "refresh": "",
+  "refresh": "1m",
   "time": { "from": "now-10y", "to": "now" },
   "templating": {
     "list": [
@@ -38,6 +38,14 @@
           { "selected": false, "text": "P/FCF", "value": "pfcf" },
           { "selected": false, "text": "Total debt", "value": "debt" }
         ]
+      },
+      {
+        "name": "search",
+        "label": "Add ticker (type + Enter)",
+        "type": "textbox",
+        "query": "",
+        "current": { "selected": false, "text": "", "value": "" },
+        "options": []
       },
       {
         "name": "metric_right",
@@ -276,6 +284,48 @@
           "format": "time_series",
           "rawQuery": true,
           "rawSql": "SELECT s.\"time\", s.label AS metric, s.value FROM equity_metric_series s JOIN instruments i ON i.id = s.instrument_id WHERE i.symbol = '$ticker' AND s.metric = 'debt' AND $__timeFilter(s.\"time\") ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "table",
+      "title": "Ticker requests",
+      "description": "Type a ticker in the 'Add ticker' box above and press Enter: it is queued here and the app ingests it within a minute or two (full price history, plus SEC fundamentals when the company files with EDGAR). Unknown tickers end as not_found. Rows are kept so requests never repeat; to retry one, delete its row from the ticker_requests table.",
+      "datasource": { "type": "postgres", "uid": "fintracker-pg" },
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 37 },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Status" },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "pending": { "color": "yellow", "index": 0 },
+                      "done": { "color": "green", "index": 1 },
+                      "not_found": { "color": "red", "index": 2 },
+                      "error": { "color": "red", "index": 3 }
+                    }
+                  }
+                ]
+              },
+              { "id": "custom.cellOptions", "value": { "type": "color-text" } }
+            ]
+          }
+        ]
+      },
+      "options": { "showHeader": true },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH input AS (SELECT upper(trim(${search:sqlstring})) AS symbol), ins AS (INSERT INTO ticker_requests (symbol) SELECT symbol FROM input WHERE symbol ~ '^[A-Z0-9][A-Z0-9.=-]{0,31}$' AND NOT EXISTS (SELECT 1 FROM instruments i WHERE i.symbol = input.symbol) ON CONFLICT (symbol) DO NOTHING RETURNING symbol) SELECT r.symbol AS \"Ticker\", r.status AS \"Status\", coalesce(r.note, '') AS \"Note\", r.requested_at AS \"Requested\", r.processed_at AS \"Processed\" FROM ticker_requests r ORDER BY r.requested_at DESC LIMIT 10"
         }
       ]
     }
