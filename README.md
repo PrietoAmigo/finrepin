@@ -77,6 +77,9 @@ Production (keep the DB port internal — don't load the dev override):
 docker compose -f compose.yaml up -d --build
 ```
 
+For hands-off updates on a server, see
+[Continuous deployment (home server)](#continuous-deployment-home-server).
+
 ## Configuration
 
 All configuration is environment-driven; see `.env.example` for the full list.
@@ -90,6 +93,52 @@ Key knobs: `TZ`, `DAILY_HOUR`/`DAILY_MINUTE` (daily ingest), `WEEKLY_*` (email),
   (pasted into a chat, committed, logged), treat it as compromised and rotate
   it immediately.
 - `.env` is git-ignored. Never commit real secrets.
+
+## Continuous deployment (home server)
+
+The deployment model is pull-based, so the server needs no inbound access
+from the internet (and no reverse proxy or TLS — everything stays plain HTTP
+on your LAN, with Grafana at `http://server:3000`):
+
+1. On every push to `main`, CI runs the checks and — only if they pass —
+   builds the image and publishes it as `ghcr.io/prietoamigo/finrepin:latest`
+   (plus a per-commit `sha-...` tag for rollbacks).
+2. On the server, [Watchtower](https://containrrr.dev/watchtower/) polls the
+   registry every 5 minutes and restarts `app` on a new image. It is
+   label-scoped: `db` and `grafana` are never auto-updated. Migrations run at
+   boot, so schema changes apply themselves.
+
+### One-time server setup (Debian 12)
+
+Install Docker Engine + the Compose v2 plugin from Docker's official apt
+repository ([instructions](https://docs.docker.com/engine/install/debian/)) —
+Debian's own `docker.io`/`docker-compose` packages are too old for these
+compose files. Then:
+
+```bash
+git clone https://github.com/PrietoAmigo/finrepin.git && cd finrepin
+cp .env.example .env        # set real passwords, email, SEC_USER_AGENT
+
+# GHCR packages are private by default; use a GitHub PAT with read:packages.
+# (Also creates ~/.docker/config.json, which Watchtower mounts.)
+docker login ghcr.io -u <github-username>
+
+docker compose -f compose.yaml -f compose.prod.yaml up -d
+```
+
+That's it — new pushes to `main` deploy themselves within ~5 minutes of CI
+finishing.
+
+### Notes
+
+- Only the **app image** auto-updates. Changes to the compose files, Grafana
+  provisioning, or `.env` still need a `git pull` and a re-run of the
+  `up -d` command above (rare).
+- To roll back, pin `app`'s image to a `sha-...` tag in `compose.prod.yaml`
+  and `up -d` again.
+- Prefer not to run Watchtower? Delete its service from `compose.prod.yaml`
+  and put the equivalent in cron instead:
+  `docker compose -f compose.yaml -f compose.prod.yaml pull app && docker compose -f compose.yaml -f compose.prod.yaml up -d app`
 
 ## Backups
 
@@ -108,6 +157,7 @@ Schedule that command from host cron if you want periodic backups.
 .
 ├── compose.yaml                # db + app + grafana (+ on-demand backup profile)
 ├── compose.override.yaml       # dev: expose Postgres to localhost
+├── compose.prod.yaml           # CD: pull GHCR image + Watchtower auto-updates
 ├── Dockerfile                  # multi-stage, uv (locked deps), non-root, heartbeat healthcheck
 ├── alembic.ini
 ├── uv.lock                     # pinned dependency set (Docker + CI install from it)

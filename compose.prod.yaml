@@ -1,0 +1,33 @@
+# Production overrides for a server that deploys prebuilt images (continuous
+# deployment) instead of building locally:
+#
+#   docker compose -f compose.yaml -f compose.prod.yaml up -d
+#
+# - `app` runs the image CI publishes to GHCR on every green main build.
+# - Watchtower polls the registry and restarts `app` when a new image appears
+#   (label-scoped: it never touches db or grafana).
+# - Loading files explicitly with -f skips compose.override.yaml, so the
+#   Postgres port stays internal.
+#
+# If the GHCR package is private, `docker login ghcr.io` once on the server
+# (PAT with read:packages); the login is mounted into Watchtower below.
+
+services:
+  app:
+    image: ghcr.io/prietoamigo/finrepin:latest
+    pull_policy: always
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+
+  watchtower:
+    image: containrrr/watchtower:1.7.1
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ~/.docker/config.json:/config.json:ro
+    command: --label-enable --cleanup --interval 300
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
