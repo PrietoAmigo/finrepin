@@ -21,3 +21,4 @@ dist/
 # Data / backups (if ever written to the repo dir)
 *.sql
 *.sql.gz
+backups/

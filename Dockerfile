@@ -8,18 +8,20 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1
 
-RUN pip install --no-cache-dir "uv>=0.5,<0.7"
+RUN pip install --no-cache-dir "uv>=0.8,<0.9"
 
 WORKDIR /app
 
-# Copy only what's needed to build the wheel; this layer is cached until the
-# project metadata or source changes.
-COPY pyproject.toml README.md ./
-COPY src ./src
+ENV UV_PROJECT_ENVIRONMENT=/opt/venv
 
-# Create a self-contained virtualenv and install the project + dependencies.
-RUN uv venv /opt/venv \
-    && uv pip install --python /opt/venv/bin/python .
+# Install locked dependencies first; this layer is cached until the lockfile
+# changes, so day-to-day source edits rebuild in seconds.
+COPY pyproject.toml uv.lock README.md ./
+RUN uv sync --frozen --no-dev --no-editable --no-install-project
+
+# Then build + install the project itself into the same venv.
+COPY src ./src
+RUN uv sync --frozen --no-dev --no-editable
 
 # --- Runtime stage: slim image with only the venv and the app ----------------
 FROM python:3.12-slim AS runtime

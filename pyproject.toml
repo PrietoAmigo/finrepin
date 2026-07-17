@@ -19,6 +19,7 @@ dependencies = [
 dev = [
     "ruff>=0.5",
     "mypy>=1.10",
+    "pytest>=8.2",
 ]
 
 [project.scripts]
@@ -37,6 +38,13 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["fintracker"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
 
 [tool.mypy]
 python_version = "3.12"

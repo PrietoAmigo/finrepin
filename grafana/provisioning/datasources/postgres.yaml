@@ -1,0 +1,21 @@
+# Provisioned Postgres datasource. Credentials come from the container
+# environment (compose.yaml passes POSTGRES_* into the grafana service).
+apiVersion: 1
+
+datasources:
+  - name: fintracker-postgres
+    uid: fintracker-pg
+    type: postgres
+    access: proxy
+    url: db:5432
+    user: $POSTGRES_USER
+    isDefault: true
+    editable: false
+    jsonData:
+      database: $POSTGRES_DB
+      sslmode: disable
+      postgresVersion: 1600
+      maxOpenConns: 4
+      maxIdleConns: 2
+    secureJsonData:
+      password: $POSTGRES_PASSWORD

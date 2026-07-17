@@ -1,0 +1,12 @@
+# Loads every dashboard JSON mounted at /var/lib/grafana/dashboards.
+apiVersion: 1
+
+providers:
+  - name: fintracker
+    type: file
+    folder: ""
+    disableDeletion: false
+    updateIntervalSeconds: 60
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
