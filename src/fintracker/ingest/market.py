@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 
 from fintracker.ingest.crypto import ingest_crypto_history, ingest_crypto_prices
+from fintracker.ingest.ecb import ingest_ecb_rates
 from fintracker.ingest.forex import ingest_forex_rates
 from fintracker.ingest.fred import ingest_interest_rates
 from fintracker.ingest.prices import ingest_equity_prices, ingest_index_prices
@@ -24,6 +25,7 @@ def ingest_market_data() -> None:
         ("indexes", ingest_index_prices),
         ("forex", ingest_forex_rates),
         ("interest-rates", ingest_interest_rates),
+        ("interest-rates-ecb", ingest_ecb_rates),
         ("crypto-history", ingest_crypto_history),
         ("crypto-spot", ingest_crypto_prices),
     ):

@@ -41,6 +41,7 @@ class Instrument(Base):
     yahoo_symbol: Mapped[str | None] = mapped_column(String(32))
     coingecko_id: Mapped[str | None] = mapped_column(String(64))
     fred_series: Mapped[str | None] = mapped_column(String(32))
+    ecb_series: Mapped[str | None] = mapped_column(String(64))
     # SEC: resolved lazily from company_tickers.json, then persisted.
     cik: Mapped[str | None] = mapped_column(String(10))
     taxonomy: Mapped[str | None] = mapped_column(String(16))  # us-gaap | ifrs-full

@@ -40,6 +40,22 @@ def _rate(symbol: str, name: str, currency: str, fred_series: str) -> dict[str, 
     }
 
 
+def _ecb_rate(symbol: str, name: str, currency: str, ecb_series: str) -> dict[str, Any]:
+    """Interest-rate row fed from the ECB Data Portal instead of FRED.
+
+    `fred_series` is set to None so the upsert clears any prior FRED series on a
+    row that moved from FRED to the ECB (otherwise both ingestors would fetch it).
+    """
+    return {
+        "symbol": symbol,
+        "name": name,
+        "kind": "rate",
+        "currency": currency,
+        "ecb_series": ecb_series,
+        "fred_series": None,
+    }
+
+
 INSTRUMENTS: list[dict[str, Any]] = [
     # Equities. `taxonomy` marks names with SEC XBRL coverage (us-gaap / ifrs-full);
     # leave it None for listings that don't file with the SEC.
@@ -171,14 +187,23 @@ INSTRUMENTS: list[dict[str, Any]] = [
     _index("ASX200", "S&P/ASX 200 (Oceania)", "AUD", "^AXJO"),
     _index("BOVESPA", "Bovespa (South America)", "BRL", "^BVSP"),
     _index("EEM", "MSCI Emerging Markets (iShares ETF)", "USD", "EEM"),
-    # Benchmark interest rates — the most relevant rate per region, one each,
-    # ingested from FRED's free, key-less CSV endpoint. Predominantly 10-year
-    # government bond yields; Brazil (no OECD 10-year series on FRED) uses its
-    # government T-bill rate, which tracks the SELIC policy rate, and emerging
-    # markets uses the ICE BofA EM USD-bond index yield as an aggregate. All
-    # are percentages (`close` carries the rate). See src/fintracker/ingest/fred.py.
+    # Benchmark interest rates — the most relevant rate per region, one each.
+    # Predominantly 10-year government bond yields; Brazil (no OECD 10-year
+    # series on FRED) uses its government T-bill rate, which tracks the SELIC
+    # policy rate, and emerging markets uses the ICE BofA EM USD-bond index
+    # yield as an aggregate. Most come from FRED's key-less CSV endpoint
+    # (src/fintracker/ingest/fred.py); the euro area comes from the ECB Data
+    # Portal instead (src/fintracker/ingest/ecb.py) — a daily yield-curve spot
+    # rate, since FRED's monthly OECD euro-area series lags by months. All are
+    # percentages (`close` carries the rate).
     _rate("US10Y", "US 10Y Treasury (North America)", "USD", "DGS10"),
-    _rate("EU10Y", "Euro area 10Y govt bond (Europe)", "EUR", "IRLTLT01EZM156N"),
+    # ECB Data Portal: euro-area 10Y all-issuer government bond spot rate (daily).
+    _ecb_rate(
+        "EU10Y",
+        "Euro area 10Y govt bond (Europe)",
+        "EUR",
+        "YC.B.U2.EUR.4F.G_N_C.SV_C_YM.SR_10Y",
+    ),
     _rate("JP10Y", "Japan 10Y govt bond (Japan)", "JPY", "IRLTLT01JPM156N"),
     _rate("BRTBILL", "Brazil T-bill rate (South America)", "BRL", "INTGSTBRM193N"),
     _rate("EMBOND", "EM USD-bond yield (Emerging markets)", "USD", "BAMLEMCBPIEY"),
