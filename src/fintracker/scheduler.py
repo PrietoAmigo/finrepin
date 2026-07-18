@@ -16,6 +16,7 @@ from fintracker.ingest.earnings import ingest_earnings_dates
 from fintracker.ingest.fundamentals import ingest_fundamentals
 from fintracker.ingest.market import ingest_market_data
 from fintracker.ingest.ondemand import process_ticker_requests
+from fintracker.ingest.yahoo_fundamentals import ingest_yahoo_fundamentals
 from fintracker.report.email_report import send_weekly_report
 
 log = logging.getLogger(__name__)
@@ -71,6 +72,12 @@ def build_scheduler() -> BlockingScheduler:
         (
             "daily-sec",
             ingest_fundamentals,
+            CronTrigger(hour=settings.sec_hour, minute=settings.sec_minute, timezone=tz),
+        ),
+        (
+            # Statements for listings without SEC coverage, same daily slot.
+            "daily-yahoo-fundamentals",
+            ingest_yahoo_fundamentals,
             CronTrigger(hour=settings.sec_hour, minute=settings.sec_minute, timezone=tz),
         ),
         (

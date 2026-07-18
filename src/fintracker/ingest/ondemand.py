@@ -5,8 +5,9 @@ The Ticker Fundamentals dashboard INSERTs typed symbols into
 `process_ticker_requests` runs from a minutely scheduler job: it validates
 each pending symbol against SEC EDGAR and Yahoo Finance, and — when the
 ticker exists — registers the instrument, backfills its full price history,
-and ingests fundamentals when the company files with the SEC. Unknown
-symbols are marked `not_found` and nothing else happens.
+and ingests fundamentals: SEC XBRL facts when the company files with the
+SEC, Yahoo Finance statements otherwise. Unknown symbols are marked
+`not_found` and nothing else happens.
 
 Rows are kept after processing (status: done / not_found / error) so the
 dashboard's insert-on-refresh stays idempotent; delete a row to retry it.
@@ -27,6 +28,7 @@ from fintracker.db import session_scope
 from fintracker.ingest.fundamentals import ingest_instrument_facts, resolve_cik
 from fintracker.ingest.prices import fetch_daily_history, rows_from_history, upsert_price_rows
 from fintracker.ingest.sec_client import SecClient
+from fintracker.ingest.yahoo_fundamentals import ingest_instrument_yahoo_facts
 from fintracker.models import Instrument, TickerRequest
 
 log = logging.getLogger(__name__)
@@ -113,9 +115,13 @@ def _resolve(req: TickerRequest, session: Session) -> tuple[str, str | None]:
         notes.append(f"{len(price_rows)} price rows")
     if client is not None and cik is not None and taxonomy is not None:
         n_facts = ingest_instrument_facts(session, client, inst, company_facts=company_facts)
-        notes.append(f"{n_facts} fundamentals facts")
+        notes.append(f"{n_facts} SEC fundamentals facts")
+    elif price_rows:
+        # No SEC coverage — pull statements from Yahoo instead.
+        n_facts = ingest_instrument_yahoo_facts(session, inst)
+        notes.append(f"{n_facts} Yahoo fundamentals facts")
     else:
-        notes.append("no SEC fundamentals")
+        notes.append("no fundamentals")
     return "done", ", ".join(notes)
 
 
