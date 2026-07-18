@@ -40,6 +40,11 @@ thing runs under Docker Compose and schedules itself — no external cron.
   the dashboard queues any new symbol: the app validates it against SEC
   EDGAR and Yahoo Finance and ingests its full price + fundamentals history
   within a minute or two (unknown tickers are marked not found).
+- **Financial Statements dashboard** — pick one ticker and read its annual
+  Income Statement, Balance Sheet, and Cash Flow as line-item × fiscal-year
+  tables, with a multi-select fiscal-year filter. The three statements are
+  collapsible rows that act as tabs. Backed by statement views (migration
+  0005) that map the curated SEC XBRL tags onto statement lines.
 
 All core features are in. What remains is **M7/M8 polish**: richer
 dashboards and deeper observability.
