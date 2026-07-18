@@ -257,14 +257,17 @@ alembic upgrade head
 - **Crypto:** daily history via Yahoo (`BTC-USD`, `ETH-USD` — CoinGecko's
   keyless API caps history at 365 days), latest spot via CoinGecko's free
   `simple/price` endpoint (no key).
-- **Interest rates:** FRED (Federal Reserve Economic Data) via its free,
-  key-less `fredgraph.csv` download endpoint — no API key needed. One
-  benchmark per region: US 10-year Treasury (`DGS10`), euro-area, Japan, and
-  Australia 10-year government bond yields (OECD `IRLTLT01…` series), Brazil's
-  government T-bill rate as a SELIC proxy (`INTGSTBRM193N`), and the ICE BofA
-  emerging-markets USD-bond index yield (`BAMLEMCBPIEY`). The 10-year yields
-  are monthly; the US and EM series are daily. Full history backfills on the
-  first run, incremental thereafter — same state-aware path as prices.
+- **Interest rates:** one benchmark per region, from free, key-less endpoints.
+  Most come from FRED (Federal Reserve Economic Data) via its `fredgraph.csv`
+  download: US 10-year Treasury (`DGS10`, daily), Japan and Australia 10-year
+  government bond yields (OECD `IRLTLT01…` monthly series), Brazil's government
+  T-bill rate as a SELIC proxy (`INTGSTBRM193N`, monthly), and the ICE BofA
+  emerging-markets USD-bond index yield (`BAMLEMCBPIEY`, daily). The euro-area
+  benchmark comes from the **ECB Data Portal** instead — its daily 10-year
+  all-issuer government bond spot rate (`YC.B.U2.EUR.4F.G_N_C.SV_C_YM.SR_10Y`)
+  — because FRED's monthly OECD euro-area series lags by months. Both sources
+  need no API key. Full history backfills on the first run, incremental
+  thereafter — the same state-aware path as prices.
 - **Fundamentals:** SEC `data.sec.gov` XBRL — numbers only, no documents;
   requires a descriptive `SEC_USER_AGENT` with a contact email. Names without
   SEC coverage fall back to Yahoo Finance statements via `yfinance` (~4–5

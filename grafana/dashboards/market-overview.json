@@ -5,7 +5,7 @@
   "tags": ["fintracker"],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 2,
+  "version": 3,
   "refresh": "",
   "time": { "from": "now-5y", "to": "now" },
   "timepicker": {
@@ -65,7 +65,7 @@
       "id": 6,
       "type": "timeseries",
       "title": "Interest rates by region — benchmark yields (% p.a.)",
-      "description": "The most relevant interest rate per region, as a percentage per year (levels, not rebased). One benchmark each: North America — US 10-year Treasury yield (FRED DGS10); Europe — euro-area 10-year government bond yield (IRLTLT01EZM156N); Japan — 10-year JGB yield (IRLTLT01JPM156N); Oceania — Australia 10-year government bond yield (IRLTLT01AUM156N); South America — Brazil government T-bill rate, a proxy for the SELIC policy rate (INTGSTBRM193N); Emerging markets — ICE BofA EM USD-bond index effective yield (BAMLEMCBPIEY). All from FRED's key-less CSV endpoint. The 10-year yields are monthly OECD series; the US and EM series are daily — lines span nulls between observations.",
+      "description": "The most relevant interest rate per region, as a percentage per year (levels, not rebased). One benchmark each: North America — US 10-year Treasury yield (FRED DGS10, daily); Europe — euro-area 10-year all-issuer government bond spot rate (ECB Data Portal yield curve, daily); Japan — 10-year JGB yield (FRED IRLTLT01JPM156N, monthly); Oceania — Australia 10-year government bond yield (FRED IRLTLT01AUM156N, monthly); South America — Brazil government T-bill rate, a proxy for the SELIC policy rate (FRED INTGSTBRM193N, monthly); Emerging markets — ICE BofA EM USD-bond index effective yield (FRED BAMLEMCBPIEY, daily). Sourced from FRED and the ECB Data Portal, both key-less. The US, euro-area and EM series are daily; Japan, Oceania and South America are monthly OECD/IMF series that lag a month or two — lines span nulls between observations.",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
       "gridPos": { "h": 10, "w": 24, "x": 0, "y": 10 },
       "fieldConfig": {
