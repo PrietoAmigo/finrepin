@@ -1,7 +1,7 @@
 {
   "uid": "fintracker-financial-statements",
   "title": "Financial Statements",
-  "description": "Annual Income Statement, Balance Sheet, and Cash Flow for a single ticker, rebuilt from SEC XBRL facts via the equity_statement_matrix view (migration 0006). The three rows act as tabs — click a row title to open or close a statement. Line items are clustered into the sections a filed statement uses (UPPERCASE rows are section headers). Columns are fiscal years (labeled by the calendar year the fiscal year ends in); blank cells mean the filer didn't tag that line. Values are USD except the per-share and share-count rows.",
+  "description": "Annual Income Statement, Balance Sheet, and Cash Flow for a single ticker, rebuilt from SEC XBRL facts via the equity_statement_matrix view (migration 0006). The three rows act as tabs — click a row title to open or close a statement. Line items are clustered into the sections a filed statement uses (UPPERCASE rows are section headers). Columns are fiscal years (labeled by the calendar year the fiscal year ends in); blank cells mean the filer didn't tag that line. Money values are converted into the selected display currency at each fiscal-year-end FX rate; share-count rows are never converted.",
   "tags": ["fintracker"],
   "timezone": "browser",
   "schemaVersion": 39,
@@ -36,6 +36,19 @@
         "multi": true,
         "includeAll": true,
         "current": { "selected": true, "text": ["All"], "value": ["$__all"] }
+      },
+      {
+        "name": "display_currency",
+        "label": "Currency",
+        "type": "query",
+        "datasource": { "type": "postgres", "uid": "fintracker-pg" },
+        "query": "SELECT DISTINCT split_part(unit, '/', 1) AS currency FROM fundamentals WHERE unit ~ '^[A-Z]{3}(/shares)?$' UNION SELECT currency FROM instruments ORDER BY 1",
+        "definition": "SELECT DISTINCT split_part(unit, '/', 1) AS currency FROM fundamentals WHERE unit ~ '^[A-Z]{3}(/shares)?$' UNION SELECT currency FROM instruments ORDER BY 1",
+        "refresh": 1,
+        "sort": 0,
+        "multi": false,
+        "includeAll": false,
+        "current": { "selected": true, "text": "USD", "value": "USD" }
       }
     ]
   },
@@ -51,8 +64,8 @@
     {
       "id": 1,
       "type": "table",
-      "title": "$ticker — Income Statement (annual)",
-      "description": "One column per fiscal year, from the annual (10-K / 20-F) figures, clustered into revenue & gross profit, operating expenses, non-operating, taxes & net income, and per-share sections. Per-share and share-count rows are per share / share counts; everything else is total USD. A blank cell means the company didn't report that line under a tag we track.",
+      "title": "$ticker — Income Statement (annual, $display_currency)",
+      "description": "One column per fiscal year, from the annual (10-K / 20-F) figures, clustered into revenue & gross profit, operating expenses, non-operating, taxes & net income, and per-share sections. Per-share and share-count rows are per share / share counts; everything else is a total in the display currency. A blank cell means the company didn't report that line under a tag we track.",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
       "gridPos": { "h": 24, "w": 24, "x": 0, "y": 1 },
       "fieldConfig": {
@@ -87,7 +100,7 @@
           "refId": "A",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT m.line, m.fiscal_year::text AS fy, m.value FROM equity_statement_matrix m JOIN instruments i ON i.id = m.instrument_id WHERE i.symbol = '$ticker' AND m.statement = 'income' AND m.fiscal_year::text IN ($fiscal_year) ORDER BY m.ord, m.fiscal_year"
+          "rawSql": "SELECT m.line, m.fiscal_year::text AS fy, m.value * (CASE WHEN m.currency IS NULL THEN 1 ELSE COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) END) AS value FROM equity_statement_matrix m JOIN instruments i ON i.id = m.instrument_id LEFT JOIN fx_usd_daily ff ON ff.currency = m.currency AND ff.date = m.period_end LEFT JOIN fx_usd_daily ft ON ft.currency = '$display_currency' AND ft.date = m.period_end WHERE i.symbol = '$ticker' AND m.statement = 'income' AND m.fiscal_year::text IN ($fiscal_year) ORDER BY m.ord, m.fiscal_year"
         }
       ]
     },
@@ -101,7 +114,7 @@
         {
           "id": 2,
           "type": "table",
-          "title": "$ticker — Balance Sheet (fiscal year end)",
+          "title": "$ticker — Balance Sheet (fiscal year end, $display_currency)",
           "description": "Point-in-time balances at each fiscal year end, from the annual filing, clustered into current / non-current assets, current / non-current liabilities, and equity sections. A blank cell means the company didn't report that line under a tag we track.",
           "datasource": { "type": "postgres", "uid": "fintracker-pg" },
           "gridPos": { "h": 26, "w": 24, "x": 0, "y": 16 },
@@ -137,7 +150,7 @@
               "refId": "A",
               "format": "table",
               "rawQuery": true,
-              "rawSql": "SELECT m.line, m.fiscal_year::text AS fy, m.value FROM equity_statement_matrix m JOIN instruments i ON i.id = m.instrument_id WHERE i.symbol = '$ticker' AND m.statement = 'balance' AND m.fiscal_year::text IN ($fiscal_year) ORDER BY m.ord, m.fiscal_year"
+              "rawSql": "SELECT m.line, m.fiscal_year::text AS fy, m.value * (CASE WHEN m.currency IS NULL THEN 1 ELSE COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) END) AS value FROM equity_statement_matrix m JOIN instruments i ON i.id = m.instrument_id LEFT JOIN fx_usd_daily ff ON ff.currency = m.currency AND ff.date = m.period_end LEFT JOIN fx_usd_daily ft ON ft.currency = '$display_currency' AND ft.date = m.period_end WHERE i.symbol = '$ticker' AND m.statement = 'balance' AND m.fiscal_year::text IN ($fiscal_year) ORDER BY m.ord, m.fiscal_year"
             }
           ]
         }
@@ -153,7 +166,7 @@
         {
           "id": 3,
           "type": "table",
-          "title": "$ticker — Cash Flow Statement (annual)",
+          "title": "$ticker — Cash Flow Statement (annual, $display_currency)",
           "description": "Annual cash flows from the 10-K / 20-F, clustered into operating, investing, financing, and net-change sections. Capex, acquisitions, dividends, and buybacks are reported as positive outflows (as filed); a blank cell means the company didn't report that line under a tag we track.",
           "datasource": { "type": "postgres", "uid": "fintracker-pg" },
           "gridPos": { "h": 22, "w": 24, "x": 0, "y": 17 },
@@ -189,7 +202,7 @@
               "refId": "A",
               "format": "table",
               "rawQuery": true,
-              "rawSql": "SELECT m.line, m.fiscal_year::text AS fy, m.value FROM equity_statement_matrix m JOIN instruments i ON i.id = m.instrument_id WHERE i.symbol = '$ticker' AND m.statement = 'cashflow' AND m.fiscal_year::text IN ($fiscal_year) ORDER BY m.ord, m.fiscal_year"
+              "rawSql": "SELECT m.line, m.fiscal_year::text AS fy, m.value * (CASE WHEN m.currency IS NULL THEN 1 ELSE COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) END) AS value FROM equity_statement_matrix m JOIN instruments i ON i.id = m.instrument_id LEFT JOIN fx_usd_daily ff ON ff.currency = m.currency AND ff.date = m.period_end LEFT JOIN fx_usd_daily ft ON ft.currency = '$display_currency' AND ft.date = m.period_end WHERE i.symbol = '$ticker' AND m.statement = 'cashflow' AND m.fiscal_year::text IN ($fiscal_year) ORDER BY m.ord, m.fiscal_year"
             }
           ]
         }

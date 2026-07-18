@@ -46,6 +46,15 @@ thing runs under Docker Compose and schedules itself — no external cron.
   the dashboard queues any new symbol: the app validates it against SEC
   EDGAR and Yahoo Finance and ingests its full price + fundamentals history
   within a minute or two (unknown tickers are marked not found).
+- **Currency switching** — every dashboard has a *Currency* selector listing
+  all currencies seen on tracked tickers (listing + reporting currencies).
+  Money values — prices, revenue, debt, MCap, statement lines — are converted
+  into the selected currency at the matching day's FX rate (fiscal-year-end
+  rate for statement tables); ratios and share counts are left alone. Backed
+  by the `fx_usd_daily` view (migration 0007): the forex ingest auto-registers
+  a `<CCY>/USD` pair per currency it encounters, and rates gap-fill across
+  weekends. If a rate series hasn't been ingested yet, values fall back to
+  unconverted rather than disappearing.
 - **Financial Statements dashboard** — pick one ticker and read its annual
   Income Statement, Balance Sheet, and Cash Flow as line-item × fiscal-year
   tables, with a multi-select fiscal-year filter. The three statements are
