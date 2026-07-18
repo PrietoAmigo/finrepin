@@ -39,7 +39,8 @@ thing runs under Docker Compose and schedules itself — no external cron.
   (daily market/earnings/SEC checks, weekly email).
 - **Grafana** — provisioned Postgres datasource + a *Market Overview*
   dashboard (global and European index performance as % gain/loss of the
-  daily close, BTC/USD daily close, a BTC rainbow chart with the
+  daily close, benchmark interest rates — the most relevant one per region,
+  from FRED — BTC/USD daily close, a BTC rainbow chart with the
   blockchaincenter.net color bands, and FX rates) and a *Ticker Fundamentals*
   dashboard (pick one ticker; market-cap candlesticks with a daily/weekly/
   monthly candle selector, a dual-axis panel to compare any two metrics, and
@@ -256,6 +257,14 @@ alembic upgrade head
 - **Crypto:** daily history via Yahoo (`BTC-USD`, `ETH-USD` — CoinGecko's
   keyless API caps history at 365 days), latest spot via CoinGecko's free
   `simple/price` endpoint (no key).
+- **Interest rates:** FRED (Federal Reserve Economic Data) via its free,
+  key-less `fredgraph.csv` download endpoint — no API key needed. One
+  benchmark per region: US 10-year Treasury (`DGS10`), euro-area, Japan, and
+  Australia 10-year government bond yields (OECD `IRLTLT01…` series), Brazil's
+  government T-bill rate as a SELIC proxy (`INTGSTBRM193N`), and the ICE BofA
+  emerging-markets USD-bond index yield (`BAMLEMCBPIEY`). The 10-year yields
+  are monthly; the US and EM series are daily. Full history backfills on the
+  first run, incremental thereafter — same state-aware path as prices.
 - **Fundamentals:** SEC `data.sec.gov` XBRL — numbers only, no documents;
   requires a descriptive `SEC_USER_AGENT` with a contact email. Names without
   SEC coverage fall back to Yahoo Finance statements via `yfinance` (~4–5
