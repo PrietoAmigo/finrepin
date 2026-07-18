@@ -25,15 +25,16 @@ thing runs under Docker Compose and schedules itself — no external cron.
 - **Earnings dates** — next upcoming earnings date per equity via yfinance,
   stored in `earnings_dates` with an `is_estimated` flag; names with no coverage
   are skipped.
-- **Weekly email** — HTML + plain-text report (last-week price moves + current
-  levels, upcoming earnings, new fundamentals from filings filed in the past
-  week, and a link out to Grafana), sent via Gmail SMTP with STARTTLS. Skips
-  gracefully if email isn't configured.
+- **Weekly email** — HTML + plain-text report (current levels with weekly,
+  monthly, and yearly moves, plus upcoming earnings) for the symbols listed
+  in `REPORT_SYMBOLS` (all instruments when unset), sent via Gmail SMTP with
+  STARTTLS. Skips gracefully if email isn't configured.
 - **Self-scheduling** — APScheduler in the `app` container, timezone-aware
   (daily market/earnings/SEC checks, weekly email).
 - **Grafana** — provisioned Postgres datasource + a starter *Market Overview*
   dashboard and a *Ticker Fundamentals* dashboard (pick one ticker; 10-year
-  P/E, revenue, operating margin, P/FCF, and total debt, with a combined
+  P/E, revenue, operating margin, P/FCF, total debt, MCap, and shares
+  outstanding, with a combined
   dual-axis panel to compare any two). Backed by SQL views (migration 0002)
   that derive TTM series from the SEC facts. An *Add ticker* search box on
   the dashboard queues any new symbol: the app validates it against SEC

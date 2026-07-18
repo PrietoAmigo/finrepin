@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import html
 
-from fintracker.report.data import FactHighlight, PriceRow, Report
+from fintracker.report.data import PriceRow, Report
 
 _CURRENCY_SYMBOLS = {"USD": "$", "CAD": "C$", "EUR": "€", "GBP": "£"}
 
@@ -27,24 +27,6 @@ def _fmt_level(value: float, currency: str) -> str:
     return f"{_sym(currency)}{value:,.{digits}f}"
 
 
-def _fmt_big(value: float, currency: str = "USD") -> str:
-    sign = "-" if value < 0 else ""
-    magnitude = abs(value)
-    if magnitude >= 1e9:
-        return f"{sign}{_sym(currency)}{magnitude / 1e9:,.2f}B"
-    if magnitude >= 1e6:
-        return f"{sign}{_sym(currency)}{magnitude / 1e6:,.2f}M"
-    return f"{sign}{_sym(currency)}{magnitude:,.2f}"
-
-
-def _fmt_fact(fact: FactHighlight) -> str:
-    if fact.unit == "USD/shares":
-        return f"${fact.value:,.2f}"
-    if fact.unit in _CURRENCY_SYMBOLS:
-        return _fmt_big(fact.value, fact.unit)
-    return f"{fact.value:,.2f} {fact.unit}"
-
-
 def _fmt_pct(pct: float | None) -> tuple[str, str]:
     if pct is None:
         return "—", _GRAY
@@ -52,17 +34,16 @@ def _fmt_pct(pct: float | None) -> tuple[str, str]:
 
 
 def _html_price_row(row: PriceRow) -> str:
-    day, day_color = _fmt_pct(row.day_pct)
-    week, week_color = _fmt_pct(row.week_pct)
+    cells = []
+    for pct in (row.week_pct, row.month_pct, row.year_pct):
+        text, color = _fmt_pct(pct)
+        cells.append(f"<td style='padding:6px 8px;text-align:right;color:{color}'>{text}</td>")
     return (
         "<tr>"
         f"<td style='padding:6px 8px'><b>{html.escape(row.symbol)}</b>"
         f"<div style='color:{_GRAY};font-size:12px'>{html.escape(row.name)}</div></td>"
         f"<td style='padding:6px 8px;text-align:right;white-space:nowrap'>"
-        f"{_fmt_level(row.level, row.currency)}</td>"
-        f"<td style='padding:6px 8px;text-align:right;color:{day_color}'>{day}</td>"
-        f"<td style='padding:6px 8px;text-align:right;color:{week_color}'>{week}</td>"
-        "</tr>"
+        f"{_fmt_level(row.level, row.currency)}</td>" + "".join(cells) + "</tr>"
     )
 
 
@@ -77,8 +58,7 @@ def render_html(report: Report) -> str:
     add("<h1 style='font-size:20px;margin:0 0 4px'>Weekly market report</h1>")
     add(
         f"<p style='color:{_GRAY};font-size:13px;margin:0 0 8px'>"
-        f"Generated {report.generated_at:%A, %d %B %Y}. "
-        f"Moves shown over the last {report.lookback_days} days.</p>"
+        f"Generated {report.generated_at:%A, %d %B %Y}.</p>"
     )
 
     # Prices
@@ -92,8 +72,9 @@ def render_html(report: Report) -> str:
             for label, align in (
                 ("Instrument", "left"),
                 ("Level", "right"),
-                ("1 day", "right"),
-                ("Week", "right"),
+                (f"{report.lookback_days} days", "right"),
+                ("1 month", "right"),
+                ("1 year", "right"),
             )
         )
         + "</tr>"
@@ -103,7 +84,7 @@ def render_html(report: Report) -> str:
         if not rows:
             continue
         add(
-            f"<tr><td colspan='4' style='padding:14px 8px 4px;font-weight:600;color:{_GRAY};"
+            f"<tr><td colspan='5' style='padding:14px 8px 4px;font-weight:600;color:{_GRAY};"
             "font-size:12px;text-transform:uppercase;letter-spacing:.04em'>"
             f"{header}</td></tr>"
         )
@@ -130,39 +111,6 @@ def render_html(report: Report) -> str:
     else:
         add(f"<p style='color:{_GRAY};font-size:13px;margin:0'>Nothing scheduled.</p>")
 
-    # New filings
-    add(
-        "<h2 style='font-size:16px;margin:24px 0 8px;color:#202124'>"
-        f"New filings (last {report.lookback_days} days)</h2>"
-    )
-    if report.filings:
-        for filing in report.filings:
-            period = (
-                f" · period end {filing.period_end:%d %b %Y}" if filing.period_end else ""
-            )
-            add(
-                "<div style='padding:8px 0;border-bottom:1px solid #eee'>"
-                f"<b>{html.escape(filing.symbol)}</b> {html.escape(filing.form)} "
-                f"<span style='color:{_GRAY};font-size:12px'>"
-                f"filed {filing.filed_at:%d %b %Y}{period}</span>"
-            )
-            if filing.facts:
-                add("<div style='margin-top:4px'>")
-                for fact in filing.facts:
-                    add(
-                        "<span style='display:inline-block;margin:2px 12px 2px 0'>"
-                        f"<span style='color:{_GRAY};font-size:12px'>"
-                        f"{html.escape(fact.label)}</span> <b>{_fmt_fact(fact)}</b></span>"
-                    )
-                add("</div>")
-            add("</div>")
-    else:
-        add(f"<p style='color:{_GRAY};font-size:13px;margin:0'>No new filings.</p>")
-
-    add(
-        f"<p style='margin:24px 0 0'><a href='{html.escape(report.grafana_url, quote=True)}' "
-        "style='color:#1a73e8'>Open charts in Grafana →</a></p>"
-    )
     add("</div>")
     return "".join(parts)
 
@@ -170,8 +118,7 @@ def render_html(report: Report) -> str:
 def render_text(report: Report) -> str:
     lines: list[str] = [
         "WEEKLY MARKET REPORT",
-        f"Generated {report.generated_at:%A, %d %B %Y}. "
-        f"Moves shown over the last {report.lookback_days} days.",
+        f"Generated {report.generated_at:%A, %d %B %Y}.",
         "",
         "PRICES",
     ]
@@ -181,11 +128,12 @@ def render_text(report: Report) -> str:
             continue
         lines.append(f"  {header}:")
         for row in rows:
-            day, _ = _fmt_pct(row.day_pct)
             week, _ = _fmt_pct(row.week_pct)
+            month, _ = _fmt_pct(row.month_pct)
+            year, _ = _fmt_pct(row.year_pct)
             lines.append(
                 f"    {row.symbol:<10} {_fmt_level(row.level, row.currency):>14}  "
-                f"1d {day:>8}  week {week:>8}"
+                f"{report.lookback_days}d {week:>8}  1m {month:>8}  1y {year:>8}"
             )
 
     lines += ["", "UPCOMING EARNINGS"]
@@ -196,17 +144,4 @@ def render_text(report: Report) -> str:
     else:
         lines.append("  Nothing scheduled.")
 
-    lines += ["", f"NEW FILINGS (LAST {report.lookback_days} DAYS)"]
-    if report.filings:
-        for filing in report.filings:
-            period = f", period end {filing.period_end:%d %b %Y}" if filing.period_end else ""
-            lines.append(
-                f"  {filing.symbol} {filing.form} filed {filing.filed_at:%d %b %Y}{period}"
-            )
-            for fact in filing.facts:
-                lines.append(f"    {fact.label}: {_fmt_fact(fact)}")
-    else:
-        lines.append("  No new filings.")
-
-    lines += ["", f"Charts: {report.grafana_url}"]
     return "\n".join(lines)
