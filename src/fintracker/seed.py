@@ -29,6 +29,17 @@ def _index(symbol: str, name: str, currency: str, yahoo_symbol: str | None) -> d
     }
 
 
+def _rate(symbol: str, name: str, currency: str, fred_series: str) -> dict[str, Any]:
+    """Compact constructor for interest-rate registry rows (ingested from FRED)."""
+    return {
+        "symbol": symbol,
+        "name": name,
+        "kind": "rate",
+        "currency": currency,
+        "fred_series": fred_series,
+    }
+
+
 INSTRUMENTS: list[dict[str, Any]] = [
     # Equities. `taxonomy` marks names with SEC XBRL coverage (us-gaap / ifrs-full);
     # leave it None for listings that don't file with the SEC.
@@ -160,6 +171,18 @@ INSTRUMENTS: list[dict[str, Any]] = [
     _index("ASX200", "S&P/ASX 200 (Oceania)", "AUD", "^AXJO"),
     _index("BOVESPA", "Bovespa (South America)", "BRL", "^BVSP"),
     _index("EEM", "MSCI Emerging Markets (iShares ETF)", "USD", "EEM"),
+    # Benchmark interest rates — the most relevant rate per region, one each,
+    # ingested from FRED's free, key-less CSV endpoint. Predominantly 10-year
+    # government bond yields; Brazil (no OECD 10-year series on FRED) uses its
+    # government T-bill rate, which tracks the SELIC policy rate, and emerging
+    # markets uses the ICE BofA EM USD-bond index yield as an aggregate. All
+    # are percentages (`close` carries the rate). See src/fintracker/ingest/fred.py.
+    _rate("US10Y", "US 10Y Treasury (North America)", "USD", "DGS10"),
+    _rate("EU10Y", "Euro area 10Y govt bond (Europe)", "EUR", "IRLTLT01EZM156N"),
+    _rate("JP10Y", "Japan 10Y govt bond (Japan)", "JPY", "IRLTLT01JPM156N"),
+    _rate("BRTBILL", "Brazil T-bill rate (South America)", "BRL", "INTGSTBRM193N"),
+    _rate("EMBOND", "EM USD-bond yield (Emerging markets)", "USD", "BAMLEMCBPIEY"),
+    _rate("AU10Y", "Australia 10Y govt bond (Oceania)", "AUD", "IRLTLT01AUM156N"),
     # European market indexes (one per country). `yahoo_symbol=None` marks
     # exchanges Yahoo Finance does not cover (Sarajevo, Sofia, Zagreb, Cyprus,
     # Malta, Montenegro, Skopje, Bucharest, Belgrade, Bratislava, Ljubljana,

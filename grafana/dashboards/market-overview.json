@@ -1,11 +1,11 @@
 {
   "uid": "fintracker-market-overview",
   "title": "Market Overview",
-  "description": "Global and European index performance (% change of the daily close, rebased to the start of the selected range), Bitcoin daily close and rainbow chart, and FX rates.",
+  "description": "Global and European index performance (% change of the daily close, rebased to the start of the selected range), benchmark interest rates (one per region, from FRED), Bitcoin daily close and rainbow chart, and FX rates.",
   "tags": ["fintracker"],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "",
   "time": { "from": "now-5y", "to": "now" },
   "timepicker": {
@@ -62,12 +62,40 @@
       ]
     },
     {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Interest rates by region — benchmark yields (% p.a.)",
+      "description": "The most relevant interest rate per region, as a percentage per year (levels, not rebased). One benchmark each: North America — US 10-year Treasury yield (FRED DGS10); Europe — euro-area 10-year government bond yield (IRLTLT01EZM156N); Japan — 10-year JGB yield (IRLTLT01JPM156N); Oceania — Australia 10-year government bond yield (IRLTLT01AUM156N); South America — Brazil government T-bill rate, a proxy for the SELIC policy rate (INTGSTBRM193N); Emerging markets — ICE BofA EM USD-bond index effective yield (BAMLEMCBPIEY). All from FRED's key-less CSV endpoint. The 10-year yields are monthly OECD series; the US and EM series are daily — lines span nulls between observations.",
+      "datasource": { "type": "postgres", "uid": "fintracker-pg" },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 10 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 2, "fillOpacity": 0, "spanNulls": true },
+          "unit": "percent",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "mean"], "sortBy": "Last *", "sortDesc": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT p.date::timestamptz AS \"time\", i.name AS metric, p.close::float8 AS value FROM prices p JOIN instruments i ON i.id = p.instrument_id WHERE i.kind = 'rate' AND $__timeFilter(p.date) ORDER BY 1"
+        }
+      ]
+    },
+    {
       "id": 2,
       "type": "timeseries",
       "title": "European indexes — % gain/loss (daily close)",
       "description": "Main index of each European market, as the % change of the daily close rebased to 0% at the first close inside the selected time range. Indexes whose exchange Yahoo Finance does not cover (SASX-10, SOFIX, CROBEX, FTSE/CySE 20, MSE, MNSE10, MBI10, BET, BELEX15, SAX, SBITOP, PFTS) have no data yet and show no series.",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 13, "w": 24, "x": 0, "y": 10 },
+      "gridPos": { "h": 13, "w": 24, "x": 0, "y": 20 },
       "fieldConfig": {
         "defaults": {
           "custom": { "lineWidth": 1, "fillOpacity": 0, "spanNulls": true },
@@ -85,7 +113,7 @@
           "refId": "A",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT p.date::timestamptz AS \"time\", i.symbol AS metric, 100.0 * (p.close::float8 / first_value(p.close::float8) OVER (PARTITION BY p.instrument_id ORDER BY p.date) - 1) AS value FROM prices p JOIN instruments i ON i.id = p.instrument_id WHERE i.kind = 'index' AND i.symbol IN ('ATX', 'BEL20', 'SASX10', 'SOFIX', 'CROBEX', 'CYSE20', 'PX', 'OMXC25', 'OMXTGI', 'OMXH25', 'CAC40', 'DAX', 'ATHEX', 'BUX', 'OMXI15', 'ISEQ', 'FTSEMIB', 'OMXRGI', 'OMXVGI', 'LUXX', 'MSE', 'MNSE10', 'AEX', 'MBI10', 'OSEBX', 'WIG20', 'PSI', 'BET', 'BELEX15', 'SAX', 'SBITOP', 'IBEX35', 'OMXS30', 'SMI', 'PFTS', 'FTSE100') AND $__timeFilter(p.date) ORDER BY 1"
+          "rawSql": "SELECT p.date::timestamptz AS \"time\", i.name AS metric, 100.0 * (p.close::float8 / first_value(p.close::float8) OVER (PARTITION BY p.instrument_id ORDER BY p.date) - 1) AS value FROM prices p JOIN instruments i ON i.id = p.instrument_id WHERE i.kind = 'index' AND i.symbol IN ('ATX', 'BEL20', 'SASX10', 'SOFIX', 'CROBEX', 'CYSE20', 'PX', 'OMXC25', 'OMXTGI', 'OMXH25', 'CAC40', 'DAX', 'ATHEX', 'BUX', 'OMXI15', 'ISEQ', 'FTSEMIB', 'OMXRGI', 'OMXVGI', 'LUXX', 'MSE', 'MNSE10', 'AEX', 'MBI10', 'OSEBX', 'WIG20', 'PSI', 'BET', 'BELEX15', 'SAX', 'SBITOP', 'IBEX35', 'OMXS30', 'SMI', 'PFTS', 'FTSE100') AND $__timeFilter(p.date) ORDER BY 1"
         }
       ]
     },
@@ -94,7 +122,7 @@
       "type": "timeseries",
       "title": "BTC/USD — daily close",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 23 },
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 33 },
       "fieldConfig": {
         "defaults": {
           "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true },
@@ -121,7 +149,7 @@
       "title": "BTC rainbow chart",
       "description": "Bitcoin daily close (black line, log scale) inside the rainbow valuation bands from blockchaincenter.net's Bitcoin Rainbow Chart. The center line is a logarithmic regression ln(price) ~ ln(days since genesis) refitted from the full stored history on every refresh (so the bands self-calibrate as data grows, like the chart's V2 recalibration); the nine bands are equal-width steps of 0.3 in log space, colored and labeled exactly as on the website.",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 23 },
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 33 },
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -234,7 +262,7 @@
       "type": "timeseries",
       "title": "FX rates — daily close (vs USD)",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 33 },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 43 },
       "fieldConfig": {
         "defaults": {
           "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true },
