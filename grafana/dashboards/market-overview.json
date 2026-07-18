@@ -7,17 +7,34 @@
   "version": 1,
   "refresh": "",
   "time": { "from": "now-5y", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "display_currency",
+        "label": "Currency",
+        "type": "query",
+        "datasource": { "type": "postgres", "uid": "fintracker-pg" },
+        "query": "SELECT DISTINCT split_part(unit, '/', 1) AS currency FROM fundamentals WHERE unit ~ '^[A-Z]{3}(/shares)?$' UNION SELECT currency FROM instruments ORDER BY 1",
+        "definition": "SELECT DISTINCT split_part(unit, '/', 1) AS currency FROM fundamentals WHERE unit ~ '^[A-Z]{3}(/shares)?$' UNION SELECT currency FROM instruments ORDER BY 1",
+        "refresh": 1,
+        "sort": 0,
+        "multi": false,
+        "includeAll": false,
+        "current": { "selected": true, "text": "USD", "value": "USD" }
+      }
+    ]
+  },
   "panels": [
     {
       "id": 1,
       "type": "timeseries",
-      "title": "Equities — daily close",
+      "title": "Equities — daily close ($display_currency)",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
       "gridPos": { "h": 9, "w": 24, "x": 0, "y": 0 },
       "fieldConfig": {
         "defaults": {
           "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true },
-          "unit": "currencyUSD"
+          "unit": "short"
         },
         "overrides": []
       },
@@ -30,20 +47,20 @@
           "refId": "A",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT p.date::timestamptz AS \"time\", i.symbol AS metric, p.close::float8 AS value FROM prices p JOIN instruments i ON i.id = p.instrument_id WHERE i.kind = 'equity' AND $__timeFilter(p.date) ORDER BY 1"
+          "rawSql": "SELECT p.date::timestamptz AS \"time\", i.symbol AS metric, p.close::float8 * COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) AS value FROM prices p JOIN instruments i ON i.id = p.instrument_id LEFT JOIN fx_usd_daily ff ON ff.currency = i.currency AND ff.date = p.date LEFT JOIN fx_usd_daily ft ON ft.currency = '$display_currency' AND ft.date = p.date WHERE i.kind = 'equity' AND $__timeFilter(p.date) ORDER BY 1"
         }
       ]
     },
     {
       "id": 2,
       "type": "timeseries",
-      "title": "Crypto — daily close (USD)",
+      "title": "Crypto — daily close ($display_currency)",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
       "gridPos": { "h": 9, "w": 12, "x": 0, "y": 9 },
       "fieldConfig": {
         "defaults": {
           "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true },
-          "unit": "currencyUSD"
+          "unit": "short"
         },
         "overrides": []
       },
@@ -56,14 +73,14 @@
           "refId": "A",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT p.date::timestamptz AS \"time\", i.symbol AS metric, p.close::float8 AS value FROM prices p JOIN instruments i ON i.id = p.instrument_id WHERE i.kind = 'crypto' AND $__timeFilter(p.date) ORDER BY 1"
+          "rawSql": "SELECT p.date::timestamptz AS \"time\", i.symbol AS metric, p.close::float8 * COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) AS value FROM prices p JOIN instruments i ON i.id = p.instrument_id LEFT JOIN fx_usd_daily ff ON ff.currency = i.currency AND ff.date = p.date LEFT JOIN fx_usd_daily ft ON ft.currency = '$display_currency' AND ft.date = p.date WHERE i.kind = 'crypto' AND $__timeFilter(p.date) ORDER BY 1"
         }
       ]
     },
     {
       "id": 3,
       "type": "timeseries",
-      "title": "EUR/USD",
+      "title": "FX rates (vs USD)",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
       "gridPos": { "h": 9, "w": 12, "x": 12, "y": 9 },
       "fieldConfig": {
@@ -99,7 +116,7 @@
           "refId": "A",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT DISTINCT ON (i.symbol) i.symbol AS \"Symbol\", i.name AS \"Name\", i.currency AS \"Ccy\", p.date AS \"Date\", p.close::float8 AS \"Close\" FROM prices p JOIN instruments i ON i.id = p.instrument_id ORDER BY i.symbol, p.date DESC"
+          "rawSql": "SELECT DISTINCT ON (i.symbol) i.symbol AS \"Symbol\", i.name AS \"Name\", i.currency AS \"Ccy\", p.date AS \"Date\", p.close::float8 AS \"Close\", p.close::float8 * COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) AS \"Close ($display_currency)\" FROM prices p JOIN instruments i ON i.id = p.instrument_id LEFT JOIN fx_usd_daily ff ON ff.currency = i.currency AND ff.date = p.date LEFT JOIN fx_usd_daily ft ON ft.currency = '$display_currency' AND ft.date = p.date ORDER BY i.symbol, p.date DESC"
         }
       ]
     },
