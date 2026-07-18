@@ -60,7 +60,8 @@ class Settings:
     email_pass: str
     email_to: str
     report_lookback_days: int
-    grafana_url: str
+    # Symbols the weekly report covers; empty tuple means all instruments.
+    report_symbols: tuple[str, ...]
 
     # SEC
     sec_user_agent: str
@@ -106,7 +107,9 @@ def get_settings() -> Settings:
         email_pass=_str("EMAIL_PASS"),
         email_to=_str("EMAIL_TO"),
         report_lookback_days=_int("REPORT_LOOKBACK_DAYS", 7),
-        grafana_url=_str("GRAFANA_URL", "http://localhost:3007"),
+        report_symbols=tuple(
+            s.strip().upper() for s in _str("REPORT_SYMBOLS").split(",") if s.strip()
+        ),
         sec_user_agent=_str("SEC_USER_AGENT"),
         heartbeat_file=_str("HEARTBEAT_FILE", "/tmp/fintracker-heartbeat"),
     )

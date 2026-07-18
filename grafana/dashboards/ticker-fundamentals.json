@@ -11,6 +11,14 @@
   "templating": {
     "list": [
       {
+        "name": "search",
+        "label": "Add ticker",
+        "type": "textbox",
+        "query": "",
+        "current": { "selected": false, "text": "", "value": "" },
+        "options": []
+      },
+      {
         "name": "ticker",
         "label": "Ticker",
         "type": "query",
@@ -27,7 +35,7 @@
         "name": "metric_left",
         "label": "Left axis",
         "type": "custom",
-        "query": "P/E : pe, Revenue : revenue, Operating margin : op_margin, P/FCF : pfcf, Total debt : debt",
+        "query": "P/E : pe, Revenue : revenue, Operating margin : op_margin, P/FCF : pfcf, Total debt : debt, MCap : mcap, Shares outstanding : shares",
         "multi": false,
         "includeAll": false,
         "current": { "selected": true, "text": "P/E", "value": "pe" },
@@ -36,22 +44,16 @@
           { "selected": false, "text": "Revenue", "value": "revenue" },
           { "selected": false, "text": "Operating margin", "value": "op_margin" },
           { "selected": false, "text": "P/FCF", "value": "pfcf" },
-          { "selected": false, "text": "Total debt", "value": "debt" }
+          { "selected": false, "text": "Total debt", "value": "debt" },
+          { "selected": false, "text": "MCap", "value": "mcap" },
+          { "selected": false, "text": "Shares outstanding", "value": "shares" }
         ]
-      },
-      {
-        "name": "search",
-        "label": "Add ticker (type + Enter)",
-        "type": "textbox",
-        "query": "",
-        "current": { "selected": false, "text": "", "value": "" },
-        "options": []
       },
       {
         "name": "metric_right",
         "label": "Right axis",
         "type": "custom",
-        "query": "P/E : pe, Revenue : revenue, Operating margin : op_margin, P/FCF : pfcf, Total debt : debt",
+        "query": "P/E : pe, Revenue : revenue, Operating margin : op_margin, P/FCF : pfcf, Total debt : debt, MCap : mcap, Shares outstanding : shares",
         "multi": false,
         "includeAll": false,
         "current": { "selected": true, "text": "Revenue", "value": "revenue" },
@@ -60,7 +62,9 @@
           { "selected": true, "text": "Revenue", "value": "revenue" },
           { "selected": false, "text": "Operating margin", "value": "op_margin" },
           { "selected": false, "text": "P/FCF", "value": "pfcf" },
-          { "selected": false, "text": "Total debt", "value": "debt" }
+          { "selected": false, "text": "Total debt", "value": "debt" },
+          { "selected": false, "text": "MCap", "value": "mcap" },
+          { "selected": false, "text": "Shares outstanding", "value": "shares" }
         ]
       }
     ]
@@ -91,6 +95,26 @@
             "properties": [
               { "id": "custom.axisPlacement", "value": "right" },
               { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [10, 6] } }
+            ]
+          },
+          {
+            "matcher": { "id": "byFrameRefID", "options": "C" },
+            "properties": [
+              { "id": "custom.axisPlacement", "value": "left" },
+              { "id": "custom.lineWidth", "value": 1 },
+              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [4, 4] } },
+              { "id": "custom.fillOpacity", "value": 0 },
+              { "id": "custom.hideFrom", "value": { "legend": true, "tooltip": false, "viz": false } }
+            ]
+          },
+          {
+            "matcher": { "id": "byFrameRefID", "options": "D" },
+            "properties": [
+              { "id": "custom.axisPlacement", "value": "right" },
+              { "id": "custom.lineWidth", "value": 1 },
+              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [4, 4] } },
+              { "id": "custom.fillOpacity", "value": 0 },
+              { "id": "custom.hideFrom", "value": { "legend": true, "tooltip": false, "viz": false } }
             ]
           },
           {
@@ -127,11 +151,25 @@
               { "id": "unit", "value": "currencyUSD" },
               { "id": "custom.axisLabel", "value": "Total debt" }
             ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "MCap" },
+            "properties": [
+              { "id": "unit", "value": "currencyUSD" },
+              { "id": "custom.axisLabel", "value": "Market cap" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Shares outstanding" },
+            "properties": [
+              { "id": "unit", "value": "short" },
+              { "id": "custom.axisLabel", "value": "Shares" }
+            ]
           }
         ]
       },
       "options": {
-        "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "min", "max"] },
+        "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "min", "max", "mean"] },
         "tooltip": { "mode": "multi", "sort": "none" }
       },
       "targets": [
@@ -146,6 +184,18 @@
           "format": "time_series",
           "rawQuery": true,
           "rawSql": "SELECT s.\"time\", s.label AS metric, s.value FROM equity_metric_series s JOIN instruments i ON i.id = s.instrument_id WHERE i.symbol = '$ticker' AND s.metric = '$metric_right' AND $__timeFilter(s.\"time\") ORDER BY 1"
+        },
+        {
+          "refId": "C",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT s.\"time\", 'Mean — ' || s.label AS metric, avg(s.value) OVER () AS value FROM equity_metric_series s JOIN instruments i ON i.id = s.instrument_id WHERE i.symbol = '$ticker' AND s.metric = '$metric_left' AND $__timeFilter(s.\"time\") ORDER BY 1"
+        },
+        {
+          "refId": "D",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT s.\"time\", 'Mean — ' || s.label AS metric, avg(s.value) OVER () AS value FROM equity_metric_series s JOIN instruments i ON i.id = s.instrument_id WHERE i.symbol = '$ticker' AND s.metric = '$metric_right' AND $__timeFilter(s.\"time\") ORDER BY 1"
         }
       ]
     },
@@ -266,7 +316,7 @@
       "title": "Total debt",
       "description": "Balance-sheet debt at each report date, composed from the components the filer tags (long-term debt incl. current portion, plus short-term borrowings) without double counting.",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 29 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 29 },
       "fieldConfig": {
         "defaults": {
           "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true, "showPoints": "always", "pointSize": 5 },
@@ -288,12 +338,66 @@
       ]
     },
     {
+      "id": 8,
+      "type": "timeseries",
+      "title": "MCap",
+      "description": "Market capitalization: daily close × the latest reported weighted diluted share count (tracks buybacks and dilution one report late). No point is drawn when the last report is older than ~15 months.",
+      "datasource": { "type": "postgres", "uid": "fintracker-pg" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 29 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true },
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value FROM equity_metric_series s JOIN instruments i ON i.id = s.instrument_id WHERE i.symbol = '$ticker' AND s.metric = 'mcap' AND $__timeFilter(s.\"time\") ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Shares outstanding",
+      "description": "Weighted diluted share count from each report (the same series MCap and P/FCF use); a falling line means buybacks, a rising one dilution.",
+      "datasource": { "type": "postgres", "uid": "fintracker-pg" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 37 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true, "showPoints": "always", "pointSize": 5 },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value FROM equity_metric_series s JOIN instruments i ON i.id = s.instrument_id WHERE i.symbol = '$ticker' AND s.metric = 'shares' AND $__timeFilter(s.\"time\") ORDER BY 1"
+        }
+      ]
+    },
+    {
       "id": 7,
       "type": "table",
       "title": "Ticker requests",
       "description": "Type a ticker in the 'Add ticker' box above and press Enter: it is queued here and the app ingests it within a minute or two (full price history, plus SEC fundamentals when the company files with EDGAR). Unknown tickers end as not_found. Rows are kept so requests never repeat; to retry one, delete its row from the ticker_requests table.",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 37 },
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 45 },
       "fieldConfig": {
         "defaults": {},
         "overrides": [
