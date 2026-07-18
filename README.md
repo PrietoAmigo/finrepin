@@ -43,8 +43,11 @@ thing runs under Docker Compose and schedules itself — no external cron.
 - **Financial Statements dashboard** — pick one ticker and read its annual
   Income Statement, Balance Sheet, and Cash Flow as line-item × fiscal-year
   tables, with a multi-select fiscal-year filter. The three statements are
-  collapsible rows that act as tabs. Backed by statement views (migration
-  0005) that map the curated SEC XBRL tags onto statement lines.
+  collapsible rows that act as tabs; line items are clustered into the
+  sections a filed statement uses (current vs non-current, operating /
+  investing / financing, ...) with uppercase header rows. Backed by
+  statement views (migration 0006) that map the curated SEC XBRL tags onto
+  statement lines.
 
 All core features are in. What remains is **M7/M8 polish**: richer
 dashboards and deeper observability.
