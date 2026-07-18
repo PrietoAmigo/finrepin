@@ -36,8 +36,12 @@ log = logging.getLogger(__name__)
 
 FREDGRAPH_CSV = "https://fred.stlouisfed.org/graph/fredgraph.csv"
 
-# FRED's CSV endpoint needs no key; a descriptive User-Agent is just good manners.
-_HEADERS = {"User-Agent": "fintracker/0.1 (interest-rate ingest)"}
+# FRED's CSV endpoint needs no key. Deliberately DON'T set a custom User-Agent:
+# FRED's CDN tarpits custom/browser-like agents (the connection opens, the TLS
+# handshake completes, then the response never arrives and the read times out),
+# while it serves requests' default `python-requests/<ver>` agent instantly.
+# The timeout is a (connect, read) tuple to give reads a little more headroom.
+_TIMEOUT = (10, 60)
 
 
 @retry(
@@ -51,7 +55,7 @@ def fetch_fred_csv(series_id: str, start: dt.date | None = None) -> str:
     params = {"id": series_id}
     if start is not None:
         params["cosd"] = start.isoformat()
-    resp = requests.get(FREDGRAPH_CSV, params=params, headers=_HEADERS, timeout=30)
+    resp = requests.get(FREDGRAPH_CSV, params=params, timeout=_TIMEOUT)
     resp.raise_for_status()
     return resp.text
 
