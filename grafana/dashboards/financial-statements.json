@@ -1,0 +1,199 @@
+{
+  "uid": "fintracker-financial-statements",
+  "title": "Financial Statements",
+  "description": "Annual Income Statement, Balance Sheet, and Cash Flow for a single ticker, rebuilt from SEC XBRL facts via the equity_statement_matrix view (migration 0005). The three rows act as tabs — click a row title to open or close a statement. Columns are fiscal years (labeled by the calendar year the fiscal year ends in); blank cells mean the filer didn't tag that line.",
+  "tags": ["fintracker"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "",
+  "time": { "from": "now-10y", "to": "now" },
+  "timepicker": { "hidden": true },
+  "templating": {
+    "list": [
+      {
+        "name": "ticker",
+        "label": "Ticker",
+        "type": "query",
+        "datasource": { "type": "postgres", "uid": "fintracker-pg" },
+        "query": "SELECT symbol FROM instruments WHERE kind = 'equity' AND taxonomy IS NOT NULL ORDER BY symbol",
+        "definition": "SELECT symbol FROM instruments WHERE kind = 'equity' AND taxonomy IS NOT NULL ORDER BY symbol",
+        "refresh": 1,
+        "sort": 0,
+        "multi": false,
+        "includeAll": false,
+        "current": {}
+      },
+      {
+        "name": "fiscal_year",
+        "label": "Fiscal years",
+        "type": "query",
+        "datasource": { "type": "postgres", "uid": "fintracker-pg" },
+        "query": "SELECT DISTINCT fiscal_year::text FROM equity_statement_annual a JOIN instruments i ON i.id = a.instrument_id WHERE i.symbol = '$ticker' ORDER BY 1 DESC",
+        "definition": "SELECT DISTINCT fiscal_year::text FROM equity_statement_annual a JOIN instruments i ON i.id = a.instrument_id WHERE i.symbol = '$ticker' ORDER BY 1 DESC",
+        "refresh": 1,
+        "sort": 0,
+        "multi": true,
+        "includeAll": true,
+        "current": { "selected": true, "text": ["All"], "value": ["$__all"] }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 100,
+      "type": "row",
+      "title": "Income Statement",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "panels": []
+    },
+    {
+      "id": 1,
+      "type": "table",
+      "title": "$ticker — Income Statement (annual)",
+      "description": "One column per fiscal year, from the annual (10-K / 20-F) figures. EPS rows are per share; everything else is total USD. A blank cell means the company didn't report that line under a tag we track.",
+      "datasource": { "type": "postgres", "uid": "fintracker-pg" },
+      "gridPos": { "h": 14, "w": 24, "x": 0, "y": 1 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "noValue": "-",
+          "custom": { "align": "right", "cellOptions": { "type": "auto" }, "filterable": false }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Line item" },
+            "properties": [
+              { "id": "custom.width", "value": 260 },
+              { "id": "custom.align", "value": "left" }
+            ]
+          }
+        ]
+      },
+      "options": { "showHeader": true, "footer": { "show": false } },
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": { "columnField": "fy", "rowField": "line", "valueField": "value" }
+        },
+        {
+          "id": "organize",
+          "options": { "excludeByName": {}, "indexByName": {}, "renameByName": { "line\\fy": "Line item" } }
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT m.line, m.fiscal_year::text AS fy, m.value FROM equity_statement_matrix m JOIN instruments i ON i.id = m.instrument_id WHERE i.symbol = '$ticker' AND m.statement = 'income' AND m.fiscal_year::text IN ($fiscal_year) ORDER BY m.ord, m.fiscal_year"
+        }
+      ]
+    },
+    {
+      "id": 200,
+      "type": "row",
+      "title": "Balance Sheet",
+      "collapsed": true,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 15 },
+      "panels": [
+        {
+          "id": 2,
+          "type": "table",
+          "title": "$ticker — Balance Sheet (fiscal year end)",
+          "description": "Point-in-time balances at each fiscal year end, from the annual filing. A blank cell means the company didn't report that line under a tag we track.",
+          "datasource": { "type": "postgres", "uid": "fintracker-pg" },
+          "gridPos": { "h": 16, "w": 24, "x": 0, "y": 16 },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "currencyUSD",
+              "noValue": "-",
+              "custom": { "align": "right", "cellOptions": { "type": "auto" }, "filterable": false }
+            },
+            "overrides": [
+              {
+                "matcher": { "id": "byName", "options": "Line item" },
+                "properties": [
+                  { "id": "custom.width", "value": 260 },
+                  { "id": "custom.align", "value": "left" }
+                ]
+              }
+            ]
+          },
+          "options": { "showHeader": true, "footer": { "show": false } },
+          "transformations": [
+            {
+              "id": "groupingToMatrix",
+              "options": { "columnField": "fy", "rowField": "line", "valueField": "value" }
+            },
+            {
+              "id": "organize",
+              "options": { "excludeByName": {}, "indexByName": {}, "renameByName": { "line\\fy": "Line item" } }
+            }
+          ],
+          "targets": [
+            {
+              "refId": "A",
+              "format": "table",
+              "rawQuery": true,
+              "rawSql": "SELECT m.line, m.fiscal_year::text AS fy, m.value FROM equity_statement_matrix m JOIN instruments i ON i.id = m.instrument_id WHERE i.symbol = '$ticker' AND m.statement = 'balance' AND m.fiscal_year::text IN ($fiscal_year) ORDER BY m.ord, m.fiscal_year"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 300,
+      "type": "row",
+      "title": "Cash Flow",
+      "collapsed": true,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 16 },
+      "panels": [
+        {
+          "id": 3,
+          "type": "table",
+          "title": "$ticker — Cash Flow Statement (annual)",
+          "description": "Annual cash flows from the 10-K / 20-F. Capex, dividends, and buybacks are reported as positive outflows (as filed); a blank cell means the company didn't report that line under a tag we track.",
+          "datasource": { "type": "postgres", "uid": "fintracker-pg" },
+          "gridPos": { "h": 12, "w": 24, "x": 0, "y": 17 },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "currencyUSD",
+              "noValue": "-",
+              "custom": { "align": "right", "cellOptions": { "type": "auto" }, "filterable": false }
+            },
+            "overrides": [
+              {
+                "matcher": { "id": "byName", "options": "Line item" },
+                "properties": [
+                  { "id": "custom.width", "value": 260 },
+                  { "id": "custom.align", "value": "left" }
+                ]
+              }
+            ]
+          },
+          "options": { "showHeader": true, "footer": { "show": false } },
+          "transformations": [
+            {
+              "id": "groupingToMatrix",
+              "options": { "columnField": "fy", "rowField": "line", "valueField": "value" }
+            },
+            {
+              "id": "organize",
+              "options": { "excludeByName": {}, "indexByName": {}, "renameByName": { "line\\fy": "Line item" } }
+            }
+          ],
+          "targets": [
+            {
+              "refId": "A",
+              "format": "table",
+              "rawQuery": true,
+              "rawSql": "SELECT m.line, m.fiscal_year::text AS fy, m.value FROM equity_statement_matrix m JOIN instruments i ON i.id = m.instrument_id WHERE i.symbol = '$ticker' AND m.statement = 'cashflow' AND m.fiscal_year::text IN ($fiscal_year) ORDER BY m.ord, m.fiscal_year"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
