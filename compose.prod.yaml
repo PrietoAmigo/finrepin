@@ -19,3 +19,15 @@ services:
   app:
     image: ghcr.io/prietoamigo/finrepin:latest
     pull_policy: always
+
+# Pin the project network's MTU. The server's egress interface is 1500, but the
+# real path to some external hosts (e.g. fred.stlouisfed.org) is smaller, and
+# PMTUD doesn't reach NAT'd containers — so a container's TLS handshake succeeds
+# but the bulk response read hangs, while the host itself is fine. Advertising a
+# smaller MSS via a 1400-byte bridge MTU makes those reads complete. Changing
+# this option requires the network to be recreated once: `... down && ... up -d`.
+networks:
+  default:
+    driver: bridge
+    driver_opts:
+      com.docker.network.driver.mtu: "1400"
