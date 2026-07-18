@@ -43,7 +43,9 @@ services:
         max-file: "3"
 
   grafana:
-    image: grafana/grafana:11.1.0
+    # 11.6+ is needed for the custom time-picker quick ranges the dashboards
+    # define (timepicker.quick_ranges in the dashboard JSON).
+    image: grafana/grafana:11.6.3
     restart: unless-stopped
     depends_on:
       db:
@@ -53,6 +55,11 @@ services:
     environment:
       GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD}
       GF_USERS_ALLOW_SIGN_UP: "false"
+      # Land on Market Overview instead of the default home page (which
+      # carries the "Welcome to Grafana" banner) and drop the news feed
+      # ("Latest from the blog") panel.
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/market-overview.json
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
       # Consumed by the provisioned datasource (grafana/provisioning/datasources).
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}

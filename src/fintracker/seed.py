@@ -17,6 +17,18 @@ from fintracker.models import Instrument
 
 log = logging.getLogger(__name__)
 
+
+def _index(symbol: str, name: str, currency: str, yahoo_symbol: str | None) -> dict[str, Any]:
+    """Compact constructor for market-index registry rows."""
+    return {
+        "symbol": symbol,
+        "name": name,
+        "kind": "index",
+        "currency": currency,
+        "yahoo_symbol": yahoo_symbol,
+    }
+
+
 INSTRUMENTS: list[dict[str, Any]] = [
     # Equities. `taxonomy` marks names with SEC XBRL coverage (us-gaap / ifrs-full);
     # leave it None for listings that don't file with the SEC.
@@ -140,6 +152,55 @@ INSTRUMENTS: list[dict[str, Any]] = [
         "yahoo_symbol": "TEL",
         "taxonomy": "us-gaap",
     },
+    # Global market indexes — one per continent (plus an emerging-markets
+    # aggregate) to keep cross-correlations low on the Market Overview panel.
+    _index("SPX", "S&P 500 (North America)", "USD", "^GSPC"),
+    _index("STOXX600", "STOXX Europe 600 (Europe)", "EUR", "^STOXX"),
+    _index("N225", "Nikkei 225 (Asia)", "JPY", "^N225"),
+    _index("ASX200", "S&P/ASX 200 (Oceania)", "AUD", "^AXJO"),
+    _index("BOVESPA", "Bovespa (South America)", "BRL", "^BVSP"),
+    _index("EEM", "MSCI Emerging Markets (iShares ETF)", "USD", "EEM"),
+    # European market indexes (one per country). `yahoo_symbol=None` marks
+    # exchanges Yahoo Finance does not cover (Sarajevo, Sofia, Zagreb, Cyprus,
+    # Malta, Montenegro, Skopje, Bucharest, Belgrade, Bratislava, Ljubljana,
+    # Kyiv); they stay registered so a symbol can be filled in later, but the
+    # ingest skips them and the dashboard simply shows no series.
+    _index("ATX", "ATX (Austria)", "EUR", "^ATX"),
+    _index("BEL20", "BEL 20 (Belgium)", "EUR", "^BFX"),
+    _index("SASX10", "SASX-10 (Bosnia and Herzegovina)", "BAM", None),
+    _index("SOFIX", "SOFIX (Bulgaria)", "BGN", None),
+    _index("CROBEX", "CROBEX (Croatia)", "EUR", None),
+    _index("CYSE20", "FTSE/CySE 20 (Cyprus)", "EUR", None),
+    _index("PX", "PX Index (Czechia)", "CZK", "^PX"),
+    _index("OMXC25", "OMX Copenhagen 25 (Denmark)", "DKK", "^OMXC25"),
+    _index("OMXTGI", "OMX Tallinn GI (Estonia)", "EUR", "^OMXTGI"),
+    _index("OMXH25", "OMX Helsinki 25 (Finland)", "EUR", "^OMXH25"),
+    _index("CAC40", "CAC 40 (France)", "EUR", "^FCHI"),
+    _index("DAX", "DAX (Germany)", "EUR", "^GDAXI"),
+    _index("ATHEX", "ATHEX Composite (Greece)", "EUR", "GD.AT"),
+    _index("BUX", "BUX (Hungary)", "HUF", "^BUX"),
+    _index("OMXI15", "OMX Iceland 15 (Iceland)", "ISK", "^OMXI15"),
+    _index("ISEQ", "ISEQ Overall (Ireland)", "EUR", "^ISEQ"),
+    _index("FTSEMIB", "FTSE MIB (Italy)", "EUR", "FTSEMIB.MI"),
+    _index("OMXRGI", "OMX Riga GI (Latvia)", "EUR", "^OMXRGI"),
+    _index("OMXVGI", "OMX Vilnius GI (Lithuania)", "EUR", "^OMXVGI"),
+    _index("LUXX", "LuxX (Luxembourg)", "EUR", "^LUXXX"),
+    _index("MSE", "MSE Equity Total Return (Malta)", "EUR", None),
+    _index("MNSE10", "MNSE10 (Montenegro)", "EUR", None),
+    _index("AEX", "AEX (Netherlands)", "EUR", "^AEX"),
+    _index("MBI10", "MBI10 (North Macedonia)", "MKD", None),
+    _index("OSEBX", "OSEBX (Norway)", "NOK", "OSEBX.OL"),
+    _index("WIG20", "WIG20 (Poland)", "PLN", "WIG20.WA"),
+    _index("PSI", "PSI (Portugal)", "EUR", "PSI20.LS"),
+    _index("BET", "BET (Romania)", "RON", None),
+    _index("BELEX15", "BELEX15 (Serbia)", "RSD", None),
+    _index("SAX", "SAX (Slovakia)", "EUR", None),
+    _index("SBITOP", "SBITOP (Slovenia)", "EUR", None),
+    _index("IBEX35", "IBEX 35 (Spain)", "EUR", "^IBEX"),
+    _index("OMXS30", "OMX Stockholm 30 (Sweden)", "SEK", "^OMXS30"),
+    _index("SMI", "SMI (Switzerland)", "CHF", "^SSMI"),
+    _index("PFTS", "PFTS Index (Ukraine)", "UAH", None),
+    _index("FTSE100", "FTSE 100 (United Kingdom)", "GBP", "^FTSE"),
     # Crypto: Yahoo for full daily OHLCV history, CoinGecko for the live spot.
     {
         "symbol": "BTC",
