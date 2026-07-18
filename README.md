@@ -37,16 +37,24 @@ thing runs under Docker Compose and schedules itself — no external cron.
   STARTTLS. Skips gracefully if email isn't configured.
 - **Self-scheduling** — APScheduler in the `app` container, timezone-aware
   (daily market/earnings/SEC checks, weekly email).
-- **Grafana** — provisioned Postgres datasource + a starter *Market Overview*
-  dashboard and a *Ticker Fundamentals* dashboard (pick one ticker; 10-year
-  P/E, revenue, operating margin, P/FCF, total debt, MCap, and shares
-  outstanding, with a combined
-  dual-axis panel to compare any two). Backed by SQL views (migration 0002)
-  that derive TTM series from the SEC facts. An *Add ticker* search box on
-  the dashboard queues any new symbol: the app validates it against SEC
-  EDGAR and Yahoo Finance and ingests its full price + fundamentals history
-  within a minute or two (unknown tickers are marked not found).
-- **Currency switching** — every dashboard has a *Currency* selector listing
+- **Grafana** — provisioned Postgres datasource + a *Market Overview*
+  dashboard (global and European index performance as % gain/loss of the
+  daily close, BTC/USD daily close, a BTC rainbow chart with the
+  blockchaincenter.net color bands, and FX rates) and a *Ticker Fundamentals*
+  dashboard (pick one ticker; market-cap candlesticks with a daily/weekly/
+  monthly candle selector, a dual-axis panel to compare any two metrics, and
+  10-year P/E, P/FCF, revenue, earnings, total debt, and shares outstanding —
+  plus P/B, EV/EBITDA, EPS, gross margin, operating margin, Debt-to-Equity,
+  and MCap through the metric selectors). Backed by SQL views (migrations
+  0002–0008) that derive TTM series from the SEC facts. Global and European
+  market indexes are seeded as `kind='index'` instruments and ingested from
+  Yahoo like everything else. An *Add ticker* search box on the dashboard
+  queues any new symbol: the app validates it against SEC EDGAR and Yahoo
+  Finance and ingests its full price + fundamentals history within a minute
+  or two (unknown tickers are marked not found). Grafana boots straight into
+  Market Overview (no welcome/news home page), and the time picker offers
+  quick ranges up to *Last 15 years*.
+- **Currency switching** — the per-ticker dashboards have a *Currency* selector listing
   all currencies seen on tracked tickers (listing + reporting currencies).
   Money values — prices, revenue, debt, MCap, statement lines — are converted
   into the selected currency at the matching day's FX rate (fiscal-year-end

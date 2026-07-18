@@ -1,13 +1,36 @@
 {
   "uid": "fintracker-ticker-fundamentals",
   "title": "Ticker Fundamentals",
-  "description": "Ten years of valuation and fundamentals for a single ticker, computed from SEC XBRL facts via the equity_metric_series view (migration 0002).",
+  "description": "Ten years of valuation and fundamentals for a single ticker, computed from SEC XBRL facts via the equity_metric_series view (migrations 0002-0008).",
   "tags": ["fintracker"],
   "timezone": "browser",
   "schemaVersion": 39,
   "version": 1,
   "refresh": "1m",
   "time": { "from": "now-10y", "to": "now" },
+  "timepicker": {
+    "quick_ranges": [
+      { "display": "Last 24 hours", "from": "now-24h", "to": "now" },
+      { "display": "Last 2 days", "from": "now-2d", "to": "now" },
+      { "display": "Last 7 days", "from": "now-7d", "to": "now" },
+      { "display": "Last 30 days", "from": "now-30d", "to": "now" },
+      { "display": "Last 90 days", "from": "now-90d", "to": "now" },
+      { "display": "Last 6 months", "from": "now-6M", "to": "now" },
+      { "display": "Last 1 year", "from": "now-1y", "to": "now" },
+      { "display": "Last 2 years", "from": "now-2y", "to": "now" },
+      { "display": "Last 5 years", "from": "now-5y", "to": "now" },
+      { "display": "Last 10 years", "from": "now-10y", "to": "now" },
+      { "display": "Last 15 years", "from": "now-15y", "to": "now" },
+      { "display": "Yesterday", "from": "now-1d/d", "to": "now-1d/d" },
+      { "display": "Previous week", "from": "now-1w/w", "to": "now-1w/w" },
+      { "display": "Previous month", "from": "now-1M/M", "to": "now-1M/M" },
+      { "display": "Previous year", "from": "now-1y/y", "to": "now-1y/y" },
+      { "display": "Today so far", "from": "now/d", "to": "now" },
+      { "display": "This week so far", "from": "now/w", "to": "now" },
+      { "display": "This month so far", "from": "now/M", "to": "now" },
+      { "display": "This year so far", "from": "now/y", "to": "now" }
+    ]
+  },
   "templating": {
     "list": [
       {
@@ -45,19 +68,39 @@
         "current": { "selected": true, "text": "USD", "value": "USD" }
       },
       {
+        "name": "candle_interval",
+        "label": "Candles",
+        "type": "custom",
+        "query": "Daily : day, Weekly : week, Monthly : month",
+        "multi": false,
+        "includeAll": false,
+        "current": { "selected": true, "text": "Weekly", "value": "week" },
+        "options": [
+          { "selected": false, "text": "Daily", "value": "day" },
+          { "selected": true, "text": "Weekly", "value": "week" },
+          { "selected": false, "text": "Monthly", "value": "month" }
+        ]
+      },
+      {
         "name": "metric_left",
         "label": "Left axis",
         "type": "custom",
-        "query": "P/E : pe, Revenue : revenue, Operating margin : op_margin, P/FCF : pfcf, Total debt : debt, MCap : mcap, Shares outstanding : shares",
+        "query": "P/E : pe, P/FCF : pfcf, P/B : pb, EV/EBITDA : ev_ebitda, EPS : eps, Revenue : revenue, Earnings : earnings, Gross margin : gross_margin, Operating margin : op_margin, Total debt : debt, Debt-to-Equity : de, MCap : mcap, Shares outstanding : shares",
         "multi": false,
         "includeAll": false,
         "current": { "selected": true, "text": "P/E", "value": "pe" },
         "options": [
           { "selected": true, "text": "P/E", "value": "pe" },
-          { "selected": false, "text": "Revenue", "value": "revenue" },
-          { "selected": false, "text": "Operating margin", "value": "op_margin" },
           { "selected": false, "text": "P/FCF", "value": "pfcf" },
+          { "selected": false, "text": "P/B", "value": "pb" },
+          { "selected": false, "text": "EV/EBITDA", "value": "ev_ebitda" },
+          { "selected": false, "text": "EPS", "value": "eps" },
+          { "selected": false, "text": "Revenue", "value": "revenue" },
+          { "selected": false, "text": "Earnings", "value": "earnings" },
+          { "selected": false, "text": "Gross margin", "value": "gross_margin" },
+          { "selected": false, "text": "Operating margin", "value": "op_margin" },
           { "selected": false, "text": "Total debt", "value": "debt" },
+          { "selected": false, "text": "Debt-to-Equity", "value": "de" },
           { "selected": false, "text": "MCap", "value": "mcap" },
           { "selected": false, "text": "Shares outstanding", "value": "shares" }
         ]
@@ -66,16 +109,22 @@
         "name": "metric_right",
         "label": "Right axis",
         "type": "custom",
-        "query": "P/E : pe, Revenue : revenue, Operating margin : op_margin, P/FCF : pfcf, Total debt : debt, MCap : mcap, Shares outstanding : shares",
+        "query": "P/E : pe, P/FCF : pfcf, P/B : pb, EV/EBITDA : ev_ebitda, EPS : eps, Revenue : revenue, Earnings : earnings, Gross margin : gross_margin, Operating margin : op_margin, Total debt : debt, Debt-to-Equity : de, MCap : mcap, Shares outstanding : shares",
         "multi": false,
         "includeAll": false,
         "current": { "selected": true, "text": "Revenue", "value": "revenue" },
         "options": [
           { "selected": false, "text": "P/E", "value": "pe" },
-          { "selected": true, "text": "Revenue", "value": "revenue" },
-          { "selected": false, "text": "Operating margin", "value": "op_margin" },
           { "selected": false, "text": "P/FCF", "value": "pfcf" },
+          { "selected": false, "text": "P/B", "value": "pb" },
+          { "selected": false, "text": "EV/EBITDA", "value": "ev_ebitda" },
+          { "selected": false, "text": "EPS", "value": "eps" },
+          { "selected": true, "text": "Revenue", "value": "revenue" },
+          { "selected": false, "text": "Earnings", "value": "earnings" },
+          { "selected": false, "text": "Gross margin", "value": "gross_margin" },
+          { "selected": false, "text": "Operating margin", "value": "op_margin" },
           { "selected": false, "text": "Total debt", "value": "debt" },
+          { "selected": false, "text": "Debt-to-Equity", "value": "de" },
           { "selected": false, "text": "MCap", "value": "mcap" },
           { "selected": false, "text": "Shares outstanding", "value": "shares" }
         ]
@@ -84,12 +133,41 @@
   },
   "panels": [
     {
+      "id": 10,
+      "type": "candlestick",
+      "title": "$ticker — Market cap ($candle_interval candles, $display_currency)",
+      "description": "Market capitalization as OHLC candles: each daily price bar times the latest reported weighted diluted share count, aggregated into the candle size chosen with the 'Candles' selector (daily / weekly / monthly).",
+      "datasource": { "type": "postgres", "uid": "fintracker-pg" },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": { "custom": {}, "unit": "short" },
+        "overrides": []
+      },
+      "options": {
+        "mode": "candles",
+        "candleStyle": "candles",
+        "colorStrategy": "open-close",
+        "colors": { "up": "green", "down": "red", "flat": "gray" },
+        "includeAllFields": false,
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH shares_w AS (SELECT instrument_id, period_end, COALESCE(LEAD(period_end) OVER w, DATE '9999-12-31') AS next_end, value FROM (SELECT DISTINCT ON (instrument_id, period_end) instrument_id, period_end, value FROM fundamentals_grouped WHERE grp = 'shares_diluted' ORDER BY instrument_id, period_end, period_days ASC) s WINDOW w AS (PARTITION BY instrument_id ORDER BY period_end)), daily AS (SELECT date_trunc('$candle_interval', p.date)::timestamptz AS bucket, p.date, COALESCE(p.open, p.close)::float8 * s.value * COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) AS o, COALESCE(p.high, p.close)::float8 * s.value * COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) AS h, COALESCE(p.low, p.close)::float8 * s.value * COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) AS l, p.close::float8 * s.value * COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) AS c FROM prices p JOIN instruments i ON i.id = p.instrument_id JOIN shares_w s ON s.instrument_id = p.instrument_id AND p.date >= s.period_end AND p.date < s.next_end AND p.date < (s.period_end + 450) LEFT JOIN fx_usd_daily ff ON ff.currency = i.currency AND ff.date = p.date LEFT JOIN fx_usd_daily ft ON ft.currency = '$display_currency' AND ft.date = p.date WHERE i.symbol = '$ticker' AND $__timeFilter(p.date)) SELECT bucket AS \"time\", (array_agg(o ORDER BY date ASC))[1] AS \"open\", max(h) AS \"high\", min(l) AS \"low\", (array_agg(c ORDER BY date DESC))[1] AS \"close\" FROM daily GROUP BY bucket ORDER BY bucket"
+        }
+      ]
+    },
+    {
       "id": 1,
       "type": "timeseries",
       "title": "$ticker — $metric_left (left) vs $metric_right (right)",
-      "description": "Pick any two metrics with the 'Left axis' / 'Right axis' selectors above; each gets its own y-axis scale. Quarterly metrics connect across report dates (spanNulls).",
+      "description": "Pick any two metrics with the 'Left axis' / 'Right axis' selectors above; each gets its own y-axis scale. The mean of each metric over the selected range is shown in the legend table (Mean column). Quarterly metrics connect across report dates (spanNulls).",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 13, "w": 24, "x": 0, "y": 0 },
+      "gridPos": { "h": 13, "w": 24, "x": 0, "y": 12 },
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -111,26 +189,6 @@
             ]
           },
           {
-            "matcher": { "id": "byFrameRefID", "options": "C" },
-            "properties": [
-              { "id": "custom.axisPlacement", "value": "left" },
-              { "id": "custom.lineWidth", "value": 1 },
-              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [4, 4] } },
-              { "id": "custom.fillOpacity", "value": 0 },
-              { "id": "custom.hideFrom", "value": { "legend": true, "tooltip": false, "viz": false } }
-            ]
-          },
-          {
-            "matcher": { "id": "byFrameRefID", "options": "D" },
-            "properties": [
-              { "id": "custom.axisPlacement", "value": "right" },
-              { "id": "custom.lineWidth", "value": 1 },
-              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [4, 4] } },
-              { "id": "custom.fillOpacity", "value": 0 },
-              { "id": "custom.hideFrom", "value": { "legend": true, "tooltip": false, "viz": false } }
-            ]
-          },
-          {
             "matcher": { "id": "byName", "options": "P/E (TTM)" },
             "properties": [
               { "id": "decimals", "value": 1 },
@@ -145,10 +203,45 @@
             ]
           },
           {
+            "matcher": { "id": "byName", "options": "P/B" },
+            "properties": [
+              { "id": "decimals", "value": 2 },
+              { "id": "custom.axisLabel", "value": "P/B" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "EV/EBITDA (TTM)" },
+            "properties": [
+              { "id": "decimals", "value": 1 },
+              { "id": "custom.axisLabel", "value": "EV/EBITDA" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "EPS (TTM, diluted)" },
+            "properties": [
+              { "id": "decimals", "value": 2 },
+              { "id": "custom.axisLabel", "value": "EPS" }
+            ]
+          },
+          {
             "matcher": { "id": "byName", "options": "Revenue (TTM)" },
             "properties": [
               { "id": "unit", "value": "short" },
               { "id": "custom.axisLabel", "value": "Revenue" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Earnings (TTM)" },
+            "properties": [
+              { "id": "unit", "value": "short" },
+              { "id": "custom.axisLabel", "value": "Earnings" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Gross margin (TTM)" },
+            "properties": [
+              { "id": "unit", "value": "percent" },
+              { "id": "custom.axisLabel", "value": "Gross margin" }
             ]
           },
           {
@@ -163,6 +256,13 @@
             "properties": [
               { "id": "unit", "value": "short" },
               { "id": "custom.axisLabel", "value": "Total debt" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Debt-to-Equity" },
+            "properties": [
+              { "id": "decimals", "value": 2 },
+              { "id": "custom.axisLabel", "value": "Debt-to-Equity" }
             ]
           },
           {
@@ -197,18 +297,6 @@
           "format": "time_series",
           "rawQuery": true,
           "rawSql": "SELECT s.\"time\", s.label AS metric, s.value * (CASE WHEN s.currency IS NULL THEN 1 ELSE COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) END) AS value FROM equity_metric_series s JOIN instruments i ON i.id = s.instrument_id LEFT JOIN fx_usd_daily ff ON ff.currency = s.currency AND ff.date = s.\"time\"::date LEFT JOIN fx_usd_daily ft ON ft.currency = '$display_currency' AND ft.date = s.\"time\"::date WHERE i.symbol = '$ticker' AND s.metric = '$metric_right' AND $__timeFilter(s.\"time\") ORDER BY 1"
-        },
-        {
-          "refId": "C",
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT s.\"time\", 'Mean — ' || s.label AS metric, avg(s.value * (CASE WHEN s.currency IS NULL THEN 1 ELSE COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) END)) OVER () AS value FROM equity_metric_series s JOIN instruments i ON i.id = s.instrument_id LEFT JOIN fx_usd_daily ff ON ff.currency = s.currency AND ff.date = s.\"time\"::date LEFT JOIN fx_usd_daily ft ON ft.currency = '$display_currency' AND ft.date = s.\"time\"::date WHERE i.symbol = '$ticker' AND s.metric = '$metric_left' AND $__timeFilter(s.\"time\") ORDER BY 1"
-        },
-        {
-          "refId": "D",
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT s.\"time\", 'Mean — ' || s.label AS metric, avg(s.value * (CASE WHEN s.currency IS NULL THEN 1 ELSE COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) END)) OVER () AS value FROM equity_metric_series s JOIN instruments i ON i.id = s.instrument_id LEFT JOIN fx_usd_daily ff ON ff.currency = s.currency AND ff.date = s.\"time\"::date LEFT JOIN fx_usd_daily ft ON ft.currency = '$display_currency' AND ft.date = s.\"time\"::date WHERE i.symbol = '$ticker' AND s.metric = '$metric_right' AND $__timeFilter(s.\"time\") ORDER BY 1"
         }
       ]
     },
@@ -218,7 +306,7 @@
       "title": "P/E (TTM)",
       "description": "Daily close divided by trailing-twelve-month diluted EPS (quarterly EPS summed, Q4 derived from the 10-K). No point is drawn while TTM EPS is negative or the last report is older than ~15 months.",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 25 },
       "fieldConfig": {
         "defaults": {
           "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true },
@@ -241,67 +329,12 @@
       ]
     },
     {
-      "id": 3,
-      "type": "timeseries",
-      "title": "Revenue (TTM) — $display_currency",
-      "description": "Trailing-twelve-month revenue: one point per reported quarter end (annual filers get one point per fiscal year).",
-      "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
-      "fieldConfig": {
-        "defaults": {
-          "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true, "showPoints": "always", "pointSize": 5 },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] },
-        "tooltip": { "mode": "single", "sort": "none" }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value * (CASE WHEN s.currency IS NULL THEN 1 ELSE COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) END) AS value FROM equity_metric_series s JOIN instruments i ON i.id = s.instrument_id LEFT JOIN fx_usd_daily ff ON ff.currency = s.currency AND ff.date = s.\"time\"::date LEFT JOIN fx_usd_daily ft ON ft.currency = '$display_currency' AND ft.date = s.\"time\"::date WHERE i.symbol = '$ticker' AND s.metric = 'revenue' AND $__timeFilter(s.\"time\") ORDER BY 1"
-        }
-      ]
-    },
-    {
-      "id": 4,
-      "type": "timeseries",
-      "title": "Operating margin (TTM)",
-      "description": "TTM operating income over TTM revenue. Stands in for ROIC, which cannot be computed reliably from curated SEC facts (it needs tax and invested-capital detail that filers tag inconsistently).",
-      "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 21 },
-      "fieldConfig": {
-        "defaults": {
-          "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true, "showPoints": "always", "pointSize": 5 },
-          "unit": "percent",
-          "decimals": 1
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] },
-        "tooltip": { "mode": "single", "sort": "none" }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value FROM equity_metric_series s JOIN instruments i ON i.id = s.instrument_id WHERE i.symbol = '$ticker' AND s.metric = 'op_margin' AND $__timeFilter(s.\"time\") ORDER BY 1"
-        }
-      ]
-    },
-    {
       "id": 5,
       "type": "timeseries",
       "title": "P/FCF (TTM)",
       "description": "Market cap (daily close × latest weighted diluted shares) over TTM free cash flow (operating cash flow minus capex). No point is drawn while TTM FCF is negative; missing if the filer doesn't tag capex.",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 21 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 25 },
       "fieldConfig": {
         "defaults": {
           "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true },
@@ -324,12 +357,66 @@
       ]
     },
     {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Revenue (TTM) — $display_currency",
+      "description": "Trailing-twelve-month revenue: one point per reported quarter end (annual filers get one point per fiscal year).",
+      "datasource": { "type": "postgres", "uid": "fintracker-pg" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 33 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true, "showPoints": "always", "pointSize": 5 },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value * (CASE WHEN s.currency IS NULL THEN 1 ELSE COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) END) AS value FROM equity_metric_series s JOIN instruments i ON i.id = s.instrument_id LEFT JOIN fx_usd_daily ff ON ff.currency = s.currency AND ff.date = s.\"time\"::date LEFT JOIN fx_usd_daily ft ON ft.currency = '$display_currency' AND ft.date = s.\"time\"::date WHERE i.symbol = '$ticker' AND s.metric = 'revenue' AND $__timeFilter(s.\"time\") ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Earnings (TTM) — $display_currency",
+      "description": "Trailing-twelve-month net income: one point per reported quarter end (annual filers get one point per fiscal year).",
+      "datasource": { "type": "postgres", "uid": "fintracker-pg" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 33 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true, "showPoints": "always", "pointSize": 5 },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value * (CASE WHEN s.currency IS NULL THEN 1 ELSE COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) END) AS value FROM equity_metric_series s JOIN instruments i ON i.id = s.instrument_id LEFT JOIN fx_usd_daily ff ON ff.currency = s.currency AND ff.date = s.\"time\"::date LEFT JOIN fx_usd_daily ft ON ft.currency = '$display_currency' AND ft.date = s.\"time\"::date WHERE i.symbol = '$ticker' AND s.metric = 'earnings' AND $__timeFilter(s.\"time\") ORDER BY 1"
+        }
+      ]
+    },
+    {
       "id": 6,
       "type": "timeseries",
       "title": "Total debt — $display_currency",
       "description": "Balance-sheet debt at each report date, composed from the components the filer tags (long-term debt incl. current portion, plus short-term borrowings) without double counting.",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 29 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 41 },
       "fieldConfig": {
         "defaults": {
           "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true, "showPoints": "always", "pointSize": 5 },
@@ -351,39 +438,12 @@
       ]
     },
     {
-      "id": 8,
-      "type": "timeseries",
-      "title": "MCap — $display_currency",
-      "description": "Market capitalization: daily close × the latest reported weighted diluted share count (tracks buybacks and dilution one report late). No point is drawn when the last report is older than ~15 months.",
-      "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 29 },
-      "fieldConfig": {
-        "defaults": {
-          "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] },
-        "tooltip": { "mode": "single", "sort": "none" }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value * (CASE WHEN s.currency IS NULL THEN 1 ELSE COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) END) AS value FROM equity_metric_series s JOIN instruments i ON i.id = s.instrument_id LEFT JOIN fx_usd_daily ff ON ff.currency = s.currency AND ff.date = s.\"time\"::date LEFT JOIN fx_usd_daily ft ON ft.currency = '$display_currency' AND ft.date = s.\"time\"::date WHERE i.symbol = '$ticker' AND s.metric = 'mcap' AND $__timeFilter(s.\"time\") ORDER BY 1"
-        }
-      ]
-    },
-    {
       "id": 9,
       "type": "timeseries",
       "title": "Shares outstanding",
       "description": "Weighted diluted share count from each report (the same series MCap and P/FCF use); a falling line means buybacks, a rising one dilution.",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 37 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 41 },
       "fieldConfig": {
         "defaults": {
           "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true, "showPoints": "always", "pointSize": 5 },
@@ -410,7 +470,7 @@
       "title": "Ticker requests",
       "description": "Type a ticker in the 'Add ticker' box above and press Enter: it is queued here and the app ingests it within a minute or two (full price history, plus SEC fundamentals when the company files with EDGAR). Unknown tickers end as not_found. Rows are kept so requests never repeat; to retry one, delete its row from the ticker_requests table.",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 45 },
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 49 },
       "fieldConfig": {
         "defaults": {},
         "overrides": [

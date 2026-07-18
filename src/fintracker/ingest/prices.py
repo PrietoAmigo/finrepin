@@ -156,3 +156,7 @@ def ingest_yahoo_prices(kind: str) -> int:
 
 def ingest_equity_prices() -> int:
     return ingest_yahoo_prices("equity")
+
+
+def ingest_index_prices() -> int:
+    return ingest_yahoo_prices("index")

@@ -1,45 +1,55 @@
 {
   "uid": "fintracker-market-overview",
   "title": "Market Overview",
+  "description": "Global and European index performance (% change of the daily close, rebased to the start of the selected range), Bitcoin daily close and rainbow chart, and FX rates.",
   "tags": ["fintracker"],
   "timezone": "browser",
   "schemaVersion": 39,
   "version": 1,
   "refresh": "",
   "time": { "from": "now-5y", "to": "now" },
-  "templating": {
-    "list": [
-      {
-        "name": "display_currency",
-        "label": "Currency",
-        "type": "query",
-        "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-        "query": "SELECT DISTINCT split_part(unit, '/', 1) AS currency FROM fundamentals WHERE unit ~ '^[A-Z]{3}(/shares)?$' UNION SELECT currency FROM instruments ORDER BY 1",
-        "definition": "SELECT DISTINCT split_part(unit, '/', 1) AS currency FROM fundamentals WHERE unit ~ '^[A-Z]{3}(/shares)?$' UNION SELECT currency FROM instruments ORDER BY 1",
-        "refresh": 1,
-        "sort": 0,
-        "multi": false,
-        "includeAll": false,
-        "current": { "selected": true, "text": "USD", "value": "USD" }
-      }
+  "timepicker": {
+    "quick_ranges": [
+      { "display": "Last 24 hours", "from": "now-24h", "to": "now" },
+      { "display": "Last 2 days", "from": "now-2d", "to": "now" },
+      { "display": "Last 7 days", "from": "now-7d", "to": "now" },
+      { "display": "Last 30 days", "from": "now-30d", "to": "now" },
+      { "display": "Last 90 days", "from": "now-90d", "to": "now" },
+      { "display": "Last 6 months", "from": "now-6M", "to": "now" },
+      { "display": "Last 1 year", "from": "now-1y", "to": "now" },
+      { "display": "Last 2 years", "from": "now-2y", "to": "now" },
+      { "display": "Last 5 years", "from": "now-5y", "to": "now" },
+      { "display": "Last 10 years", "from": "now-10y", "to": "now" },
+      { "display": "Last 15 years", "from": "now-15y", "to": "now" },
+      { "display": "Yesterday", "from": "now-1d/d", "to": "now-1d/d" },
+      { "display": "Previous week", "from": "now-1w/w", "to": "now-1w/w" },
+      { "display": "Previous month", "from": "now-1M/M", "to": "now-1M/M" },
+      { "display": "Previous year", "from": "now-1y/y", "to": "now-1y/y" },
+      { "display": "Today so far", "from": "now/d", "to": "now" },
+      { "display": "This week so far", "from": "now/w", "to": "now" },
+      { "display": "This month so far", "from": "now/M", "to": "now" },
+      { "display": "This year so far", "from": "now/y", "to": "now" }
     ]
   },
+  "templating": { "list": [] },
   "panels": [
     {
       "id": 1,
       "type": "timeseries",
-      "title": "Equities — daily close ($display_currency)",
+      "title": "Global indexes — % gain/loss (daily close)",
+      "description": "One benchmark per continent (plus an emerging-markets aggregate) to keep cross-correlations low. Each series is the % change of the daily close, rebased to 0% at the first close inside the selected time range.",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 0 },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 0 },
       "fieldConfig": {
         "defaults": {
-          "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true },
-          "unit": "short"
+          "custom": { "lineWidth": 2, "fillOpacity": 0, "spanNulls": true },
+          "unit": "percent",
+          "decimals": 1
         },
         "overrides": []
       },
       "options": {
-        "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull"] },
+        "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull"], "sortBy": "Last *", "sortDesc": true },
         "tooltip": { "mode": "multi", "sort": "desc" }
       },
       "targets": [
@@ -47,25 +57,27 @@
           "refId": "A",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT p.date::timestamptz AS \"time\", i.symbol AS metric, p.close::float8 * COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) AS value FROM prices p JOIN instruments i ON i.id = p.instrument_id LEFT JOIN fx_usd_daily ff ON ff.currency = i.currency AND ff.date = p.date LEFT JOIN fx_usd_daily ft ON ft.currency = '$display_currency' AND ft.date = p.date WHERE i.kind = 'equity' AND $__timeFilter(p.date) ORDER BY 1"
+          "rawSql": "SELECT p.date::timestamptz AS \"time\", i.name AS metric, 100.0 * (p.close::float8 / first_value(p.close::float8) OVER (PARTITION BY p.instrument_id ORDER BY p.date) - 1) AS value FROM prices p JOIN instruments i ON i.id = p.instrument_id WHERE i.kind = 'index' AND i.symbol IN ('SPX', 'STOXX600', 'N225', 'ASX200', 'BOVESPA', 'EEM') AND $__timeFilter(p.date) ORDER BY 1"
         }
       ]
     },
     {
       "id": 2,
       "type": "timeseries",
-      "title": "Crypto — daily close ($display_currency)",
+      "title": "European indexes — % gain/loss (daily close)",
+      "description": "Main index of each European market, as the % change of the daily close rebased to 0% at the first close inside the selected time range. Indexes whose exchange Yahoo Finance does not cover (SASX-10, SOFIX, CROBEX, FTSE/CySE 20, MSE, MNSE10, MBI10, BET, BELEX15, SAX, SBITOP, PFTS) have no data yet and show no series.",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 9 },
+      "gridPos": { "h": 13, "w": 24, "x": 0, "y": 10 },
       "fieldConfig": {
         "defaults": {
-          "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true },
-          "unit": "short"
+          "custom": { "lineWidth": 1, "fillOpacity": 0, "spanNulls": true },
+          "unit": "percent",
+          "decimals": 1
         },
         "overrides": []
       },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] },
+        "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull"], "sortBy": "Last *", "sortDesc": true },
         "tooltip": { "mode": "multi", "sort": "desc" }
       },
       "targets": [
@@ -73,16 +85,156 @@
           "refId": "A",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT p.date::timestamptz AS \"time\", i.symbol AS metric, p.close::float8 * COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) AS value FROM prices p JOIN instruments i ON i.id = p.instrument_id LEFT JOIN fx_usd_daily ff ON ff.currency = i.currency AND ff.date = p.date LEFT JOIN fx_usd_daily ft ON ft.currency = '$display_currency' AND ft.date = p.date WHERE i.kind = 'crypto' AND $__timeFilter(p.date) ORDER BY 1"
+          "rawSql": "SELECT p.date::timestamptz AS \"time\", i.symbol AS metric, 100.0 * (p.close::float8 / first_value(p.close::float8) OVER (PARTITION BY p.instrument_id ORDER BY p.date) - 1) AS value FROM prices p JOIN instruments i ON i.id = p.instrument_id WHERE i.kind = 'index' AND i.symbol IN ('ATX', 'BEL20', 'SASX10', 'SOFIX', 'CROBEX', 'CYSE20', 'PX', 'OMXC25', 'OMXTGI', 'OMXH25', 'CAC40', 'DAX', 'ATHEX', 'BUX', 'OMXI15', 'ISEQ', 'FTSEMIB', 'OMXRGI', 'OMXVGI', 'LUXX', 'MSE', 'MNSE10', 'AEX', 'MBI10', 'OSEBX', 'WIG20', 'PSI', 'BET', 'BELEX15', 'SAX', 'SBITOP', 'IBEX35', 'OMXS30', 'SMI', 'PFTS', 'FTSE100') AND $__timeFilter(p.date) ORDER BY 1"
         }
       ]
     },
     {
       "id": 3,
       "type": "timeseries",
-      "title": "FX rates (vs USD)",
+      "title": "BTC/USD — daily close",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 9 },
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 23 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true },
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT p.date::timestamptz AS \"time\", 'BTC/USD' AS metric, p.close::float8 AS value FROM prices p JOIN instruments i ON i.id = p.instrument_id WHERE i.symbol = 'BTC' AND $__timeFilter(p.date) ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "BTC rainbow chart",
+      "description": "Bitcoin daily close (black line, log scale) inside the rainbow valuation bands from blockchaincenter.net's Bitcoin Rainbow Chart. The center line is a logarithmic regression ln(price) ~ ln(days since genesis) refitted from the full stored history on every refresh (so the bands self-calibrate as data grows, like the chart's V2 recalibration); the nine bands are equal-width steps of 0.3 in log space, colored and labeled exactly as on the website.",
+      "datasource": { "type": "postgres", "uid": "fintracker-pg" },
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 23 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 0,
+            "fillOpacity": 50,
+            "spanNulls": true,
+            "showPoints": "never",
+            "scaleDistribution": { "type": "log", "log": 10 }
+          },
+          "unit": "currencyUSD",
+          "decimals": 0
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "floor" },
+            "properties": [
+              { "id": "custom.fillOpacity", "value": 0 },
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#4472c4" } },
+              { "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": false } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Basically a Fire Sale" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#4472c4" } },
+              { "id": "custom.fillBelowTo", "value": "floor" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "BUY!" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#54989f" } },
+              { "id": "custom.fillBelowTo", "value": "Basically a Fire Sale" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Accumulate" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#63be7b" } },
+              { "id": "custom.fillBelowTo", "value": "BUY!" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Still cheap" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#b1d580" } },
+              { "id": "custom.fillBelowTo", "value": "Accumulate" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "HODL!" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#feeb84" } },
+              { "id": "custom.fillBelowTo", "value": "Still cheap" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Is this a bubble?" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#f6b45a" } },
+              { "id": "custom.fillBelowTo", "value": "HODL!" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "FOMO intensifies" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#ed7d31" } },
+              { "id": "custom.fillBelowTo", "value": "Is this a bubble?" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Sell. Seriously, SELL!" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#d64018" } },
+              { "id": "custom.fillBelowTo", "value": "FOMO intensifies" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Maximum bubble territory" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#c00200" } },
+              { "id": "custom.fillBelowTo", "value": "Sell. Seriously, SELL!" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "BTC/USD" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#000000" } },
+              { "id": "custom.lineWidth", "value": 2 },
+              { "id": "custom.fillOpacity", "value": 0 }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH btc AS (SELECT p.date, p.close::float8 AS close, (p.date - DATE '2009-01-03')::float8 AS days FROM prices p JOIN instruments i ON i.id = p.instrument_id WHERE i.symbol = 'BTC' AND p.close > 0), fit AS (SELECT regr_slope(ln(close), ln(days)) AS a, regr_intercept(ln(close), ln(days)) AS b FROM btc) SELECT b.date::timestamptz AS \"time\", exp(f.a * ln(b.days) + f.b - 0.75) AS \"floor\", exp(f.a * ln(b.days) + f.b - 0.45) AS \"Basically a Fire Sale\", exp(f.a * ln(b.days) + f.b - 0.15) AS \"BUY!\", exp(f.a * ln(b.days) + f.b + 0.15) AS \"Accumulate\", exp(f.a * ln(b.days) + f.b + 0.45) AS \"Still cheap\", exp(f.a * ln(b.days) + f.b + 0.75) AS \"HODL!\", exp(f.a * ln(b.days) + f.b + 1.05) AS \"Is this a bubble?\", exp(f.a * ln(b.days) + f.b + 1.35) AS \"FOMO intensifies\", exp(f.a * ln(b.days) + f.b + 1.65) AS \"Sell. Seriously, SELL!\", exp(f.a * ln(b.days) + f.b + 1.95) AS \"Maximum bubble territory\", b.close AS \"BTC/USD\" FROM btc b CROSS JOIN fit f WHERE $__timeFilter(b.date) ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "FX rates — daily close (vs USD)",
+      "datasource": { "type": "postgres", "uid": "fintracker-pg" },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 33 },
       "fieldConfig": {
         "defaults": {
           "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true },
@@ -100,40 +252,6 @@
           "format": "time_series",
           "rawQuery": true,
           "rawSql": "SELECT p.date::timestamptz AS \"time\", i.symbol AS metric, p.close::float8 AS value FROM prices p JOIN instruments i ON i.id = p.instrument_id WHERE i.kind = 'forex' AND $__timeFilter(p.date) ORDER BY 1"
-        }
-      ]
-    },
-    {
-      "id": 4,
-      "type": "table",
-      "title": "Latest levels",
-      "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 9, "w": 14, "x": 0, "y": 18 },
-      "fieldConfig": { "defaults": {}, "overrides": [] },
-      "options": { "showHeader": true },
-      "targets": [
-        {
-          "refId": "A",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT DISTINCT ON (i.symbol) i.symbol AS \"Symbol\", i.name AS \"Name\", i.currency AS \"Ccy\", p.date AS \"Date\", p.close::float8 AS \"Close\", p.close::float8 * COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) AS \"Close ($display_currency)\" FROM prices p JOIN instruments i ON i.id = p.instrument_id LEFT JOIN fx_usd_daily ff ON ff.currency = i.currency AND ff.date = p.date LEFT JOIN fx_usd_daily ft ON ft.currency = '$display_currency' AND ft.date = p.date ORDER BY i.symbol, p.date DESC"
-        }
-      ]
-    },
-    {
-      "id": 5,
-      "type": "table",
-      "title": "Upcoming earnings",
-      "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 9, "w": 10, "x": 14, "y": 18 },
-      "fieldConfig": { "defaults": {}, "overrides": [] },
-      "options": { "showHeader": true },
-      "targets": [
-        {
-          "refId": "A",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT i.symbol AS \"Symbol\", i.name AS \"Name\", e.earnings_date AS \"Earnings date\", e.is_estimated AS \"Estimated\" FROM earnings_dates e JOIN instruments i ON i.id = e.instrument_id WHERE e.earnings_date >= CURRENT_DATE ORDER BY e.earnings_date"
         }
       ]
     }

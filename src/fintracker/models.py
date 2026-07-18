@@ -28,14 +28,14 @@ class Base(DeclarativeBase):
 
 
 class Instrument(Base):
-    """Registry of everything we track (equities, crypto, forex)."""
+    """Registry of everything we track (equities, indexes, crypto, forex)."""
 
     __tablename__ = "instruments"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     symbol: Mapped[str] = mapped_column(String(32), unique=True)
     name: Mapped[str] = mapped_column(String(128))
-    kind: Mapped[str] = mapped_column(String(16))  # equity | crypto | forex
+    kind: Mapped[str] = mapped_column(String(16))  # equity | index | crypto | forex
     currency: Mapped[str] = mapped_column(String(8))
     # Per-source identifiers; null when a source doesn't cover the instrument.
     yahoo_symbol: Mapped[str | None] = mapped_column(String(32))

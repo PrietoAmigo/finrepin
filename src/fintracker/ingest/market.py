@@ -1,4 +1,4 @@
-"""Daily market ingest orchestrator: equities, forex, and crypto.
+"""Daily market ingest orchestrator: equities, indexes, forex, and crypto.
 
 Run one off-schedule ingest by hand with:
     python -m fintracker.ingest.market
@@ -10,7 +10,7 @@ import logging
 
 from fintracker.ingest.crypto import ingest_crypto_history, ingest_crypto_prices
 from fintracker.ingest.forex import ingest_forex_rates
-from fintracker.ingest.prices import ingest_equity_prices
+from fintracker.ingest.prices import ingest_equity_prices, ingest_index_prices
 
 log = logging.getLogger(__name__)
 
@@ -20,6 +20,7 @@ def ingest_market_data() -> None:
     totals: dict[str, int] = {}
     for name, ingestor in (
         ("equities", ingest_equity_prices),
+        ("indexes", ingest_index_prices),
         ("forex", ingest_forex_rates),
         ("crypto-history", ingest_crypto_history),
         ("crypto-spot", ingest_crypto_prices),
