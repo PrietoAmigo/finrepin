@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 
+from fintracker.ingest.coinmetrics import ingest_onchain_metrics
 from fintracker.ingest.crypto import ingest_crypto_history, ingest_crypto_prices
 from fintracker.ingest.ecb import ingest_ecb_rates
 from fintracker.ingest.forex import ingest_forex_rates
@@ -28,6 +29,7 @@ def ingest_market_data() -> None:
         ("interest-rates-ecb", ingest_ecb_rates),
         ("crypto-history", ingest_crypto_history),
         ("crypto-spot", ingest_crypto_prices),
+        ("onchain-metrics", ingest_onchain_metrics),
     ):
         try:
             totals[name] = ingestor()

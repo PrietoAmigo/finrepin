@@ -14,6 +14,9 @@ _CURRENCY_SYMBOLS = {"USD": "$", "CAD": "C$", "EUR": "€", "GBP": "£"}
 _GREEN = "#137333"
 _RED = "#a50e0e"
 _GRAY = "#5f6368"
+# Accent used to make the Stocks / Crypto / Forex section headers stand out.
+_ACCENT = "#1967d2"
+_ACCENT_BG = "#eef4fd"
 
 _KIND_HEADERS = (("equity", "Stocks"), ("crypto", "Crypto"), ("forex", "Forex"))
 
@@ -22,28 +25,33 @@ def _sym(currency: str) -> str:
     return _CURRENCY_SYMBOLS.get(currency, f"{currency} ")
 
 
-def _fmt_level(value: float, currency: str) -> str:
+def _fmt_level(value: float, currency: str, is_score: bool = False) -> str:
+    if is_score:  # unitless (e.g. MVRV Z-Score): no currency symbol
+        return f"{value:,.2f}"
     digits = 4 if abs(value) < 10 else 2
     return f"{_sym(currency)}{value:,.{digits}f}"
 
 
-def _fmt_pct(pct: float | None) -> tuple[str, str]:
-    if pct is None:
+def _fmt_move(value: float | None, is_score: bool = False) -> tuple[str, str]:
+    """Format a period move as (text, color). Percentage for prices, absolute
+    delta for a unitless score."""
+    if value is None:
         return "—", _GRAY
-    return f"{pct:+.2f}%", (_GREEN if pct >= 0 else _RED)
+    color = _GREEN if value >= 0 else _RED
+    return (f"{value:+.2f}" if is_score else f"{value:+.2f}%"), color
 
 
 def _html_price_row(row: PriceRow) -> str:
     cells = []
-    for pct in (row.week_pct, row.month_pct, row.year_pct):
-        text, color = _fmt_pct(pct)
+    for move in (row.week_pct, row.month_pct, row.year_pct):
+        text, color = _fmt_move(move, row.is_score)
         cells.append(f"<td style='padding:6px 8px;text-align:right;color:{color}'>{text}</td>")
     return (
         "<tr>"
         f"<td style='padding:6px 8px'><b>{html.escape(row.symbol)}</b>"
         f"<div style='color:{_GRAY};font-size:12px'>{html.escape(row.name)}</div></td>"
         f"<td style='padding:6px 8px;text-align:right;white-space:nowrap'>"
-        f"{_fmt_level(row.level, row.currency)}</td>" + "".join(cells) + "</tr>"
+        f"{_fmt_level(row.level, row.currency, row.is_score)}</td>" + "".join(cells) + "</tr>"
     )
 
 
@@ -84,8 +92,9 @@ def render_html(report: Report) -> str:
         if not rows:
             continue
         add(
-            f"<tr><td colspan='5' style='padding:14px 8px 4px;font-weight:600;color:{_GRAY};"
-            "font-size:12px;text-transform:uppercase;letter-spacing:.04em'>"
+            f"<tr><td colspan='5' style='padding:12px 8px;font-weight:700;color:{_ACCENT};"
+            f"background:{_ACCENT_BG};border-bottom:2px solid {_ACCENT};font-size:15px;"
+            "text-transform:uppercase;letter-spacing:.06em'>"
             f"{header}</td></tr>"
         )
         for row in rows:
@@ -126,13 +135,13 @@ def render_text(report: Report) -> str:
         rows = [r for r in report.prices if r.kind == kind]
         if not rows:
             continue
-        lines.append(f"  {header}:")
+        lines += ["", f"  === {header.upper()} ==="]
         for row in rows:
-            week, _ = _fmt_pct(row.week_pct)
-            month, _ = _fmt_pct(row.month_pct)
-            year, _ = _fmt_pct(row.year_pct)
+            week, _ = _fmt_move(row.week_pct, row.is_score)
+            month, _ = _fmt_move(row.month_pct, row.is_score)
+            year, _ = _fmt_move(row.year_pct, row.is_score)
             lines.append(
-                f"    {row.symbol:<10} {_fmt_level(row.level, row.currency):>14}  "
+                f"    {row.symbol:<12} {_fmt_level(row.level, row.currency, row.is_score):>14}  "
                 f"{report.lookback_days}d {week:>8}  1m {month:>8}  1y {year:>8}"
             )
 

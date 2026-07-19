@@ -258,11 +258,63 @@
       ]
     },
     {
+      "id": 7,
+      "type": "timeseries",
+      "title": "BTC price & MVRV Z-Score",
+      "description": "Bitcoin price (log scale, left axis) with its MVRV Z-Score (right axis) on the same chart. The Z-Score is derived in SQL as (market cap - realized cap) / stddev(market cap) over the full stored history, so it self-calibrates as data grows. Market cap and realized cap come from the Coin Metrics Community API (free, key-less). Historically a Z-Score above ~7 has marked cycle tops (red) and below ~0 cycle bottoms (green), the same reading as coinglass.com / lookintobitcoin.com.",
+      "datasource": { "type": "postgres", "uid": "fintracker-pg" },
+      "gridPos": { "h": 11, "w": 24, "x": 0, "y": 43 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 2, "fillOpacity": 0, "spanNulls": true, "showPoints": "never", "axisPlacement": "left" }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "BTC/USD" },
+            "properties": [
+              { "id": "custom.axisPlacement", "value": "left" },
+              { "id": "custom.axisLabel", "value": "BTC price (USD, log)" },
+              { "id": "custom.scaleDistribution", "value": { "type": "log", "log": 10 } },
+              { "id": "unit", "value": "currencyUSD" },
+              { "id": "decimals", "value": 0 },
+              { "id": "custom.lineWidth", "value": 1.5 },
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "MVRV Z-Score" },
+            "properties": [
+              { "id": "custom.axisPlacement", "value": "right" },
+              { "id": "custom.axisLabel", "value": "MVRV Z-Score" },
+              { "id": "unit", "value": "short" },
+              { "id": "decimals", "value": 2 },
+              { "id": "custom.lineWidth", "value": 2 },
+              { "id": "color", "value": { "mode": "thresholds" } },
+              { "id": "custom.thresholdsStyle", "value": { "mode": "dashed" } },
+              { "id": "thresholds", "value": { "mode": "absolute", "steps": [ { "value": null, "color": "green" }, { "value": 2, "color": "yellow" }, { "value": 4, "color": "orange" }, { "value": 7, "color": "red" } ] } }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH mc AS (SELECT p.date, p.close::float8 AS market_cap FROM prices p JOIN instruments i ON i.id = p.instrument_id WHERE i.symbol = 'BTC-MCAP' AND p.close > 0), rc AS (SELECT p.date, p.close::float8 AS realized_cap FROM prices p JOIN instruments i ON i.id = p.instrument_id WHERE i.symbol = 'BTC-RCAP'), px AS (SELECT p.date, p.close::float8 AS price FROM prices p JOIN instruments i ON i.id = p.instrument_id WHERE i.symbol = 'BTC'), z AS (SELECT mc.date, px.price, (mc.market_cap - rc.realized_cap) / NULLIF(stddev_pop(mc.market_cap) OVER (), 0) AS zscore FROM mc JOIN rc ON rc.date = mc.date LEFT JOIN px ON px.date = mc.date) SELECT date::timestamptz AS \"time\", price AS \"BTC/USD\", zscore AS \"MVRV Z-Score\" FROM z WHERE $__timeFilter(date) ORDER BY 1"
+        }
+      ]
+    },
+    {
       "id": 5,
       "type": "timeseries",
       "title": "FX rates — daily close (vs USD)",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 43 },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 54 },
       "fieldConfig": {
         "defaults": {
           "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true },

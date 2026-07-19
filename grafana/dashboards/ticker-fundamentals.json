@@ -141,15 +141,42 @@
       "gridPos": { "h": 12, "w": 24, "x": 0, "y": 0 },
       "fieldConfig": {
         "defaults": { "custom": {}, "unit": "short" },
-        "overrides": []
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "open" }, "properties": [ { "id": "custom.hideFrom", "value": { "legend": true, "tooltip": false, "viz": false } } ] },
+          { "matcher": { "id": "byName", "options": "high" }, "properties": [ { "id": "custom.hideFrom", "value": { "legend": true, "tooltip": false, "viz": false } } ] },
+          { "matcher": { "id": "byName", "options": "low" }, "properties": [ { "id": "custom.hideFrom", "value": { "legend": true, "tooltip": false, "viz": false } } ] },
+          { "matcher": { "id": "byName", "options": "close" }, "properties": [ { "id": "custom.hideFrom", "value": { "legend": true, "tooltip": false, "viz": false } } ] },
+          {
+            "matcher": { "id": "byName", "options": "SMA50" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#3b82f6" } },
+              { "id": "custom.axisPlacement", "value": "left" },
+              { "id": "custom.lineWidth", "value": 2 },
+              { "id": "custom.fillOpacity", "value": 0 },
+              { "id": "custom.showPoints", "value": "never" },
+              { "id": "custom.spanNulls", "value": true }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "SMA200" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#a855f7" } },
+              { "id": "custom.axisPlacement", "value": "left" },
+              { "id": "custom.lineWidth", "value": 2 },
+              { "id": "custom.fillOpacity", "value": 0 },
+              { "id": "custom.showPoints", "value": "never" },
+              { "id": "custom.spanNulls", "value": true }
+            ]
+          }
+        ]
       },
       "options": {
         "mode": "candles",
         "candleStyle": "candles",
         "colorStrategy": "open-close",
         "colors": { "up": "green", "down": "red", "flat": "gray" },
-        "includeAllFields": false,
-        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] },
+        "includeAllFields": true,
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["last", "mean"] },
         "tooltip": { "mode": "multi", "sort": "none" }
       },
       "targets": [
@@ -157,7 +184,7 @@
           "refId": "A",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH shares_w AS (SELECT instrument_id, period_end, COALESCE(LEAD(period_end) OVER w, DATE '9999-12-31') AS next_end, value FROM (SELECT DISTINCT ON (instrument_id, period_end) instrument_id, period_end, value FROM fundamentals_grouped WHERE grp = 'shares_diluted' ORDER BY instrument_id, period_end, period_days ASC) s WINDOW w AS (PARTITION BY instrument_id ORDER BY period_end)), daily AS (SELECT date_trunc('$candle_interval', p.date)::timestamptz AS bucket, p.date, COALESCE(p.open, p.close)::float8 * s.value * COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) AS o, COALESCE(p.high, p.close)::float8 * s.value * COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) AS h, COALESCE(p.low, p.close)::float8 * s.value * COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) AS l, p.close::float8 * s.value * COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) AS c FROM prices p JOIN instruments i ON i.id = p.instrument_id JOIN shares_w s ON s.instrument_id = p.instrument_id AND p.date >= s.period_end AND p.date < s.next_end AND p.date < (s.period_end + 450) LEFT JOIN fx_usd_daily ff ON ff.currency = i.currency AND ff.date = p.date LEFT JOIN fx_usd_daily ft ON ft.currency = '$display_currency' AND ft.date = p.date WHERE i.symbol = '$ticker' AND $__timeFilter(p.date)) SELECT bucket AS \"time\", (array_agg(o ORDER BY date ASC))[1] AS \"open\", max(h) AS \"high\", min(l) AS \"low\", (array_agg(c ORDER BY date DESC))[1] AS \"close\" FROM daily GROUP BY bucket ORDER BY bucket"
+          "rawSql": "WITH shares_w AS (SELECT instrument_id, period_end, COALESCE(LEAD(period_end) OVER w, DATE '9999-12-31') AS next_end, value FROM (SELECT DISTINCT ON (instrument_id, period_end) instrument_id, period_end, value FROM fundamentals_grouped WHERE grp = 'shares_diluted' ORDER BY instrument_id, period_end, period_days ASC) s WINDOW w AS (PARTITION BY instrument_id ORDER BY period_end)), daily AS (SELECT date_trunc('$candle_interval', p.date)::timestamptz AS bucket, p.date, COALESCE(p.open, p.close)::float8 * s.value * COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) AS o, COALESCE(p.high, p.close)::float8 * s.value * COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) AS h, COALESCE(p.low, p.close)::float8 * s.value * COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) AS l, p.close::float8 * s.value * COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) AS c FROM prices p JOIN instruments i ON i.id = p.instrument_id JOIN shares_w s ON s.instrument_id = p.instrument_id AND p.date >= s.period_end AND p.date < s.next_end AND p.date < (s.period_end + 450) LEFT JOIN fx_usd_daily ff ON ff.currency = i.currency AND ff.date = p.date LEFT JOIN fx_usd_daily ft ON ft.currency = '$display_currency' AND ft.date = p.date WHERE i.symbol = '$ticker'), candles AS (SELECT bucket AS t, (array_agg(o ORDER BY date ASC))[1] AS o, max(h) AS h, min(l) AS l, (array_agg(c ORDER BY date DESC))[1] AS c FROM daily GROUP BY bucket), sma AS (SELECT t, o, h, l, c, CASE WHEN count(*) OVER w50 = 50 THEN avg(c) OVER w50 END AS sma50, CASE WHEN count(*) OVER w200 = 200 THEN avg(c) OVER w200 END AS sma200 FROM candles WINDOW w50 AS (ORDER BY t ROWS BETWEEN 49 PRECEDING AND CURRENT ROW), w200 AS (ORDER BY t ROWS BETWEEN 199 PRECEDING AND CURRENT ROW)) SELECT t AS \"time\", o AS \"open\", h AS \"high\", l AS \"low\", c AS \"close\", sma50 AS \"SMA50\", sma200 AS \"SMA200\" FROM sma WHERE $__timeFilter(t) ORDER BY t"
         }
       ]
     },

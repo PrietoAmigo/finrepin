@@ -56,6 +56,21 @@ def _ecb_rate(symbol: str, name: str, currency: str, ecb_series: str) -> dict[st
     }
 
 
+def _onchain(symbol: str, name: str, coinmetrics_metric: str) -> dict[str, Any]:
+    """Compact constructor for on-chain metric rows (ingested from Coin Metrics).
+
+    The daily value (a USD figure) lands in `prices.close`, like a rate row.
+    All on-chain metrics tracked here are Bitcoin's and are denominated in USD.
+    """
+    return {
+        "symbol": symbol,
+        "name": name,
+        "kind": "onchain",
+        "currency": "USD",
+        "coinmetrics_metric": coinmetrics_metric,
+    }
+
+
 INSTRUMENTS: list[dict[str, Any]] = [
     # Equities. `taxonomy` marks names with SEC XBRL coverage (us-gaap / ifrs-full);
     # leave it None for listings that don't file with the SEC.
@@ -266,6 +281,12 @@ INSTRUMENTS: list[dict[str, Any]] = [
         "yahoo_symbol": "ETH-USD",
         "coingecko_id": "ethereum",
     },
+    # Bitcoin on-chain valuation series from the Coin Metrics Community API
+    # (free, key-less). Market cap and realized cap feed the Market Overview's
+    # BTC MVRV Z-Score panel, which derives the score in SQL as
+    # (market cap - realized cap) / stddev(market cap) over the full history.
+    _onchain("BTC-MCAP", "Bitcoin market cap", "CapMrktCurUSD"),
+    _onchain("BTC-RCAP", "Bitcoin realized cap", "CapRealUSD"),
     # Forex.
     {
         "symbol": "EUR/USD",
