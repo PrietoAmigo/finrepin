@@ -5,7 +5,7 @@
   "tags": ["fintracker"],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 3,
+  "version": 4,
   "refresh": "",
   "time": { "from": "now-5y", "to": "now" },
   "timepicker": {
@@ -271,7 +271,7 @@
         ]
       },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] },
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["lastNotNull"] },
         "tooltip": { "mode": "multi", "sort": "none" }
       },
       "targets": [
@@ -297,7 +297,7 @@
         "overrides": []
       },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] },
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["lastNotNull"] },
         "tooltip": { "mode": "multi", "sort": "desc" }
       },
       "targets": [
