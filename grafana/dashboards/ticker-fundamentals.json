@@ -5,7 +5,7 @@
   "tags": ["fintracker"],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "1m",
   "time": { "from": "now-10y", "to": "now" },
   "timepicker": {
@@ -176,7 +176,7 @@
         "colorStrategy": "open-close",
         "colors": { "up": "green", "down": "red", "flat": "gray" },
         "includeAllFields": true,
-        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["last", "mean"] },
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["lastNotNull", "mean"] },
         "tooltip": { "mode": "multi", "sort": "none" }
       },
       "targets": [
@@ -343,7 +343,7 @@
         "overrides": []
       },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] },
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["lastNotNull", "mean"] },
         "tooltip": { "mode": "single", "sort": "none" }
       },
       "targets": [
@@ -371,7 +371,7 @@
         "overrides": []
       },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] },
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["lastNotNull", "mean"] },
         "tooltip": { "mode": "single", "sort": "none" }
       },
       "targets": [
@@ -398,7 +398,7 @@
         "overrides": []
       },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] },
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["lastNotNull", "mean"] },
         "tooltip": { "mode": "single", "sort": "none" }
       },
       "targets": [
@@ -425,7 +425,7 @@
         "overrides": []
       },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] },
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["lastNotNull", "mean"] },
         "tooltip": { "mode": "single", "sort": "none" }
       },
       "targets": [
@@ -438,12 +438,66 @@
       ]
     },
     {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Gross margin (TTM)",
+      "description": "Trailing-twelve-month gross profit (revenue minus cost of goods sold) as a percentage of TTM revenue: one point per reported quarter end (annual filers get one point per fiscal year).",
+      "datasource": { "type": "postgres", "uid": "fintracker-pg" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 41 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true, "showPoints": "always", "pointSize": 5 },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["lastNotNull", "mean"] },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value FROM equity_metric_series s JOIN instruments i ON i.id = s.instrument_id WHERE i.symbol = '$ticker' AND s.metric = 'gross_margin' AND $__timeFilter(s.\"time\") ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Operating margin (TTM)",
+      "description": "Trailing-twelve-month operating income as a percentage of TTM revenue: one point per reported quarter end (annual filers get one point per fiscal year).",
+      "datasource": { "type": "postgres", "uid": "fintracker-pg" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 41 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true, "showPoints": "always", "pointSize": 5 },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["lastNotNull", "mean"] },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value FROM equity_metric_series s JOIN instruments i ON i.id = s.instrument_id WHERE i.symbol = '$ticker' AND s.metric = 'op_margin' AND $__timeFilter(s.\"time\") ORDER BY 1"
+        }
+      ]
+    },
+    {
       "id": 6,
       "type": "timeseries",
       "title": "Total debt — $display_currency",
       "description": "Balance-sheet debt at each report date, composed from the components the filer tags (long-term debt incl. current portion, plus short-term borrowings) without double counting.",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 41 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 49 },
       "fieldConfig": {
         "defaults": {
           "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true, "showPoints": "always", "pointSize": 5 },
@@ -452,7 +506,7 @@
         "overrides": []
       },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] },
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["lastNotNull", "mean"] },
         "tooltip": { "mode": "single", "sort": "none" }
       },
       "targets": [
@@ -470,7 +524,7 @@
       "title": "Shares outstanding",
       "description": "Weighted diluted share count from each report (the same series MCap and P/FCF use); a falling line means buybacks, a rising one dilution.",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 41 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 49 },
       "fieldConfig": {
         "defaults": {
           "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true, "showPoints": "always", "pointSize": 5 },
@@ -479,7 +533,7 @@
         "overrides": []
       },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] },
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["lastNotNull", "mean"] },
         "tooltip": { "mode": "single", "sort": "none" }
       },
       "targets": [
@@ -497,7 +551,7 @@
       "title": "Ticker requests",
       "description": "Type a ticker in the 'Add ticker' box above and press Enter: it is queued here and the app ingests it within a minute or two (full price history, plus SEC fundamentals when the company files with EDGAR). Unknown tickers end as not_found. Rows are kept so requests never repeat; to retry one, delete its row from the ticker_requests table.",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 49 },
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 57 },
       "fieldConfig": {
         "defaults": {},
         "overrides": [
