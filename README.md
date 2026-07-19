@@ -266,13 +266,16 @@ alembic upgrade head
   keyless API caps history at 365 days), latest spot via CoinGecko's free
   `simple/price` endpoint (no key).
 - **Bitcoin on-chain (MVRV Z-Score):** Bitcoin market cap (`CapMrktCurUSD`) and
-  realized cap (`CapRealUSD`) from the **Coin Metrics Community API** (free, no
+  the MVRV ratio (`CapMVRVCur`) from the **Coin Metrics Community API** (free, no
   key), stored as `kind='onchain'` instruments whose daily value lands in
-  `close` (like a rate). The MVRV Z-Score is not stored — the Market Overview
-  panel derives it in SQL as `(market cap − realized cap) / stddev(market cap)`
-  over the full stored history, so it self-calibrates as history grows (the same
-  approach the rainbow chart takes with its regression). Full history backfills
-  on the first run, incremental thereafter — the same state-aware path as prices.
+  `close` (like a rate). Realized cap itself (`CapRealUSD`) needs a paid key on
+  that API, but `CapMVRVCur = market cap / realized cap` is free, so realized cap
+  is recovered exactly as `market cap / MVRV`. The MVRV Z-Score is not stored —
+  the Market Overview panel derives it in SQL as `(market cap − market cap /
+  MVRV) / stddev(market cap)` over the full stored history, so it self-calibrates
+  as history grows (the same approach the rainbow chart takes with its
+  regression). Full history backfills on the first run, incremental thereafter —
+  the same state-aware path as prices.
 - **Interest rates:** one benchmark per region, from free, key-less endpoints.
   Most come from FRED (Federal Reserve Economic Data) via its `fredgraph.csv`
   download: US 10-year Treasury (`DGS10`, daily), Japan and Australia 10-year
