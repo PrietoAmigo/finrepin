@@ -5,12 +5,16 @@ at ``https://community-api.coinmetrics.io/v4/timeseries/asset-metrics`` — no A
 key required. We use it for the two inputs to Bitcoin's MVRV Z-Score:
 
 * ``CapMrktCurUSD`` — market cap (current supply x price), and
-* ``CapRealUSD``   — realized cap (each coin valued at the price it last moved).
+* ``CapMVRVCur``    — the MVRV ratio (market cap / realized cap).
+
+Realized cap itself (``CapRealUSD``) needs a paid key on this API, so we take
+the free MVRV ratio instead and recover realized cap downstream as
+``market cap / MVRV`` — exact, since the ratio is defined that way.
 
 Each daily observation is stored as a ``close`` on its instrument, exactly like
 the FRED/ECB rate paths, so the dashboard treats it identically. The MVRV
-Z-Score itself is derived in the panel SQL — ``(market cap - realized cap) /
-stddev(market cap)`` over the full stored history — so it self-calibrates as
+Z-Score itself is derived in the panel SQL — ``(market cap - market cap / MVRV)
+/ stddev(market cap)`` over the full stored history — so it self-calibrates as
 history grows (the same approach the BTC rainbow chart takes with its
 regression).
 

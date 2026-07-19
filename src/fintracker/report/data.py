@@ -55,8 +55,10 @@ _HISTORY_ROWS = 400
 
 # Bitcoin MVRV Z-Score: (market cap - realized cap) / stddev(market cap), with
 # the standard deviation taken over the full stored history (so it self-calibrates
-# as data grows, matching the Market Overview panel and lookintobitcoin.com). The
-# market cap and realized cap are the Coin Metrics on-chain instruments; the last
+# as data grows, matching the Market Overview panel and lookintobitcoin.com).
+# Realized cap is derived from the two Coin Metrics on-chain instruments as
+# market cap / MVRV ratio (CapRealUSD needs a paid key; CapMVRVCur = market cap /
+# realized cap is free, so this recovers realized cap exactly). The last
 # `_HISTORY_ROWS` rows are enough to read the latest value and the period moves.
 _MVRV_ZSCORE_SQL = text(
     """
@@ -64,14 +66,14 @@ _MVRV_ZSCORE_SQL = text(
         SELECT p.date, p.close::float8 AS market_cap
         FROM prices p JOIN instruments i ON i.id = p.instrument_id
         WHERE i.symbol = 'BTC-MCAP' AND p.close > 0
-    ), rc AS (
-        SELECT p.date, p.close::float8 AS realized_cap
+    ), mv AS (
+        SELECT p.date, p.close::float8 AS mvrv
         FROM prices p JOIN instruments i ON i.id = p.instrument_id
-        WHERE i.symbol = 'BTC-RCAP'
+        WHERE i.symbol = 'BTC-MVRV' AND p.close > 0
     ), s AS (SELECT stddev_pop(market_cap) AS sd FROM mc)
     SELECT mc.date AS date,
-           (mc.market_cap - rc.realized_cap) / NULLIF(s.sd, 0) AS zscore
-    FROM mc JOIN rc ON rc.date = mc.date CROSS JOIN s
+           (mc.market_cap - mc.market_cap / mv.mvrv) / NULLIF(s.sd, 0) AS zscore
+    FROM mc JOIN mv ON mv.date = mc.date CROSS JOIN s
     ORDER BY mc.date DESC
     LIMIT :limit
     """

@@ -235,7 +235,7 @@
       "id": 7,
       "type": "timeseries",
       "title": "BTC price & MVRV Z-Score",
-      "description": "Bitcoin price in USD (log scale, left axis) with its MVRV Z-Score (right axis) on the same chart — replaces the plain BTC/USD close, which this panel's price line already carries. The Z-Score is derived in SQL as (market cap - realized cap) / stddev(market cap) over the full stored history, so it self-calibrates as data grows. Market cap and realized cap come from the Coin Metrics Community API (free, key-less). Historically a Z-Score above ~7 has marked cycle tops (red) and below ~0 cycle bottoms (green), the same reading as coinglass.com / lookintobitcoin.com.",
+      "description": "Bitcoin price in USD (log scale, left axis) with its MVRV Z-Score (right axis) on the same chart — replaces the plain BTC/USD close, which this panel's price line already carries. The Z-Score is derived in SQL as (market cap - realized cap) / stddev(market cap) over the full stored history, so it self-calibrates as data grows. Market cap and the MVRV ratio come from the Coin Metrics Community API (free, key-less); realized cap is recovered as market cap / MVRV (CapRealUSD needs a paid key, the ratio does not). Historically a Z-Score above ~7 has marked cycle tops (red) and below ~0 cycle bottoms (green), the same reading as coinglass.com / lookintobitcoin.com.",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
       "gridPos": { "h": 10, "w": 12, "x": 0, "y": 33 },
       "fieldConfig": {
@@ -279,7 +279,7 @@
           "refId": "A",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "WITH mc AS (SELECT p.date, p.close::float8 AS market_cap FROM prices p JOIN instruments i ON i.id = p.instrument_id WHERE i.symbol = 'BTC-MCAP' AND p.close > 0), rc AS (SELECT p.date, p.close::float8 AS realized_cap FROM prices p JOIN instruments i ON i.id = p.instrument_id WHERE i.symbol = 'BTC-RCAP'), px AS (SELECT p.date, p.close::float8 AS price FROM prices p JOIN instruments i ON i.id = p.instrument_id WHERE i.symbol = 'BTC'), z AS (SELECT mc.date, px.price, (mc.market_cap - rc.realized_cap) / NULLIF(stddev_pop(mc.market_cap) OVER (), 0) AS zscore FROM mc JOIN rc ON rc.date = mc.date LEFT JOIN px ON px.date = mc.date) SELECT date::timestamptz AS \"time\", price AS \"BTC/USD\", zscore AS \"MVRV Z-Score\" FROM z WHERE $__timeFilter(date) ORDER BY 1"
+          "rawSql": "WITH mc AS (SELECT p.date, p.close::float8 AS market_cap FROM prices p JOIN instruments i ON i.id = p.instrument_id WHERE i.symbol = 'BTC-MCAP' AND p.close > 0), mv AS (SELECT p.date, p.close::float8 AS mvrv FROM prices p JOIN instruments i ON i.id = p.instrument_id WHERE i.symbol = 'BTC-MVRV' AND p.close > 0), px AS (SELECT p.date, p.close::float8 AS price FROM prices p JOIN instruments i ON i.id = p.instrument_id WHERE i.symbol = 'BTC'), z AS (SELECT mc.date, px.price, (mc.market_cap - mc.market_cap / mv.mvrv) / NULLIF(stddev_pop(mc.market_cap) OVER (), 0) AS zscore FROM mc JOIN mv ON mv.date = mc.date LEFT JOIN px ON px.date = mc.date) SELECT date::timestamptz AS \"time\", price AS \"BTC/USD\", zscore AS \"MVRV Z-Score\" FROM z WHERE $__timeFilter(date) ORDER BY 1"
         }
       ]
     },

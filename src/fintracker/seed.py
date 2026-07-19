@@ -281,12 +281,15 @@ INSTRUMENTS: list[dict[str, Any]] = [
         "yahoo_symbol": "ETH-USD",
         "coingecko_id": "ethereum",
     },
-    # Bitcoin on-chain valuation series from the Coin Metrics Community API
-    # (free, key-less). Market cap and realized cap feed the Market Overview's
-    # BTC MVRV Z-Score panel, which derives the score in SQL as
-    # (market cap - realized cap) / stddev(market cap) over the full history.
+    # Bitcoin on-chain series from the Coin Metrics Community API (free,
+    # key-less). Market cap and the MVRV ratio feed the Market Overview's BTC
+    # MVRV Z-Score panel, which derives realized cap as (market cap / MVRV) and
+    # then the score as (market cap - realized cap) / stddev(market cap) over
+    # the full history. (Realized cap itself, CapRealUSD, needs a paid key, but
+    # CapMVRVCur = market cap / realized cap is free, so the ratio recovers it
+    # exactly.)
     _onchain("BTC-MCAP", "Bitcoin market cap", "CapMrktCurUSD"),
-    _onchain("BTC-RCAP", "Bitcoin realized cap", "CapRealUSD"),
+    _onchain("BTC-MVRV", "Bitcoin MVRV ratio", "CapMVRVCur"),
     # Forex.
     {
         "symbol": "EUR/USD",
