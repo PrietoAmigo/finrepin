@@ -35,13 +35,15 @@ class Instrument(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     symbol: Mapped[str] = mapped_column(String(32), unique=True)
     name: Mapped[str] = mapped_column(String(128))
-    kind: Mapped[str] = mapped_column(String(16))  # equity | index | crypto | forex | rate
+    # equity | index | crypto | forex | rate | onchain
+    kind: Mapped[str] = mapped_column(String(16))
     currency: Mapped[str] = mapped_column(String(8))
     # Per-source identifiers; null when a source doesn't cover the instrument.
     yahoo_symbol: Mapped[str | None] = mapped_column(String(32))
     coingecko_id: Mapped[str | None] = mapped_column(String(64))
     fred_series: Mapped[str | None] = mapped_column(String(32))
     ecb_series: Mapped[str | None] = mapped_column(String(64))
+    coinmetrics_metric: Mapped[str | None] = mapped_column(String(48))
     # SEC: resolved lazily from company_tickers.json, then persisted.
     cik: Mapped[str | None] = mapped_column(String(10))
     taxonomy: Mapped[str | None] = mapped_column(String(16))  # us-gaap | ifrs-full

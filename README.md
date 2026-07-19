@@ -33,18 +33,26 @@ thing runs under Docker Compose and schedules itself — no external cron.
   are skipped.
 - **Weekly email** — HTML + plain-text report (current levels with weekly,
   monthly, and yearly moves, plus upcoming earnings) for the symbols listed
-  in `REPORT_SYMBOLS` (all instruments when unset), sent via Gmail SMTP with
-  STARTTLS. Skips gracefully if email isn't configured.
+  in `REPORT_SYMBOLS` (all instruments when unset), grouped into colour-coded
+  Stocks / Crypto / Forex sections. The Crypto section is Bitcoin-focused: the
+  BTC price and its MVRV Z-Score (shown as a unitless level with absolute
+  moves), with ETH omitted from the email (still tracked on the dashboards).
+  Sent via Gmail SMTP with STARTTLS; skips gracefully if email isn't configured.
 - **Self-scheduling** — APScheduler in the `app` container, timezone-aware
   (daily market/earnings/SEC checks, weekly email).
 - **Grafana** — provisioned Postgres datasource + a *Market Overview*
   dashboard (global and European index performance as % gain/loss of the
   daily close, benchmark interest rates — the most relevant one per region,
   from FRED — BTC/USD daily close, a BTC rainbow chart with the
-  blockchaincenter.net color bands, and FX rates) and a *Ticker Fundamentals*
+  blockchaincenter.net color bands, a combined BTC price & MVRV Z-Score panel
+  (BTC price on a log axis with the on-chain MVRV Z-Score on a second axis, its
+  green/red bands marking the historical under/overvaluation extremes), and FX
+  rates) and a *Ticker Fundamentals*
   dashboard (pick one ticker; market-cap candlesticks with a daily/weekly/
-  monthly candle selector, a dual-axis panel to compare any two metrics, and
-  10-year P/E, P/FCF, revenue, earnings, total debt, and shares outstanding —
+  monthly candle selector plus SMA-50 and SMA-200 overlay lines whose latest
+  and mean values read off a table legend, a dual-axis panel to compare any two
+  metrics, and 10-year P/E, P/FCF, revenue, earnings, total debt, and shares
+  outstanding —
   plus P/B, EV/EBITDA, EPS, gross margin, operating margin, Debt-to-Equity,
   and MCap through the metric selectors). Backed by SQL views (migrations
   0002–0008) that derive TTM series from the SEC facts. Global and European
@@ -257,6 +265,14 @@ alembic upgrade head
 - **Crypto:** daily history via Yahoo (`BTC-USD`, `ETH-USD` — CoinGecko's
   keyless API caps history at 365 days), latest spot via CoinGecko's free
   `simple/price` endpoint (no key).
+- **Bitcoin on-chain (MVRV Z-Score):** Bitcoin market cap (`CapMrktCurUSD`) and
+  realized cap (`CapRealUSD`) from the **Coin Metrics Community API** (free, no
+  key), stored as `kind='onchain'` instruments whose daily value lands in
+  `close` (like a rate). The MVRV Z-Score is not stored — the Market Overview
+  panel derives it in SQL as `(market cap − realized cap) / stddev(market cap)`
+  over the full stored history, so it self-calibrates as history grows (the same
+  approach the rainbow chart takes with its regression). Full history backfills
+  on the first run, incremental thereafter — the same state-aware path as prices.
 - **Interest rates:** one benchmark per region, from free, key-less endpoints.
   Most come from FRED (Federal Reserve Economic Data) via its `fredgraph.csv`
   download: US 10-year Treasury (`DGS10`, daily), Japan and Australia 10-year
