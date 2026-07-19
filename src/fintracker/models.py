@@ -63,10 +63,10 @@ class Price(Base):
         ForeignKey("instruments.id", ondelete="CASCADE"), index=True
     )
     date: Mapped[dt.date] = mapped_column(Date)
-    open: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
-    high: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
-    low: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
-    close: Mapped[Decimal] = mapped_column(Numeric(20, 8))
+    open: Mapped[Decimal | None] = mapped_column(Numeric(30, 8))
+    high: Mapped[Decimal | None] = mapped_column(Numeric(30, 8))
+    low: Mapped[Decimal | None] = mapped_column(Numeric(30, 8))
+    close: Mapped[Decimal] = mapped_column(Numeric(30, 8))
     volume: Mapped[int | None] = mapped_column(BigInteger)
     source: Mapped[str] = mapped_column(String(32))
 
