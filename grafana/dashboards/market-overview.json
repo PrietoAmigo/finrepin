@@ -118,32 +118,6 @@
       ]
     },
     {
-      "id": 3,
-      "type": "timeseries",
-      "title": "BTC/USD — daily close",
-      "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 33 },
-      "fieldConfig": {
-        "defaults": {
-          "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true },
-          "unit": "currencyUSD"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] },
-        "tooltip": { "mode": "single", "sort": "none" }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT p.date::timestamptz AS \"time\", 'BTC/USD' AS metric, p.close::float8 AS value FROM prices p JOIN instruments i ON i.id = p.instrument_id WHERE i.symbol = 'BTC' AND $__timeFilter(p.date) ORDER BY 1"
-        }
-      ]
-    },
-    {
       "id": 4,
       "type": "timeseries",
       "title": "BTC rainbow chart",
@@ -261,9 +235,9 @@
       "id": 7,
       "type": "timeseries",
       "title": "BTC price & MVRV Z-Score",
-      "description": "Bitcoin price (log scale, left axis) with its MVRV Z-Score (right axis) on the same chart. The Z-Score is derived in SQL as (market cap - realized cap) / stddev(market cap) over the full stored history, so it self-calibrates as data grows. Market cap and realized cap come from the Coin Metrics Community API (free, key-less). Historically a Z-Score above ~7 has marked cycle tops (red) and below ~0 cycle bottoms (green), the same reading as coinglass.com / lookintobitcoin.com.",
+      "description": "Bitcoin price in USD (log scale, left axis) with its MVRV Z-Score (right axis) on the same chart — replaces the plain BTC/USD close, which this panel's price line already carries. The Z-Score is derived in SQL as (market cap - realized cap) / stddev(market cap) over the full stored history, so it self-calibrates as data grows. Market cap and realized cap come from the Coin Metrics Community API (free, key-less). Historically a Z-Score above ~7 has marked cycle tops (red) and below ~0 cycle bottoms (green), the same reading as coinglass.com / lookintobitcoin.com.",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 11, "w": 24, "x": 0, "y": 43 },
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 33 },
       "fieldConfig": {
         "defaults": {
           "custom": { "lineWidth": 2, "fillOpacity": 0, "spanNulls": true, "showPoints": "never", "axisPlacement": "left" }
@@ -314,7 +288,7 @@
       "type": "timeseries",
       "title": "FX rates — daily close (vs USD)",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 54 },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 43 },
       "fieldConfig": {
         "defaults": {
           "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true },
