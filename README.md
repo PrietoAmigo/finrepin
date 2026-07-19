@@ -43,19 +43,19 @@ thing runs under Docker Compose and schedules itself — no external cron.
 - **Grafana** — provisioned Postgres datasource + a *Market Overview*
   dashboard (global and European index performance as % gain/loss of the
   daily close, benchmark interest rates — the most relevant one per region,
-  from FRED — BTC/USD daily close, a BTC rainbow chart with the
-  blockchaincenter.net color bands, a combined BTC price & MVRV Z-Score panel
-  (BTC price on a log axis with the on-chain MVRV Z-Score on a second axis, its
-  green/red bands marking the historical under/overvaluation extremes), and FX
-  rates) and a *Ticker Fundamentals*
-  dashboard (pick one ticker; market-cap candlesticks with a daily/weekly/
-  monthly candle selector plus SMA-50 and SMA-200 overlay lines whose latest
-  and mean values read off a table legend, a dual-axis panel to compare any two
-  metrics, and 10-year P/E, P/FCF, revenue, earnings, total debt, and shares
-  outstanding —
-  plus P/B, EV/EBITDA, EPS, gross margin, operating margin, Debt-to-Equity,
-  and MCap through the metric selectors). Backed by SQL views (migrations
-  0002–0008) that derive TTM series from the SEC facts. Global and European
+  from FRED — a BTC rainbow chart with the blockchaincenter.net color bands, a
+  combined BTC price (USD) & MVRV Z-Score panel (BTC price on a log axis with
+  the on-chain MVRV Z-Score on a second axis, its green/red bands marking the
+  historical under/overvaluation extremes; it stands in for the plain BTC/USD
+  close, whose line it already carries), and FX rates) and a *Ticker
+  Fundamentals* dashboard (pick one ticker; price candlesticks with a daily/
+  weekly/monthly candle selector plus SMA-50 and SMA-200 overlay lines that
+  share the candle axis and whose latest and mean values read off a table
+  legend, a dual-axis panel to compare any two metrics, and 10-year P/E, P/FCF,
+  revenue, earnings, total debt, and shares outstanding — plus Price, P/B,
+  EV/EBITDA, EPS, gross margin, operating margin, Debt-to-Equity, and MCap
+  through the metric selectors). Backed by SQL views (migrations 0002–0012)
+  that derive TTM series from the SEC facts. Global and European
   market indexes are seeded as `kind='index'` instruments and ingested from
   Yahoo like everything else. An *Add ticker* search box on the dashboard
   queues any new symbol: the app validates it against SEC EDGAR and Yahoo

@@ -1,7 +1,7 @@
 {
   "uid": "fintracker-ticker-fundamentals",
   "title": "Ticker Fundamentals",
-  "description": "Ten years of valuation and fundamentals for a single ticker, computed from SEC XBRL facts via the equity_metric_series view (migrations 0002-0008).",
+  "description": "Ten years of price, valuation, and fundamentals for a single ticker, computed via the equity_metric_series view (migrations 0002-0012).",
   "tags": ["fintracker"],
   "timezone": "browser",
   "schemaVersion": 39,
@@ -85,11 +85,12 @@
         "name": "metric_left",
         "label": "Left axis",
         "type": "custom",
-        "query": "P/E : pe, P/FCF : pfcf, P/B : pb, EV/EBITDA : ev_ebitda, EPS : eps, Revenue : revenue, Earnings : earnings, Gross margin : gross_margin, Operating margin : op_margin, Total debt : debt, Debt-to-Equity : de, MCap : mcap, Shares outstanding : shares",
+        "query": "Price : price, P/E : pe, P/FCF : pfcf, P/B : pb, EV/EBITDA : ev_ebitda, EPS : eps, Revenue : revenue, Earnings : earnings, Gross margin : gross_margin, Operating margin : op_margin, Total debt : debt, Debt-to-Equity : de, MCap : mcap, Shares outstanding : shares",
         "multi": false,
         "includeAll": false,
         "current": { "selected": true, "text": "P/E", "value": "pe" },
         "options": [
+          { "selected": false, "text": "Price", "value": "price" },
           { "selected": true, "text": "P/E", "value": "pe" },
           { "selected": false, "text": "P/FCF", "value": "pfcf" },
           { "selected": false, "text": "P/B", "value": "pb" },
@@ -109,11 +110,12 @@
         "name": "metric_right",
         "label": "Right axis",
         "type": "custom",
-        "query": "P/E : pe, P/FCF : pfcf, P/B : pb, EV/EBITDA : ev_ebitda, EPS : eps, Revenue : revenue, Earnings : earnings, Gross margin : gross_margin, Operating margin : op_margin, Total debt : debt, Debt-to-Equity : de, MCap : mcap, Shares outstanding : shares",
+        "query": "Price : price, P/E : pe, P/FCF : pfcf, P/B : pb, EV/EBITDA : ev_ebitda, EPS : eps, Revenue : revenue, Earnings : earnings, Gross margin : gross_margin, Operating margin : op_margin, Total debt : debt, Debt-to-Equity : de, MCap : mcap, Shares outstanding : shares",
         "multi": false,
         "includeAll": false,
         "current": { "selected": true, "text": "Revenue", "value": "revenue" },
         "options": [
+          { "selected": false, "text": "Price", "value": "price" },
           { "selected": false, "text": "P/E", "value": "pe" },
           { "selected": false, "text": "P/FCF", "value": "pfcf" },
           { "selected": false, "text": "P/B", "value": "pb" },
@@ -135,8 +137,8 @@
     {
       "id": 10,
       "type": "candlestick",
-      "title": "$ticker — Market cap ($candle_interval candles, $display_currency)",
-      "description": "Market capitalization as OHLC candles: each daily price bar times the latest reported weighted diluted share count, aggregated into the candle size chosen with the 'Candles' selector (daily / weekly / monthly).",
+      "title": "$ticker — Price ($candle_interval candles, $display_currency)",
+      "description": "Daily price as OHLC candles, converted to the selected display currency and aggregated into the candle size chosen with the 'Candles' selector (daily / weekly / monthly), with 50- and 200-period simple moving averages of the close. The SMAs share the candles' price axis (no second axis) and their latest and mean values show in the legend.",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
       "gridPos": { "h": 12, "w": 24, "x": 0, "y": 0 },
       "fieldConfig": {
@@ -150,7 +152,6 @@
             "matcher": { "id": "byName", "options": "SMA50" },
             "properties": [
               { "id": "color", "value": { "mode": "fixed", "fixedColor": "#3b82f6" } },
-              { "id": "custom.axisPlacement", "value": "left" },
               { "id": "custom.lineWidth", "value": 2 },
               { "id": "custom.fillOpacity", "value": 0 },
               { "id": "custom.showPoints", "value": "never" },
@@ -161,7 +162,6 @@
             "matcher": { "id": "byName", "options": "SMA200" },
             "properties": [
               { "id": "color", "value": { "mode": "fixed", "fixedColor": "#a855f7" } },
-              { "id": "custom.axisPlacement", "value": "left" },
               { "id": "custom.lineWidth", "value": 2 },
               { "id": "custom.fillOpacity", "value": 0 },
               { "id": "custom.showPoints", "value": "never" },
@@ -184,7 +184,7 @@
           "refId": "A",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH shares_w AS (SELECT instrument_id, period_end, COALESCE(LEAD(period_end) OVER w, DATE '9999-12-31') AS next_end, value FROM (SELECT DISTINCT ON (instrument_id, period_end) instrument_id, period_end, value FROM fundamentals_grouped WHERE grp = 'shares_diluted' ORDER BY instrument_id, period_end, period_days ASC) s WINDOW w AS (PARTITION BY instrument_id ORDER BY period_end)), daily AS (SELECT date_trunc('$candle_interval', p.date)::timestamptz AS bucket, p.date, COALESCE(p.open, p.close)::float8 * s.value * COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) AS o, COALESCE(p.high, p.close)::float8 * s.value * COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) AS h, COALESCE(p.low, p.close)::float8 * s.value * COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) AS l, p.close::float8 * s.value * COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) AS c FROM prices p JOIN instruments i ON i.id = p.instrument_id JOIN shares_w s ON s.instrument_id = p.instrument_id AND p.date >= s.period_end AND p.date < s.next_end AND p.date < (s.period_end + 450) LEFT JOIN fx_usd_daily ff ON ff.currency = i.currency AND ff.date = p.date LEFT JOIN fx_usd_daily ft ON ft.currency = '$display_currency' AND ft.date = p.date WHERE i.symbol = '$ticker'), candles AS (SELECT bucket AS t, (array_agg(o ORDER BY date ASC))[1] AS o, max(h) AS h, min(l) AS l, (array_agg(c ORDER BY date DESC))[1] AS c FROM daily GROUP BY bucket), sma AS (SELECT t, o, h, l, c, CASE WHEN count(*) OVER w50 = 50 THEN avg(c) OVER w50 END AS sma50, CASE WHEN count(*) OVER w200 = 200 THEN avg(c) OVER w200 END AS sma200 FROM candles WINDOW w50 AS (ORDER BY t ROWS BETWEEN 49 PRECEDING AND CURRENT ROW), w200 AS (ORDER BY t ROWS BETWEEN 199 PRECEDING AND CURRENT ROW)) SELECT t AS \"time\", o AS \"open\", h AS \"high\", l AS \"low\", c AS \"close\", sma50 AS \"SMA50\", sma200 AS \"SMA200\" FROM sma WHERE $__timeFilter(t) ORDER BY t"
+          "rawSql": "WITH daily AS (SELECT date_trunc('$candle_interval', p.date)::timestamptz AS bucket, p.date, COALESCE(p.open, p.close)::float8 * COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) AS o, COALESCE(p.high, p.close)::float8 * COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) AS h, COALESCE(p.low, p.close)::float8 * COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) AS l, p.close::float8 * COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) AS c FROM prices p JOIN instruments i ON i.id = p.instrument_id LEFT JOIN fx_usd_daily ff ON ff.currency = i.currency AND ff.date = p.date LEFT JOIN fx_usd_daily ft ON ft.currency = '$display_currency' AND ft.date = p.date WHERE i.symbol = '$ticker'), candles AS (SELECT bucket AS t, (array_agg(o ORDER BY date ASC))[1] AS o, max(h) AS h, min(l) AS l, (array_agg(c ORDER BY date DESC))[1] AS c FROM daily GROUP BY bucket), sma AS (SELECT t, o, h, l, c, CASE WHEN count(*) OVER w50 = 50 THEN avg(c) OVER w50 END AS sma50, CASE WHEN count(*) OVER w200 = 200 THEN avg(c) OVER w200 END AS sma200 FROM candles WINDOW w50 AS (ORDER BY t ROWS BETWEEN 49 PRECEDING AND CURRENT ROW), w200 AS (ORDER BY t ROWS BETWEEN 199 PRECEDING AND CURRENT ROW)) SELECT t AS \"time\", o AS \"open\", h AS \"high\", l AS \"low\", c AS \"close\", sma50 AS \"SMA50\", sma200 AS \"SMA200\" FROM sma WHERE $__timeFilter(t) ORDER BY t"
         }
       ]
     },
