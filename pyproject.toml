@@ -13,6 +13,8 @@ dependencies = [
     "pandas>=2.2",
     "requests>=2.32",
     "tenacity>=8.3",
+    "fastapi>=0.111",
+    "uvicorn>=0.30",
 ]
 
 [project.optional-dependencies]

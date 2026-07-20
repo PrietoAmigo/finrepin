@@ -66,6 +66,14 @@ class Settings:
     # SEC
     sec_user_agent: str
 
+    # Spain housing dashboard (INE)
+    ine_base_url: str
+    ine_ipv_table: str  # optional INE table id override; empty => auto-discover
+    housing_hour: int
+    housing_minute: int
+    housing_web_host: str
+    housing_web_port: int
+
     # Healthcheck
     heartbeat_file: str
 
@@ -111,5 +119,11 @@ def get_settings() -> Settings:
             s.strip().upper() for s in _str("REPORT_SYMBOLS").split(",") if s.strip()
         ),
         sec_user_agent=_str("SEC_USER_AGENT"),
+        ine_base_url=_str("INE_BASE_URL", "https://servicios.ine.es/wstempus/js/ES"),
+        ine_ipv_table=_str("INE_IPV_TABLE"),
+        housing_hour=_int("HOUSING_HOUR", 6),
+        housing_minute=_int("HOUSING_MINUTE", 30),
+        housing_web_host=_str("HOUSING_WEB_HOST", "0.0.0.0"),
+        housing_web_port=_int("HOUSING_WEB_PORT", 8000),
         heartbeat_file=_str("HEARTBEAT_FILE", "/tmp/fintracker-heartbeat"),
     )

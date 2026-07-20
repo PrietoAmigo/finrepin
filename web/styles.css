@@ -1,0 +1,271 @@
+/* Spain Housing Prices dashboard — palette from the data-viz reference instance.
+   Colours are defined as roles once and swapped for light/dark in one place. */
+
+:root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #898781;
+  --grid: #e1e0d9;
+  --baseline: #c3c2b7;
+  --border: rgba(11, 11, 11, 0.1);
+  --series-region: #2a78d6; /* categorical slot 1 (blue) */
+  --series-nation: #898781; /* muted reference line */
+  --accent: #2a78d6;
+  --banner-bg: #fff4d6;
+  --banner-fg: #6b5310;
+  --banner-border: #f0d488;
+  --badge-live-bg: #e2f2e2;
+  --badge-live-fg: #0b6b0b;
+  --badge-sample-bg: #fdeccf;
+  --badge-sample-fg: #8a5a0b;
+  --shadow: 0 1px 2px rgba(11, 11, 11, 0.06), 0 4px 16px rgba(11, 11, 11, 0.04);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d;
+  --surface: #1a1a19;
+  --text-primary: #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted: #898781;
+  --grid: #2c2c2a;
+  --baseline: #383835;
+  --border: rgba(255, 255, 255, 0.1);
+  --series-region: #3987e5;
+  --series-nation: #898781;
+  --accent: #3987e5;
+  --banner-bg: #2a2410;
+  --banner-fg: #e8cf88;
+  --banner-border: #4a3f18;
+  --badge-live-bg: #10300f;
+  --badge-live-fg: #6fce6f;
+  --badge-sample-bg: #33260c;
+  --badge-sample-fg: #e0a94a;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted: #898781;
+    --grid: #2c2c2a;
+    --baseline: #383835;
+    --border: rgba(255, 255, 255, 0.1);
+    --series-region: #3987e5;
+    --series-nation: #898781;
+    --accent: #3987e5;
+    --banner-bg: #2a2410;
+    --banner-fg: #e8cf88;
+    --banner-border: #4a3f18;
+    --badge-live-bg: #10300f;
+    --badge-live-fg: #6fce6f;
+    --badge-sample-bg: #33260c;
+    --badge-sample-fg: #e0a94a;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.3);
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--page);
+  color: var(--text-primary);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.app {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 20px clamp(12px, 3vw, 28px) 40px;
+}
+
+.topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.titles h1 {
+  margin: 0;
+  font-size: clamp(1.3rem, 2.4vw, 1.75rem);
+  letter-spacing: -0.01em;
+}
+.subtitle {
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+}
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.updated {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+.badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+.badge.live { background: var(--badge-live-bg); color: var(--badge-live-fg); }
+.badge.sample { background: var(--badge-sample-bg); color: var(--badge-sample-fg); }
+.theme-toggle {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+}
+.theme-toggle:hover { color: var(--text-primary); }
+
+.banner {
+  margin-top: 16px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--banner-bg);
+  color: var(--banner-fg);
+  border: 1px solid var(--banner-border);
+  font-size: 0.86rem;
+}
+
+.controls {
+  margin-top: 18px;
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+.control { display: flex; flex-direction: column; gap: 6px; min-width: 150px; }
+.control-grow { flex: 1 1 260px; }
+.control-label { font-size: 0.78rem; color: var(--text-secondary); }
+.control-label strong { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+
+select {
+  appearance: none;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--page);
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--page);
+}
+.segmented button {
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  padding: 8px 12px;
+  font: inherit;
+  cursor: pointer;
+}
+.segmented button[aria-selected="true"] {
+  background: var(--accent);
+  color: #fff;
+}
+
+input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.grid {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 18px;
+}
+@media (max-width: 880px) {
+  .grid { grid-template-columns: 1fr; }
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: 14px 16px 8px;
+  min-width: 0;
+}
+.card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.card-head h2 { margin: 0; font-size: 1rem; }
+.hint { margin: 0; color: var(--text-muted); font-size: 0.78rem; }
+.clear-btn {
+  border: 1px solid var(--border);
+  background: var(--page);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  padding: 4px 10px;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.clear-btn:hover { color: var(--text-primary); }
+
+.readout {
+  min-height: 20px;
+  margin: 6px 0 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+.readout strong { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.readout .up { color: #d03b3b; font-weight: 600; }
+.readout .down { color: var(--accent); font-weight: 600; }
+
+.chart { width: 100%; }
+.map-card .chart { height: 460px; }
+.series-card .chart { height: 400px; }
+@media (max-width: 880px) {
+  .map-card .chart { height: 400px; }
+  .series-card .chart { height: 340px; }
+}
+
+.footer {
+  margin-top: 22px;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.footer a { color: var(--accent); }
+.footer .sep { opacity: 0.5; }

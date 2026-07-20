@@ -12,6 +12,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from fintracker import heartbeat
 from fintracker.config import Settings, get_settings
+from fintracker.housing.ingest import ingest_housing
 from fintracker.ingest.earnings import ingest_earnings_dates
 from fintracker.ingest.fundamentals import ingest_fundamentals
 from fintracker.ingest.market import ingest_market_data
@@ -79,6 +80,13 @@ def build_scheduler() -> BlockingScheduler:
             "daily-yahoo-fundamentals",
             ingest_yahoo_fundamentals,
             CronTrigger(hour=settings.sec_hour, minute=settings.sec_minute, timezone=tz),
+        ),
+        (
+            # Spanish house prices from INE (quarterly data; a daily check is
+            # cheap and state-aware, so revisions self-heal within a day).
+            "daily-housing",
+            ingest_housing,
+            CronTrigger(hour=settings.housing_hour, minute=settings.housing_minute, timezone=tz),
         ),
         (
             "weekly-email",

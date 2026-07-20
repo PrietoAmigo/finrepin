@@ -7,6 +7,7 @@ import logging
 from fintracker import __version__, heartbeat
 from fintracker.config import get_settings
 from fintracker.db import wait_for_db
+from fintracker.housing.ingest import ingest_housing
 from fintracker.ingest.market import ingest_market_data
 from fintracker.migrate import run_migrations
 from fintracker.scheduler import build_scheduler
@@ -36,6 +37,11 @@ def main() -> None:
             ingest_market_data()
         except Exception:
             log.exception("Initial market ingest failed; the scheduled run will retry.")
+        log.info("RUN_ON_START=true — running one housing ingest now.")
+        try:
+            ingest_housing()
+        except Exception:
+            log.exception("Initial housing ingest failed; the scheduled run will retry.")
 
     scheduler = build_scheduler()
     log.info("Entering scheduler loop.")

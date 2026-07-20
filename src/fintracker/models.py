@@ -158,3 +158,30 @@ class EarningsDate(Base):
     updated_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+
+class HousingPrice(Base):
+    """One Spanish housing observation: a region × indicator × period value.
+
+    Region and indicator identities live in ``fintracker.housing.regions`` (a
+    static registry keyed to the map geometry), so this table just stores the
+    string keys and the value — no separate dimension tables to seed. ``period``
+    is normalised to the first day of its quarter (or month) so observations from
+    different regions align on a shared timeline.
+    """
+
+    __tablename__ = "housing_prices"
+    __table_args__ = (
+        UniqueConstraint(
+            "region_code", "indicator", "period", name="uq_housing_region_indicator_period"
+        ),
+        Index("ix_housing_indicator_period", "indicator", "period"),
+        Index("ix_housing_region_indicator", "region_code", "indicator"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    region_code: Mapped[str] = mapped_column(String(16))
+    indicator: Mapped[str] = mapped_column(String(32))
+    period: Mapped[dt.date] = mapped_column(Date)
+    value: Mapped[Decimal] = mapped_column(Numeric(14, 4))
+    source: Mapped[str] = mapped_column(String(16))
