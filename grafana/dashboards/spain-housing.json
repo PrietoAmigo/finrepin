@@ -1,0 +1,855 @@
+{
+  "uid": "spain-housing",
+  "title": "Spain Housing",
+  "description": "Spanish house prices (€/m²) and regional series from INE + Ministerio de Vivienda, by region and time.",
+  "tags": [
+    "spain",
+    "housing"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "",
+  "time": {
+    "from": "now-10y",
+    "to": "now"
+  },
+  "timepicker": {
+    "quick_ranges": [
+      {
+        "display": "Last 3 years",
+        "from": "now-3y",
+        "to": "now"
+      },
+      {
+        "display": "Last 5 years",
+        "from": "now-5y",
+        "to": "now"
+      },
+      {
+        "display": "Last 10 years",
+        "from": "now-10y",
+        "to": "now"
+      },
+      {
+        "display": "Last 20 years",
+        "from": "now-20y",
+        "to": "now"
+      }
+    ]
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "level",
+        "type": "custom",
+        "label": "Granularity",
+        "current": {
+          "text": "Province",
+          "value": "prov"
+        },
+        "query": "CCAA : ccaa, Province : prov, Municipality : muni",
+        "options": [
+          {
+            "text": "CCAA",
+            "value": "ccaa",
+            "selected": false
+          },
+          {
+            "text": "Province",
+            "value": "prov",
+            "selected": true
+          },
+          {
+            "text": "Municipality",
+            "value": "muni",
+            "selected": false
+          }
+        ],
+        "includeAll": false,
+        "multi": false
+      },
+      {
+        "name": "map_indicator",
+        "type": "query",
+        "label": "Map metric",
+        "datasource": {
+          "type": "postgres",
+          "uid": "fintracker-pg"
+        },
+        "refresh": 1,
+        "includeAll": false,
+        "multi": false,
+        "current": {
+          "text": "House price, all (€/m²)",
+          "value": "price_eur_m2"
+        },
+        "query": "SELECT name AS __text, code AS __value FROM indicators WHERE category = 'price' ORDER BY name",
+        "sort": 1
+      },
+      {
+        "name": "region",
+        "type": "query",
+        "label": "Region",
+        "datasource": {
+          "type": "postgres",
+          "uid": "fintracker-pg"
+        },
+        "refresh": 2,
+        "includeAll": false,
+        "multi": false,
+        "current": {
+          "text": "Madrid",
+          "value": "prov-28"
+        },
+        "query": "SELECT name AS __text, code AS __value FROM regions WHERE level = '$level' ORDER BY name",
+        "sort": 1
+      },
+      {
+        "name": "indicator",
+        "type": "query",
+        "label": "Extra series",
+        "datasource": {
+          "type": "postgres",
+          "uid": "fintracker-pg"
+        },
+        "refresh": 1,
+        "includeAll": false,
+        "multi": false,
+        "current": {
+          "text": "Population (persons)",
+          "value": "poblacion"
+        },
+        "query": "SELECT name AS __text, code AS __value FROM indicators ORDER BY category, name",
+        "sort": 1
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 2,
+      "type": "volkovlabs-echarts-panel",
+      "title": "$map_indicator by region — latest in range (click a region to filter)",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 12,
+        "h": 15
+      },
+      "options": {
+        "getOption": "const ctx = typeof context !== 'undefined' ? context : {};\nconst g = ctx.grafana || {};\nconst ls = (typeof locationService !== 'undefined' && locationService) || g.locationService;\nconst rv = (typeof replaceVariables !== 'undefined' && replaceVariables) || g.replaceVariables || ((s) => s);\nconst frames = (typeof data !== 'undefined' && data) || ctx.data || [];\nconst isDark = (typeof theme !== 'undefined' && theme && theme.isDark) || (g.theme && g.theme.isDark);\n\nconst level = String(rv('$level') || 'prov');\nconst mapFile = level === 'ccaa' ? 'ccaa' : 'provinces';\nconst geo = await (await fetch('/public/geo/spain-' + mapFile + '.geojson')).json();\necharts.registerMap('spain', geo);\n\nconst nameByIne = {};\ngeo.features.forEach((f) => { nameByIne[String(f.properties.ine)] = f.properties.name; });\n\nlet ine = [], rname = [], rcode = [], val = [];\nif (frames[0] && frames[0].fields) {\n  const fs = {};\n  frames[0].fields.forEach((f) => { fs[f.name] = f.values && f.values.toArray ? f.values.toArray() : f.values; });\n  ine = fs.ine_code || []; rname = fs.region_name || []; rcode = fs.region_code || []; val = fs.value || [];\n}\nconst codeByName = {};\nconst seriesData = [];\nfor (let i = 0; i < val.length; i++) {\n  const fn = nameByIne[String(ine[i])] || rname[i];\n  if (!fn) continue;\n  codeByName[fn] = rcode[i];\n  seriesData.push({ name: fn, value: Number(val[i]) });\n}\nconst nums = seriesData.map((d) => d.value).filter((v) => !isNaN(v));\nconst min = nums.length ? Math.min.apply(null, nums) : 0;\nconst max = nums.length ? Math.max.apply(null, nums) : 1;\n\nif (echartsInstance && ls) {\n  echartsInstance.off('click');\n  echartsInstance.on('click', (p) => {\n    const c = codeByName[p.name];\n    if (c) ls.partial({ 'var-region': c }, true);\n  });\n}\n\nreturn {\n  backgroundColor: 'transparent',\n  tooltip: {\n    trigger: 'item',\n    formatter: (p) => p.name + '<br/>' + (p.value == null || isNaN(p.value) ? 'no data' : Math.round(p.value).toLocaleString()),\n  },\n  visualMap: {\n    type: 'continuous', min: min, max: max, calculable: true, left: 'left', bottom: 24,\n    inRange: { color: ['#cde2fb', '#6da7ec', '#3987e5', '#256abf', '#0d366b'] },\n    textStyle: { color: isDark ? '#c3c2b7' : '#52514e' },\n  },\n  series: [{\n    type: 'map', map: 'spain', roam: true, nameProperty: 'name',\n    label: { show: false }, emphasis: { label: { show: true }, itemStyle: { areaColor: '#eda100' } },\n    itemStyle: { borderColor: isDark ? '#1a1a19' : '#ffffff', borderWidth: 0.5, areaColor: isDark ? '#2a2a28' : '#ecebe6' },\n    data: seriesData,\n  }],\n};",
+        "renderer": "canvas",
+        "theme": "default",
+        "followTheme": true,
+        "editor": {
+          "height": 600,
+          "format": "auto"
+        },
+        "visualEditor": {
+          "code": "",
+          "dataset": [],
+          "series": []
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT DISTINCT ON (region_code) ine_code, region_name, region_code, value\nFROM v_region_series\nWHERE indicator = '$map_indicator'\n  AND level = CASE WHEN '$level' = 'ccaa' THEN 'ccaa' ELSE 'prov' END\n  AND $__timeFilter(period)\nORDER BY region_code, period DESC",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Price €/m² · $region",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period AS \"time\", value\nFROM v_region_series\nWHERE region_code = '$region' AND indicator = '$map_indicator'\n  AND $__timeFilter(period)\nORDER BY period",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Price YoY · $region",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 1,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "orange"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "orange",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period AS \"time\", yoy_pct AS value\nFROM v_region_yoy\nWHERE region_code = '$region' AND indicator = '$map_indicator'\n  AND $__timeFilter(period)\nORDER BY period",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Population · $region",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 6,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period AS \"time\", value\nFROM v_region_series\nWHERE region_code = '$region' AND indicator = 'poblacion'\n  AND $__timeFilter(period)\nORDER BY period",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Income/person · $region",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 6,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "purple"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "purple",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period AS \"time\", value\nFROM v_region_series\nWHERE region_code = '$region' AND indicator = 'renta_persona'\n  AND $__timeFilter(period)\nORDER BY period",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "Density inhab/km² · $region",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 11,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "red"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period AS \"time\", value\nFROM v_region_series\nWHERE region_code = '$region' AND indicator = 'densidad'\n  AND $__timeFilter(period)\nORDER BY period",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "Dwellings · $region",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 11,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period AS \"time\", value\nFROM v_region_series\nWHERE region_code = '$region' AND indicator = 'viviendas_total'\n  AND $__timeFilter(period)\nORDER BY period",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "type": "row",
+      "title": "Selected region: $region",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "House price €/m² (all / new / second-hand)",
+      "description": "€/m²",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 17,
+        "w": 12,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisLabel": ""
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period AS \"time\", indicator_name AS metric, value\nFROM v_region_series\nWHERE region_code = '$region'\n  AND indicator IN ('price_eur_m2','price_eur_m2_new','price_eur_m2_used')\n  AND $__timeFilter(period)\nORDER BY period",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Price year-on-year % change",
+      "description": "",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 17,
+        "w": 12,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisLabel": ""
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period AS \"time\", indicator_name AS metric, yoy_pct AS value\nFROM v_region_yoy y\nJOIN indicators i ON i.code = y.indicator\nWHERE region_code = '$region'\n  AND y.indicator IN ('price_eur_m2','price_eur_m2_new','price_eur_m2_used')\n  AND $__timeFilter(period)\nORDER BY period",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Population",
+      "description": "",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 26,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisLabel": ""
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period AS \"time\", value\nFROM v_region_series\nWHERE region_code = '$region' AND indicator = 'poblacion'\n  AND $__timeFilter(period)\nORDER BY period",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Net income per person (€)",
+      "description": "",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 26,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisLabel": ""
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period AS \"time\", value\nFROM v_region_series\nWHERE region_code = '$region' AND indicator = 'renta_persona'\n  AND $__timeFilter(period)\nORDER BY period",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Selected indicator: $indicator",
+      "description": "",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 26,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisLabel": ""
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period AS \"time\", value\nFROM v_region_series\nWHERE region_code = '$region' AND indicator = '$indicator'\n  AND $__timeFilter(period)\nORDER BY period",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "table",
+      "title": "All indicators — latest ($region)",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 34,
+        "w": 24,
+        "h": 10
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT DISTINCT ON (indicator) indicator_name AS \"Indicator\", category AS \"Category\",\n       round(value, 2) AS \"Value\", unit AS \"Unit\", source AS \"Source\", period AS \"As of\"\nFROM v_region_series\nWHERE region_code = '$region' AND $__timeFilter(period)\nORDER BY indicator, period DESC",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-"""Offline unit tests for the Spain housing dashboard (no network, no DB)."""
+"""Offline unit tests for the Spain housing pipeline (no network, no DB)."""
 
 from __future__ import annotations
 
@@ -6,216 +6,186 @@ import datetime as dt
 import json
 from pathlib import Path
 
-from fintracker.housing.dataset import assemble_dataset
-from fintracker.housing.ingest import (
-    choose_ccaa_table,
-    classify_series,
+import pandas as pd
+
+from fintracker.housing.indicators import INDICATORS_BY_CODE
+from fintracker.housing.ingest_ine import (
+    IneSpec,
+    choose_table,
     parse_table,
-    rows_from_data,
+    rows_from_series,
+    series_matches,
+    series_region,
 )
+from fintracker.housing.ingest_mivau import MivauSpec, parse_period, rows_from_frame
 from fintracker.housing.regions import (
-    REGIONS,
-    REGIONS_BY_CODE,
+    all_regions,
+    region_code_from_ine_code,
     region_code_from_ine_name,
+    regions_at,
+    regions_by_code,
 )
-from fintracker.housing.sample import build_sample_dataset
+from fintracker.housing.sample import build_sample_observations
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _ms(year: int, month: int, day: int) -> int:
-    """Epoch milliseconds (UTC) for an INE ``Fecha`` value."""
     return int(dt.datetime(year, month, day, tzinfo=dt.UTC).timestamp() * 1000)
 
 
-def _series(geo: str, geo_var: str, component: str, metric: str, data: list) -> dict:
+def _series(labels: list[str], data: list) -> dict:
     return {
-        "Nombre": f"Índice de Precios de Vivienda. {geo}. {component}. {metric}.",
-        "MetaData": [
-            {"Nombre": geo, "Variable": {"Nombre": geo_var}},
-            {"Nombre": component, "Variable": {"Nombre": "General y componentes"}},
-            {"Nombre": metric, "Variable": {"Nombre": "Índices y tasas de variación"}},
-        ],
+        "Nombre": ". ".join(labels) + ".",
+        "MetaData": [{"Nombre": label} for label in labels],
         "Data": data,
     }
 
 
-# --- region name matching ----------------------------------------------------
+# --- region hierarchy --------------------------------------------------------
 
 
-def test_region_code_from_ine_name_maps_all_communities() -> None:
-    # INE uses inverted/variant names; every one must resolve to its CCAA code.
-    cases = {
-        "Total Nacional": "es",
-        "Nacional": "es",
-        "Andalucía": "ccaa-01",
-        "Aragón": "ccaa-02",
-        "Asturias, Principado de": "ccaa-03",
-        "Balears, Illes": "ccaa-04",
-        "Canarias": "ccaa-05",
-        "Cantabria": "ccaa-06",
-        "Castilla y León": "ccaa-07",
-        "Castilla - La Mancha": "ccaa-08",
-        "Cataluña": "ccaa-09",
-        "Comunitat Valenciana": "ccaa-10",
-        "Extremadura": "ccaa-11",
-        "Galicia": "ccaa-12",
-        "Madrid, Comunidad de": "ccaa-13",
-        "Murcia, Región de": "ccaa-14",
-        "Navarra, Comunidad Foral de": "ccaa-15",
-        "País Vasco": "ccaa-16",
-        "Rioja, La": "ccaa-17",
-        "Ceuta": "ccaa-18",
-        "Melilla": "ccaa-19",
-    }
-    for name, code in cases.items():
-        assert region_code_from_ine_name(name) == code, name
-
-
-def test_castilla_variants_are_not_confused() -> None:
-    assert region_code_from_ine_name("Castilla y León") == "ccaa-07"
-    assert region_code_from_ine_name("Castilla-La Mancha") == "ccaa-08"
-
-
-def test_operation_title_does_not_match_a_region() -> None:
-    # "nacionales por comunidades autónomas" must NOT be read as the nation.
-    assert region_code_from_ine_name("Índices nacionales por comunidades autónomas") is None
-
-
-# --- series classification ---------------------------------------------------
-
-
-def test_classify_series_components_and_nation() -> None:
-    nacional = _series(
-        "Total Nacional", "Comunidades y Ciudades Autónomas", "General", "Índice", []
-    )
-    assert classify_series(nacional) == ("es", "ipv_general")
-
-    madrid_new = _series(
-        "Madrid, Comunidad de", "Comunidades y Ciudades Autónomas", "Vivienda nueva", "Índice", []
-    )
-    assert classify_series(madrid_new) == ("ccaa-13", "ipv_new")
-
-    cat_resale = _series(
-        "Cataluña", "Comunidades y Ciudades Autónomas", "Vivienda de segunda mano", "Índice", []
-    )
-    assert classify_series(cat_resale) == ("ccaa-09", "ipv_secondhand")
-
-
-def test_classify_series_skips_variation() -> None:
-    variation = _series(
-        "Andalucía", "Comunidades y Ciudades Autónomas", "General", "Variación anual", []
-    )
-    assert classify_series(variation) is None
-
-
-def test_classify_series_skips_unknown_component() -> None:
-    # A geographic total with no recognised component is not stored.
-    weird = _series("Andalucía", "Comunidades y Ciudades Autónomas", "Otros", "Índice", [])
-    assert classify_series(weird) is None
-
-
-# --- data extraction ---------------------------------------------------------
-
-
-def test_rows_from_data_normalises_to_quarter_start() -> None:
-    data = [
-        {"Fecha": _ms(2024, 2, 15), "Valor": 176.7},  # mid-Q1 -> 2024-01-01
-        {"Fecha": _ms(2024, 5, 1), "Valor": 179.2},  # Q2 -> 2024-04-01
-        {"Fecha": _ms(2024, 6, 30), "Valor": None},  # dropped
-    ]
-    rows = rows_from_data(data)
-    assert rows == [(dt.date(2024, 1, 1), 176.7), (dt.date(2024, 4, 1), 179.2)]
-
-
-def test_parse_table_flattens_and_filters() -> None:
-    table = [
-        _series(
-            "Total Nacional", "Comunidades y Ciudades Autónomas", "General", "Índice",
-            [{"Fecha": _ms(2024, 1, 1), "Valor": 176.7}],
-        ),
-        _series(
-            "Andalucía", "Comunidades y Ciudades Autónomas", "General", "Índice",
-            [{"Fecha": _ms(2024, 1, 1), "Valor": 150.0}],
-        ),
-        _series(
-            "Andalucía", "Comunidades y Ciudades Autónomas", "General", "Variación anual",
-            [{"Fecha": _ms(2024, 1, 1), "Valor": 4.2}],
-        ),
-    ]
-    rows = parse_table(table)
-    assert ("es", "ipv_general", dt.date(2024, 1, 1), 176.7) in rows
-    assert ("ccaa-01", "ipv_general", dt.date(2024, 1, 1), 150.0) in rows
-    assert len(rows) == 2  # the variation series is excluded
-
-
-# --- table discovery ---------------------------------------------------------
-
-
-def test_choose_ccaa_table_prefers_community_components_table() -> None:
-    tables = [
-        {"Id": 100, "Nombre": "Índices nacionales: general y componentes"},
-        {"Id": 200, "Nombre": "Índices por comunidades autónomas: general y componentes"},
-        {"Id": 300, "Nombre": "Índices por comunidades autónomas y grupos"},
-    ]
-    assert choose_ccaa_table(tables) == "200"
-
-
-def test_choose_ccaa_table_returns_none_without_match() -> None:
-    assert choose_ccaa_table([{"Id": 1, "Nombre": "Índices nacionales por grupos"}]) is None
-
-
-# --- dataset shaping ---------------------------------------------------------
-
-
-def test_assemble_dataset_aligns_series_to_periods() -> None:
-    obs = [
-        ("ipv_general", "es", dt.date(2024, 1, 1), 100.0),
-        ("ipv_general", "es", dt.date(2024, 4, 1), 101.0),
-        ("ipv_general", "ccaa-13", dt.date(2024, 4, 1), 200.0),  # missing Q1
-    ]
-    ds = assemble_dataset(obs, mode="live", note="x")
-    assert ds["periods"]["ipv_general"] == ["2024-01-01", "2024-04-01"]
-    assert ds["series"]["ipv_general"]["es"] == [100.0, 101.0]
-    assert ds["series"]["ipv_general"]["ccaa-13"] == [None, 200.0]  # gap padded
-    assert ds["updated_at"] == "2024-04-01"
-    assert ds["levels"] == ["ccaa"]
-
-
-def test_sample_dataset_is_complete_and_well_formed() -> None:
-    ds = build_sample_dataset()
-    assert ds["mode"] == "sample"
-    assert [i["code"] for i in ds["indicators"]] == ["ipv_general", "ipv_new", "ipv_secondhand"]
-    assert len(ds["regions"]["ccaa"]) == 19
-    for indicator in ("ipv_general", "ipv_new", "ipv_secondhand"):
-        periods = ds["periods"][indicator]
-        assert periods == sorted(periods)
-        for values in ds["series"][indicator].values():
-            assert len(values) == len(periods)
-            assert all(v is not None for v in values)  # sample is fully populated
-
-
-# --- map-join invariant ------------------------------------------------------
-
-
-def test_registry_names_match_geojson_features() -> None:
-    """Every CCAA in the registry must have a same-named GeoJSON polygon.
-
-    This is the join the front-end relies on (ECharts matches map data to
-    features by name), so it must never drift.
-    """
-    geo = json.loads((REPO_ROOT / "web" / "geo" / "spain-ccaa.geojson").read_text("utf-8"))
-    feature_names = {f["properties"]["name"] for f in geo["features"]}
-    feature_codes = {f["properties"]["code"] for f in geo["features"]}
-
-    ccaa = [r for r in REGIONS if r.level == "ccaa"]
-    assert len(ccaa) == len(feature_names) == 19
-    for region in ccaa:
-        assert region.name in feature_names, region.name
-        assert region.code in feature_codes, region.code
-
-
-def test_region_parents_are_valid() -> None:
-    for region in REGIONS:
+def test_hierarchy_counts_and_parents() -> None:
+    assert len(regions_at("nation")) == 1
+    assert len(regions_at("ccaa")) == 19
+    assert len(regions_at("prov")) == 52
+    assert len(regions_at("muni")) == 8131
+    by_code = regions_by_code()
+    for region in all_regions():
         if region.parent is not None:
-            assert region.parent in REGIONS_BY_CODE, region.code
+            assert region.parent in by_code, region.code
+
+
+def test_municipality_parent_is_its_province() -> None:
+    madrid = regions_by_code()["muni-28079"]
+    assert madrid.name == "Madrid"
+    assert madrid.parent == "prov-28"
+    assert regions_by_code()["prov-28"].parent == "ccaa-13"
+
+
+def test_region_code_from_ine_name_ccaa_and_province() -> None:
+    assert region_code_from_ine_name("Total Nacional", "ccaa") == "es"
+    assert region_code_from_ine_name("Madrid, Comunidad de", "ccaa") == "ccaa-13"
+    assert region_code_from_ine_name("Castilla - La Mancha", "ccaa") == "ccaa-08"
+    # province index handles inverted / bilingual forms
+    assert region_code_from_ine_name("Madrid", "prov") == "prov-28"
+    assert region_code_from_ine_name("Coruña, A", "prov") == "prov-15"
+    assert region_code_from_ine_name("Alacant/Alicante", "prov") == "prov-03"
+
+
+def test_region_code_from_ine_code_municipality() -> None:
+    assert region_code_from_ine_code("28079", "muni") == "muni-28079"
+    assert region_code_from_ine_code("13", "ccaa") == "ccaa-13"
+    assert region_code_from_ine_code("99999", "muni") is None  # not a real muni
+
+
+def test_registry_names_match_geojson() -> None:
+    for level, fname in (("ccaa", "spain-ccaa.geojson"), ("prov", "spain-provinces.geojson")):
+        geo = json.loads((REPO_ROOT / "grafana" / "geo" / fname).read_text("utf-8"))
+        feature_ine = {f["properties"]["ine"]: f["properties"]["name"] for f in geo["features"]}
+        for region in regions_at(level):
+            assert region.ine in feature_ine, region.code
+            assert region.name == feature_ine[region.ine], region.code
+
+
+# --- INE ingest parsing ------------------------------------------------------
+
+
+def test_choose_table_matches_keywords_and_excludes() -> None:
+    spec = IneSpec("poblacion", "EPOB", ("poblacion", "provincia"), "prov", "A")
+    tables = [
+        {"Id": 1, "Nombre": "Población por comunidades autónomas"},
+        {"Id": 2, "Nombre": "Población por provincias y grupos de edad"},
+        {"Id": 3, "Nombre": "Población por provincias y sexo"},
+    ]
+    assert choose_table(tables, spec) == "3"  # 2 excluded by "grupo"
+
+
+def test_series_region_by_name_and_code() -> None:
+    prov = _series(["Cifras de población", "Madrid", "Total"], [])
+    assert series_region(prov, "prov") == "prov-28"
+    muni = _series(["Renta media por persona", "28079 Madrid"], [])
+    assert series_region(muni, "muni") == "muni-28079"
+
+
+def test_series_matches_filters_and_skips_variation() -> None:
+    spec = IneSpec("poblacion", "EPOB", (), "prov", "A", value_filters=("total",))
+    assert series_matches(_series(["Madrid", "Total"], []), spec) is True
+    assert series_matches(_series(["Madrid", "Hombres"], []), spec) is False  # no "total"
+    var = IneSpec("x", "Y", (), "prov", "A")
+    assert series_matches(_series(["Madrid", "Variación anual"], []), var) is False
+
+
+def test_rows_from_series_normalises_period() -> None:
+    series = _series(["x"], [
+        {"Fecha": _ms(2022, 6, 15), "Valor": 10.0},  # annual -> 2022-01-01
+        {"Fecha": _ms(2023, 1, 1), "Valor": 12.0},
+        {"Fecha": _ms(2023, 3, 1), "Valor": None},   # dropped
+    ])
+    assert rows_from_series(series, "A") == [
+        (dt.date(2022, 1, 1), 10.0),
+        (dt.date(2023, 1, 1), 12.0),
+    ]
+    q = _series(["x"], [{"Fecha": _ms(2024, 5, 1), "Valor": 5.0}])
+    assert rows_from_series(q, "Q") == [(dt.date(2024, 4, 1), 5.0)]
+
+
+def test_parse_table_end_to_end() -> None:
+    spec = IneSpec("poblacion", "EPOB", (), "prov", "A", value_filters=("total",))
+    table = [
+        _series(["Madrid", "Total"], [{"Fecha": _ms(2023, 1, 1), "Valor": 6700000.0}]),
+        _series(["Barcelona", "Total"], [{"Fecha": _ms(2023, 1, 1), "Valor": 5700000.0}]),
+        _series(["Madrid", "Variación"], [{"Fecha": _ms(2023, 1, 1), "Valor": 1.2}]),  # skipped
+    ]
+    rows = parse_table(table, spec)
+    assert ("prov-28", dt.date(2023, 1, 1), 6700000.0) in rows
+    assert ("prov-08", dt.date(2023, 1, 1), 5700000.0) in rows
+    assert len(rows) == 2
+
+
+# --- MIVAU spreadsheet parsing -----------------------------------------------
+
+
+def test_parse_period_formats() -> None:
+    assert parse_period("2024T1") == dt.date(2024, 1, 1)
+    assert parse_period("2024T4") == dt.date(2024, 10, 1)
+    assert parse_period("3T2023") == dt.date(2023, 7, 1)
+    assert parse_period("2020") == dt.date(2020, 1, 1)
+    assert parse_period("Provincia") is None
+
+
+def test_rows_from_frame_wide_table() -> None:
+    frame = pd.DataFrame(
+        {
+            "Provincia": ["Madrid", "Barcelona", "NoSuchPlace"],
+            "2023T4": [3200.0, 2600.0, 1.0],
+            "2024T1": [3300.0, None, 2.0],
+        }
+    )
+    rows = rows_from_frame(frame, "prov")
+    assert ("prov-28", dt.date(2023, 10, 1), 3200.0) in rows
+    assert ("prov-28", dt.date(2024, 1, 1), 3300.0) in rows
+    assert ("prov-08", dt.date(2023, 10, 1), 2600.0) in rows
+    # NaN cell dropped; unknown region dropped
+    assert all(r[0] in ("prov-28", "prov-08") for r in rows)
+
+
+def test_mivau_spec_defaults() -> None:
+    spec = MivauSpec("price_eur_m2", "MIVAU_PRICE_URL", "prov")
+    assert spec.sheet == 0 and spec.header_row == 0
+
+
+# --- sample data -------------------------------------------------------------
+
+
+def test_sample_observations_cover_indicators() -> None:
+    obs = build_sample_observations()
+    indicators = {o[1] for o in obs}
+    for code in ("price_eur_m2", "price_eur_m2_new", "poblacion", "renta_persona", "densidad"):
+        assert code in indicators, code
+        assert code in INDICATORS_BY_CODE
+    # every sampled value is a finite number
+    assert all(isinstance(o[3], float) for o in obs)
+    # provinces are covered (map default level)
+    prov_codes = {o[0] for o in obs if o[0].startswith("prov-")}
+    assert len(prov_codes) == 52

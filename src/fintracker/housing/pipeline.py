@@ -1,0 +1,39 @@
+"""Housing ingest orchestrator: INE regional series + MIVAU house prices.
+
+Run one off-schedule ingest by hand with:
+    python -m fintracker.housing.pipeline
+"""
+
+from __future__ import annotations
+
+import logging
+
+from fintracker.housing.ingest_ine import ingest_ine
+from fintracker.housing.ingest_mivau import ingest_mivau
+
+log = logging.getLogger(__name__)
+
+
+def ingest_housing() -> None:
+    """Run all housing ingestors; one source failing must not stop the others."""
+    totals: dict[str, int] = {}
+    for name, ingestor in (("ine", ingest_ine), ("mivau", ingest_mivau)):
+        try:
+            totals[name] = ingestor()
+        except Exception:
+            log.exception("Housing ingest step %r failed", name)
+            totals[name] = 0
+    log.info(
+        "Housing ingest done: %s",
+        ", ".join(f"{name}={count} rows" for name, count in totals.items()),
+    )
+
+
+if __name__ == "__main__":
+    from fintracker.config import get_settings
+
+    logging.basicConfig(
+        level=get_settings().log_level,
+        format="%(asctime)s %(levelname)-7s %(name)s: %(message)s",
+    )
+    ingest_housing()

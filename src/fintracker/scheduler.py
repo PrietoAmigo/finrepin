@@ -12,7 +12,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from fintracker import heartbeat
 from fintracker.config import Settings, get_settings
-from fintracker.housing.ingest import ingest_housing
+from fintracker.housing.pipeline import ingest_housing
 from fintracker.ingest.earnings import ingest_earnings_dates
 from fintracker.ingest.fundamentals import ingest_fundamentals
 from fintracker.ingest.market import ingest_market_data

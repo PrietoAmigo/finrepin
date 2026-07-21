@@ -42,45 +42,6 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # Interactive Spain housing dashboard (choropleth map linked to a time
-  # series). Reuses the app image; serves the static page + /api/dataset.
-  housing:
-    build:
-      context: .
-    restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
-    command: ["python", "-m", "fintracker.webapp"]
-    env_file:
-      - .env
-    environment:
-      DB_HOST: db
-      DB_PORT: "5432"
-      DB_NAME: ${POSTGRES_DB}
-      DB_USER: ${POSTGRES_USER}
-      DB_PASSWORD: ${POSTGRES_PASSWORD}
-      HOUSING_WEB_PORT: "8000"
-    ports:
-      - "3008:8000"
-    # Override the app image's heartbeat healthcheck: this service is a web
-    # server, so probe the HTTP endpoint instead.
-    healthcheck:
-      test:
-        - CMD
-        - python
-        - -c
-        - import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz').status==200 else 1)
-      interval: 30s
-      timeout: 5s
-      start_period: 20s
-      retries: 3
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-
   grafana:
     # 11.6+ is needed for the custom time-picker quick ranges the dashboards
     # define (timepicker.quick_ranges in the dashboard JSON).
@@ -99,6 +60,9 @@ services:
       # ("Latest from the blog") panel.
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/market-overview.json
       GF_NEWS_NEWS_FEED_ENABLED: "false"
+      # The Spain Housing dashboard's filled choropleth uses the Business Charts
+      # (Apache ECharts) panel; Grafana installs it from the catalog on startup.
+      GF_INSTALL_PLUGINS: volkovlabs-echarts-panel
       # Consumed by the provisioned datasource (grafana/provisioning/datasources).
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -107,6 +71,9 @@ services:
       - grafana-storage:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      # Serve the Spain GeoJSON from Grafana itself (/public/geo/...), so the
+      # ECharts choropleth fetches map geometry same-origin (no external host).
+      - ./grafana/geo:/usr/share/grafana/public/geo:ro
     logging:
       driver: json-file
       options:

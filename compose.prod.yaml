@@ -20,11 +20,6 @@ services:
     image: ghcr.io/prietoamigo/finrepin:latest
     pull_policy: always
 
-  # Same published image as `app`, different command (set in compose.yaml).
-  housing:
-    image: ghcr.io/prietoamigo/finrepin:latest
-    pull_policy: always
-
 # Pin the project network's MTU. The server's egress interface is 1500, but the
 # real path to some external hosts (e.g. fred.stlouisfed.org) is smaller, and
 # PMTUD doesn't reach NAT'd containers — so a container's TLS handshake succeeds
