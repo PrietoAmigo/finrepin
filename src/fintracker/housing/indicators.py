@@ -45,6 +45,10 @@ INDICATORS: list[Indicator] = [
     Indicator("densidad", "Population density (inhab/km²)", "inhab_km2", "derived", "A",
               "demographic"),
     # --- INE: housing stock (Censo de Población y Viviendas) -------------------
+    # ⚠️ No live IneSpec exists yet for the censo series below (or for
+    # superficie_km2 above): they carry sample data only until a table id and
+    # value filters are added to ingest_ine.INE_SPECS. densidad follows suit —
+    # it is only derived once poblacion AND superficie_km2 have live rows.
     Indicator("viviendas_total", "Dwellings (total)", "count", "INE", "A", "housing"),
     Indicator("viviendas_principales", "Main-residence dwellings", "count", "INE", "A", "housing"),
     Indicator("superficie_media_m2", "Mean dwelling floor area (m²)", "m2", "INE", "A", "housing"),

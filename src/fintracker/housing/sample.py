@@ -12,9 +12,7 @@ import datetime as dt
 import math
 
 from fintracker.housing.regions import all_regions, regions_at
-
-# One sample observation: (region_code, indicator, period, value).
-Observation = tuple[str, str, dt.date, float]
+from fintracker.housing.store import Observation
 
 SOURCE = "sample"
 
@@ -64,7 +62,12 @@ def _factor(code: str, lo: float, hi: float) -> float:
 
 
 def _interp(anchors: dict[int, float], period: dt.date) -> float:
-    lo = anchors.get(period.year, anchors[min(anchors)])
+    """Linear interpolation between yearly anchors, clamped at both ends."""
+    if period.year < min(anchors):
+        return anchors[min(anchors)]
+    if period.year > max(anchors):
+        return anchors[max(anchors)]
+    lo = anchors[period.year]
     hi = anchors.get(period.year + 1, lo)
     return lo + (hi - lo) * ((period.month - 1) / 12.0)
 
