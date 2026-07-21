@@ -268,6 +268,61 @@ finishing. Deploy logs: `journalctl -u finrepin-deploy.service`.
   `app`'s image to a `sha-...` tag in `compose.prod.yaml`, and `up -d`
   manually while you investigate.
 
+## Manual operations
+
+Two things you occasionally want to force by hand, on the server. They are
+independent: updating the containers pulls new **code/images**; refreshing the
+data re-runs the **ingests** against the running containers.
+
+### Update the containers manually
+
+The `finrepin-deploy.timer` does this every 5 minutes; to force it now, run the
+deploy script (idempotent — the same steps the timer runs):
+
+```bash
+sudo /opt/finrepin/deploy/deploy.sh
+```
+
+Or the same steps spelled out (fast-forward the checkout, pull newer images,
+recreate only what changed):
+
+```bash
+cd /opt/finrepin
+sudo git fetch origin main && sudo git reset --hard origin/main
+sudo docker compose -f compose.yaml -f compose.prod.yaml pull
+sudo docker compose -f compose.yaml -f compose.prod.yaml up -d --remove-orphans
+```
+
+Grafana dashboard/provisioning changes arrive through the bind mounts and are
+re-read within ~60s, so a dashboard-only change needs no image pull. For a local
+(non-server) checkout that builds instead of pulling: `docker compose up -d --build`.
+
+### Refresh the data manually
+
+The ingests run on a daily schedule (and once on boot). To pull fresh data right
+now, exec into the running `app` container:
+
+```bash
+# Spain housing — INE (población, renta, densidad, …) + Ministerio de Vivienda €/m²:
+docker compose exec app python -m fintracker.housing.pipeline
+
+# Market data — stocks, crypto, forex, interest rates:
+docker compose exec app python -m fintracker.ingest.market
+```
+
+To refresh just one housing source (or re-seed the region/indicator reference
+data, plus sample data when `HOUSING_SEED_SAMPLE=true`):
+
+```bash
+docker compose exec app python -m fintracker.housing.ingest_ine     # INE series only
+docker compose exec app python -m fintracker.housing.ingest_mivau   # €/m² prices (MIVAU) only
+docker compose exec app python -m fintracker.housing.seed           # regions + indicators (+ sample)
+```
+
+(On the server these run against the container the deploy timer manages; prefix
+with `sudo` if your Docker needs it — `exec` doesn't need the `-f compose.prod.yaml`
+override.)
+
 ## Backups
 
 All state lives in the `pgdata` Docker volume. Dump the database on demand
