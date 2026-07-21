@@ -418,18 +418,19 @@ alembic upgrade head
   differ from the listing currency, e.g. CSU.TO trades in CAD but reports in
   USD, so its P/E mixes the two).
 - **Spain regional series (INE):** INE's Tempus3 JSON API
-  (`servicios.ine.es/wstempus/js/ES`) — free, no API key. Población, renta,
-  viviendas, superficie and antigüedad are fetched via `DATOS_TABLA/<id>`; the
-  ingest finds each table from its operation via `TABLAS_OPERACION/<op>` at run
-  time and, where a table carries several measures (the ADRH renta table has
-  neta/bruta × person/household × medians), selects the intended one with label
-  filters. Municipal renta is published **one table per province**, so those
-  specs loop every matching table (override with a comma-separated
-  `INE_RENTA_MUNI_TABLES`). Pin any table id with the matching `INE_*_TABLE`(S)
-  env var. Only level series are stored (year-on-year % is derived by the
-  `v_region_yoy` view); `densidad` is derived as población / superficie. The
-  table-selection keywords are best-effort and may need tuning against live
-  responses. Ceuta/Melilla and small municipalities can be sparse in INE.
+  (`servicios.ine.es/wstempus/js/ES`) — free, no API key. Series are fetched by
+  **`DATOS_TABLA/<table id>`** (fixed ids are reliable; operation-title discovery
+  was too error-prone). **Población** works out of the box from table **2852**
+  ("Población por provincias y sexo") — the sex total is kept and **CCAA +
+  national are derived by summing provinces** (population is additive). **Renta**
+  (Atlas de distribución de renta de los hogares) has several measures per table,
+  so a label filter selects the intended one (`renta neta media por persona` /
+  `… por hogar`); it has no hardcoded id, so pin the provincial ids via
+  `INE_RENTA_PROV_TABLE`/`INE_RENTA_HOGAR_TABLE`, and municipal renta (one table
+  per province) via a comma-separated `INE_RENTA_MUNI_TABLES` — until then renta
+  stays on sample data. Only level series are stored (year-on-year % is derived
+  by the `v_region_yoy` view); `densidad` is derived as población / superficie.
+  Ceuta/Melilla and small municipalities can be sparse in INE.
 - **Spain house prices (Ministerio de Vivienda):** the ministry (MIVAU/ex-Fomento)
   publishes its €/m² price statistics as legacy **`.XLS` spreadsheets** (the
   "BoletinOnline" sedal files: `35101000` all, `35101500` new, `35102000`
