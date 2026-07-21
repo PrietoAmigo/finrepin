@@ -186,9 +186,10 @@ and timeframe** — a filled choropleth of Spain wired to the time-series panels
   ingest is running.
 - **Geometry.** Province and CCAA polygons come from
   [es-atlas](https://github.com/martgnz/es-atlas) — feature ids are INE codes, so
-  data joins to the map exactly — served from Grafana itself at `/public/geo/…`
-  (a read-only mount) so the panel fetches them same-origin. The Canary Islands are
-  drawn in the conventional inset below the peninsula.
+  data joins to the map exactly — simplified and **inlined into the panel** (the
+  plugin compiles its code synchronously, so the geometry can't be fetched at
+  render time). The Canary Islands are drawn in the conventional inset below the
+  peninsula.
 
 > ⚠️ Built where the Spanish government APIs and Grafana itself were unreachable,
 > so the **data path** (schema, seed, views, panel SQL) is verified against a real
