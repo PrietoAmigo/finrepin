@@ -160,28 +160,67 @@ class EarningsDate(Base):
     )
 
 
-class HousingPrice(Base):
-    """One Spanish housing observation: a region × indicator × period value.
-
-    Region and indicator identities live in ``fintracker.housing.regions`` (a
-    static registry keyed to the map geometry), so this table just stores the
-    string keys and the value — no separate dimension tables to seed. ``period``
-    is normalised to the first day of its quarter (or month) so observations from
-    different regions align on a shared timeline.
+class Region(Base):
+    """A Spanish territory at some granularity, in a nation→CCAA→province→
+    municipality hierarchy. ``parent_code`` links each region to the next level
+    up, so any indicator stored at a fine level can be rolled up (or a coarse
+    level read directly). ``ine_code`` is the official INE code within the level
+    (2 digits for CCAA/province, 5 for municipality); ``lat``/``lon`` is a
+    representative centroid (handy for point maps and labels). Seeded from the
+    map geometry so every region has a matching polygon.
     """
 
-    __tablename__ = "housing_prices"
+    __tablename__ = "regions"
+    __table_args__ = (
+        Index("ix_regions_level", "level"),
+        Index("ix_regions_parent", "parent_code"),
+    )
+
+    code: Mapped[str] = mapped_column(String(16), primary_key=True)
+    level: Mapped[str] = mapped_column(String(8))  # nation | ccaa | prov | muni
+    ine_code: Mapped[str] = mapped_column(String(8))
+    name: Mapped[str] = mapped_column(String(160))
+    parent_code: Mapped[str | None] = mapped_column(String(16))
+    lat: Mapped[Decimal | None] = mapped_column(Numeric(9, 4))
+    lon: Mapped[Decimal | None] = mapped_column(Numeric(9, 4))
+
+
+class Indicator(Base):
+    """Registry of the region time series we track (prices, income, population,
+    housing stock, ...), independent of which regions carry them. Drives both
+    the ingest (what to fetch) and the dashboard (what to offer)."""
+
+    __tablename__ = "indicators"
+
+    code: Mapped[str] = mapped_column(String(40), primary_key=True)
+    name: Mapped[str] = mapped_column(String(160))
+    unit: Mapped[str] = mapped_column(String(24))  # eur_m2 | eur | count | m2 | km2 | year | ratio
+    source: Mapped[str] = mapped_column(String(16))  # MIVAU | INE
+    frequency: Mapped[str] = mapped_column(String(2))  # A | Q | M
+    # price | income | demographic | housing | area
+    category: Mapped[str] = mapped_column(String(24))
+    higher_is: Mapped[str] = mapped_column(String(8), default="neutral")
+
+
+class RegionObservation(Base):
+    """One value of an indicator for a region at a period — the generic time
+    series store. ``period`` is normalised to the first day of its period
+    (quarter/year/month) so series from different regions and sources align on a
+    shared timeline.
+    """
+
+    __tablename__ = "region_observations"
     __table_args__ = (
         UniqueConstraint(
-            "region_code", "indicator", "period", name="uq_housing_region_indicator_period"
+            "region_code", "indicator", "period", name="uq_region_obs_region_indicator_period"
         ),
-        Index("ix_housing_indicator_period", "indicator", "period"),
-        Index("ix_housing_region_indicator", "region_code", "indicator"),
+        Index("ix_region_obs_indicator_period", "indicator", "period"),
+        Index("ix_region_obs_region_indicator", "region_code", "indicator"),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     region_code: Mapped[str] = mapped_column(String(16))
-    indicator: Mapped[str] = mapped_column(String(32))
+    indicator: Mapped[str] = mapped_column(String(40))
     period: Mapped[dt.date] = mapped_column(Date)
-    value: Mapped[Decimal] = mapped_column(Numeric(14, 4))
+    value: Mapped[Decimal] = mapped_column(Numeric(16, 4))
     source: Mapped[str] = mapped_column(String(16))

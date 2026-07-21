@@ -13,8 +13,7 @@ dependencies = [
     "pandas>=2.2",
     "requests>=2.32",
     "tenacity>=8.3",
-    "fastapi>=0.111",
-    "uvicorn>=0.30",
+    "openpyxl>=3.1",
 ]
 
 [project.optional-dependencies]
@@ -33,6 +32,10 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/fintracker"]
+
+# The region hierarchy asset (seeded into the DB) must ship in the wheel.
+[tool.hatch.build.targets.wheel.force-include]
+"src/fintracker/housing/data/regions_all.json" = "fintracker/housing/data/regions_all.json"
 
 [tool.ruff]
 line-length = 100

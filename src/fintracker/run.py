@@ -7,7 +7,8 @@ import logging
 from fintracker import __version__, heartbeat
 from fintracker.config import get_settings
 from fintracker.db import wait_for_db
-from fintracker.housing.ingest import ingest_housing
+from fintracker.housing.pipeline import ingest_housing
+from fintracker.housing.seed import seed_housing
 from fintracker.ingest.market import ingest_market_data
 from fintracker.migrate import run_migrations
 from fintracker.scheduler import build_scheduler
@@ -29,6 +30,7 @@ def main() -> None:
     wait_for_db()
     run_migrations()
     seed_instruments()
+    seed_housing()  # regions + indicators (+ sample data when enabled)
     heartbeat.beat()  # pass the healthcheck while the first ingest runs
 
     if settings.run_on_start:

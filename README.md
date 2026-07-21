@@ -81,21 +81,17 @@ thing runs under Docker Compose and schedules itself — no external cron.
   statement views (migration 0006) that map the curated SEC XBRL tags onto
   statement lines.
 
-- **Spain housing dashboard** — an interactive choropleth of Spain linked to a
-  time series, served by a small FastAPI app (the `housing` service) at
-  **http://localhost:3008**. House prices come from **INE**'s free, key-less
-  Tempus3 JSON API — the **House Price Index** (Índice de Precios de Vivienda,
-  IPV), a quarterly index (base 2015=100) by autonomous community with a
-  national total, in three components (overall / new-build / resale). Click a
-  region on the map and the time series filters to it (overlaid on the national
-  line); scrub the quarter slider and the map recolours to that quarter. An
-  indicator selector, a *Index level / Year-on-year %* metric toggle (the map
-  switches from a sequential to a diverging red/blue scale), light/dark themes,
-  and shareable deep-link URLs (`#region=ccaa-13&metric=yoy`) round it out. It
-  reuses the app image and reads the same Postgres; the INE ingest is scheduled
-  daily and runs on boot. Until the first successful ingest — or with no
-  database at all — the page renders clearly-labelled **sample** data so it's
-  explorable out of the box, then switches to live data automatically. See
+- **Spain housing (Grafana)** — a *Spain Housing* Grafana dashboard: a filled
+  choropleth of Spain linked to time series, showing house **prices (€/m²)** and
+  their **year-on-year % change** — plus **renta, población, densidad, viviendas,
+  superficie, antigüedad** — by **region and timeframe**. Region data is stored
+  at every granularity (nation → CCAA → province → municipality) with parent
+  links, so any series rolls up. Click a region on the choropleth and every panel
+  filters to it; the map defaults to province level with a CCAA/municipality
+  selector. Prices come from the **Ministerio de Vivienda**; the demographic and
+  income series from **INE**'s free Tempus3 JSON API. The choropleth is an Apache
+  ECharts panel (the Business Charts plugin). Until live data arrives, the
+  dashboard renders clearly-labelled **sample** data. See
   [Spain housing dashboard](#spain-housing-dashboard) below.
 
 All core features are in. What remains is **M7/M8 polish**: richer
@@ -150,43 +146,53 @@ For hands-off updates on a server, see
 
 ## Spain housing dashboard
 
-An interactive map of Spanish house prices linked to a time series, at
-**http://localhost:3008** (the `housing` service). Unlike the Grafana
-dashboards it is a small custom single-page app (Apache ECharts) with the one
-interaction Grafana can't do cleanly: **click a region on the map and the time
-series filters to it.**
+A provisioned **Grafana** dashboard, *Spain Housing* (open Grafana at
+**http://localhost:3007** and pick it from the dashboard list). It shows Spanish
+house **prices (€/m²)** and their **year-on-year % change**, plus regional
+**renta, población, densidad, viviendas, superficie and antigüedad**, by **region
+and timeframe** — a filled choropleth of Spain wired to the time-series panels.
 
-- **Data — INE, free and key-less.** The House Price Index (Índice de Precios de
-  Vivienda, IPV) from INE's Tempus3 JSON API: a quarterly index (base 2015=100)
-  by autonomous community with a national total, in three components (overall,
-  new-build, resale). No API key is required. The ingest discovers the
-  by-community IPV table from the IPV operation at run time (so it self-heals if
-  INE renumbers a table); pin it with `INE_IPV_TABLE` if you ever need to. It's
-  state-aware like the market ingestors — full history on the first run,
-  incremental afterwards — scheduled daily (`HOUSING_HOUR`/`HOUSING_MINUTE`) and
-  run once on boot. Trigger one by hand with
-  `docker compose exec app python -m fintracker.housing.ingest`.
-- **Interactions.** Click a community to filter the time series (drawn over the
-  national line for comparison); scrub the quarter slider to recolour the map
-  through time; switch indicator (overall / new / resale); toggle *Index level*
-  vs *Year-on-year %* (the map switches from a sequential blue scale to a
-  diverging red/blue one centred on 0). Light/dark aware. Selection, indicator,
-  and metric live in the URL hash, so a view like
-  `http://localhost:3008/#region=ccaa-13&metric=yoy` is shareable.
-- **Sample-data fallback.** With no housing rows yet — or no database — the app
-  serves clearly-labelled *sample* data (a plausible boom→bust→recovery shape,
-  **not** real figures) so the page is explorable immediately; a banner says so,
-  and the first successful INE ingest switches it to live data automatically.
-- **Geography.** Community and province polygons come from
-  [es-atlas](https://github.com/martgnz/es-atlas) (INE codes as feature ids, so
-  the data joins to the map exactly); the Canary Islands are drawn in the
-  conventional inset below the peninsula. Province geometry ships too — the
-  schema and map are province-ready for a future province-level indicator (e.g.
-  the Ministerio de Vivienda €/m² series or INE property-transaction counts).
+- **Everything in Grafana.** The choropleth is an **Apache ECharts** panel (the
+  *Business Charts* plugin, `volkovlabs-echarts-panel`, installed on Grafana
+  startup via `GF_INSTALL_PLUGINS`). **Click a region** on the map and it sets the
+  dashboard's `region` variable, so every panel (price, YoY, population, income,
+  the all-indicators table) filters to it. Template variables pick the map metric,
+  the granularity (**CCAA / province / municipality**, province by default), and an
+  extra series.
+- **All granularities, stored.** The `regions` table holds the whole hierarchy —
+  nation → CCAA → province → municipality (~8,200 regions) — with `parent_code`
+  links, so a fine-grained series always rolls up to a coarser one. Observations
+  land in one generic `region_observations` table; SQL views `v_region_series`
+  (denormalised) and `v_region_yoy` (year-on-year %) are what the panels query.
+- **Data sources.**
+  - **Prices (€/m²)** — *Ministerio de Vivienda* (all / new / second-hand /
+    appraisal). The ministry ships **spreadsheets**, not a JSON API, so the ingest
+    is URL-driven: set `MIVAU_*_URL` in `.env` to the current workbooks (see
+    [Notes on data sources](#notes-on-data-sources)).
+  - **Renta, población, densidad, viviendas, superficie, antigüedad** — *INE*'s
+    free, key-less Tempus3 JSON API. The ingest discovers each series' table from
+    its operation at run time; pin a table id with the matching `INE_*_TABLE` env
+    var if one comes back empty. `densidad` is derived (población / superficie).
+  - Both run daily (`HOUSING_HOUR`/`HOUSING_MINUTE`) and once on boot. Trigger one
+    by hand with `docker compose exec app python -m fintracker.housing.pipeline`.
+- **Sample data until then.** With `HOUSING_SEED_SAMPLE=true` (the template
+  default) the app seeds clearly-labelled `source='sample'` observations — plausible
+  but **not real** figures — so the dashboard renders immediately. Sample rows only
+  fill indicators with no data, and each live ingest clears the sample rows for the
+  indicators it populates, so real data supersedes them. Set it `false` once live
+  ingest is running.
+- **Geometry.** Province and CCAA polygons come from
+  [es-atlas](https://github.com/martgnz/es-atlas) — feature ids are INE codes, so
+  data joins to the map exactly — served from Grafana itself at `/public/geo/…`
+  (a read-only mount) so the panel fetches them same-origin. The Canary Islands are
+  drawn in the conventional inset below the peninsula.
 
-The dashboard is not part of the Grafana stack and needs no login. It reads the
-same Postgres, so it deploys and updates through the same Compose flow as
-everything else.
+> ⚠️ Built where the Spanish government APIs and Grafana itself were unreachable,
+> so the **data path** (schema, seed, views, panel SQL) is verified against a real
+> Postgres, but the **live ingests** (INE table specs, MIVAU spreadsheet layouts)
+> and the **ECharts panel** could not be exercised end-to-end. They're written to
+> the documented shapes and are easy to adjust (env-var table ids / URLs, the panel
+> code) if the first real run needs a tweak.
 
 ## Configuration
 
@@ -273,15 +279,14 @@ Schedule that command from host cron if you want periodic backups.
 
 ```
 .
-├── compose.yaml                # db + app + grafana + housing (+ on-demand backup profile)
+├── compose.yaml                # db + app + grafana (+ on-demand backup profile)
 ├── compose.override.yaml       # dev: expose Postgres to localhost
 ├── compose.prod.yaml           # CD: pull GHCR image + Watchtower auto-updates
 ├── Dockerfile                  # multi-stage, uv (locked deps), non-root, heartbeat healthcheck
 ├── alembic.ini
 ├── uv.lock                     # pinned dependency set (Docker + CI install from it)
 ├── migrations/                 # Alembic env + initial schema
-├── grafana/                    # provisioned datasource + dashboards
-├── web/                        # housing dashboard SPA (ECharts) + vendored geo/echarts, sample data
+├── grafana/                    # provisioned datasource + dashboards + geo/ (Spain GeoJSON)
 ├── src/fintracker/
 │   ├── config.py               # env -> Settings
 │   ├── db.py                   # engine, session, wait-for-db
@@ -291,10 +296,10 @@ Schedule that command from host cron if you want periodic backups.
 │   ├── scheduler.py            # APScheduler jobs
 │   ├── heartbeat.py / healthcheck.py
 │   ├── run.py                  # entrypoint
-│   ├── webapp.py               # FastAPI app for the Spain housing dashboard
 │   ├── ingest/                 # prices, forex, crypto, market orchestrator,
 │   │                           #   fundamentals + sec_client, earnings
-│   ├── housing/                # Spain housing: INE ingest, region registry, dataset shaping, sample
+│   ├── housing/                # Spain housing: region hierarchy + indicators,
+│   │                           #   INE + MIVAU ingest, sample seed, data/regions_all.json
 │   └── report/                 # weekly email: data (queries), render (HTML/text), email_report (SMTP)
 ├── tests/                      # pure-parsing unit tests (no network/DB)
 └── .github/workflows/ci.yml    # ruff + mypy + pytest + alembic offline check
@@ -353,15 +358,22 @@ alembic upgrade head
   fiscal years of history, in the company's reporting currency — which can
   differ from the listing currency, e.g. CSU.TO trades in CAD but reports in
   USD, so its P/E mixes the two).
-- **Spain house prices:** INE's Tempus3 JSON API
-  (`servicios.ine.es/wstempus/js/ES`) — free, no API key. The House Price Index
-  (IPV) is fetched via `DATOS_TABLA/<id>` for the by-community table, which the
-  ingest finds via `TABLAS_OPERACION/IPV` at run time (override with
-  `INE_IPV_TABLE`). Only the index series are stored; year-on-year change is
-  derived on the dashboard. Ceuta and Melilla can be sparse in INE's series and
-  simply show no data where absent. The Ministerio de Vivienda (€/m² by
-  province) and Catastro were considered too: the ministry publishes
-  spreadsheets rather than a JSON API and Catastro's free services are cadastral
-  geometry/reference data (not transaction prices), so they're left as
-  province-level extension points — the schema (`level='prov'`) and the shipped
-  province geometry are ready for them.
+- **Spain regional series (INE):** INE's Tempus3 JSON API
+  (`servicios.ine.es/wstempus/js/ES`) — free, no API key. Población, renta,
+  viviendas, superficie and antigüedad are fetched via `DATOS_TABLA/<id>`; the
+  ingest finds each table from its operation via `TABLAS_OPERACION/<op>` at run
+  time (pin one with the matching `INE_*_TABLE` env var). Only level series are
+  stored (year-on-year % is derived by the `v_region_yoy` view); `densidad` is
+  derived as población / superficie. The table-selection keywords are best-effort
+  and may need tuning against live responses. Ceuta/Melilla and small
+  municipalities can be sparse in INE and simply show no data where absent.
+- **Spain house prices (Ministerio de Vivienda):** the ministry (MIVAU/MITMA)
+  publishes its €/m² price statistics (all / new / second-hand / appraisal) as
+  **spreadsheets**, not a JSON API, and the URLs and layouts change between
+  releases. So the ingest is URL-driven: set `MIVAU_*_URL` to the current
+  workbooks and a generic wide-table parser (regions in rows, periods in columns)
+  maps them in. Left unset, the dashboard shows sample €/m² until you configure
+  them. **Catastro** was considered too but its free services are cadastral
+  geometry/reference data (not transaction prices); the schema already stores all
+  granularities (`regions.level` incl. `muni`) if you later add a cadastral or
+  transaction-count series.

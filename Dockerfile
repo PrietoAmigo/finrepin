@@ -41,8 +41,6 @@ COPY --from=builder /opt/venv /opt/venv
 # read from the working tree (WORKDIR=/app) at runtime, so only those are copied.
 COPY migrations ./migrations
 COPY alembic.ini ./
-# Static assets for the housing dashboard (served by the `housing` service).
-COPY web ./web
 
 RUN chown -R app:app /app
 USER app
