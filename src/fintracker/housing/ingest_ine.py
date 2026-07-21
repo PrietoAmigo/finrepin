@@ -56,35 +56,44 @@ _MUNI_CODE_RE = re.compile(r"\b(\d{5})\b")
 @dataclass(frozen=True)
 class IneSpec:
     indicator: str
-    operation: str  # INE operation code (e.g. "EPOB", "ADRH")
-    keywords: tuple[str, ...]  # normalized substrings the table title must contain
     level: str  # ccaa | prov | muni
     frequency: str  # A | Q | M
-    value_filters: tuple[str, ...] = ()  # normalized substrings a series must contain
+    default_table: str = ""  # table id fetched when no env override is set
     table_env: str = ""  # env var pinning a single table id
     tables_env: str = ""  # env var pinning a comma-separated list of table ids
-    all_tables: bool = False  # loop EVERY table whose title matches (e.g. one per province)
-    exclude: tuple[str, ...] = ("grupo",)  # title substrings that disqualify a table
+    value_filters: tuple[str, ...] = ()  # normalized substrings a series MUST contain
+    exclude_values: tuple[str, ...] = ()  # normalized substrings that DROP a series
+    operation: str = ""  # INE operation code, for title discovery (fallback only)
+    keywords: tuple[str, ...] = ()  # title substrings for discovery
+    all_tables: bool = False  # discovery: loop EVERY matching table
+    exclude: tuple[str, ...] = ("grupo",)  # discovery: title substrings that disqualify
 
 
-# Best-effort specs. Operation codes: EPOB = Estadística del Padrón Continuo,
-# ADRH = Atlas de distribución de renta de los hogares. The ADRH renta table
-# carries several measures (neta/bruta, per person/household, medians), so
-# ``value_filters`` selects the intended one; municipal renta is published one
-# table per province, so those specs loop every matching table (``all_tables``,
-# overridable with a comma-separated ``*_TABLES`` env var).
+# Series aggregated up the hierarchy (province → CCAA → nation) after ingest,
+# because they are additive counts.
+_SUMMABLE = ("poblacion",)
+
+# Prefer known DATOS_TABLA ids over operation-title discovery (INE operation
+# codes are easy to get wrong; a fixed table id is reliable).
 INE_SPECS: list[IneSpec] = [
-    IneSpec("poblacion", "EPOB", ("poblacion", "comunidad"), "ccaa", "A",
-            ("total",), table_env="INE_POBLACION_CCAA_TABLE"),
-    IneSpec("poblacion", "EPOB", ("poblacion", "provincia"), "prov", "A",
-            ("total",), table_env="INE_POBLACION_PROV_TABLE"),
-    IneSpec("renta_persona", "ADRH", ("renta", "media", "persona"), "prov", "A",
-            ("renta neta media por persona",), table_env="INE_RENTA_PROV_TABLE"),
-    IneSpec("renta_hogar", "ADRH", ("renta", "media", "hogar"), "prov", "A",
-            ("renta neta media por hogar",), table_env="INE_RENTA_HOGAR_TABLE"),
-    IneSpec("renta_persona", "ADRH", ("renta", "municipios"), "muni", "A",
-            ("renta neta media por persona",), tables_env="INE_RENTA_MUNI_TABLES",
-            all_tables=True, exclude=("distrito", "seccion", "grupo")),
+    # Population by province — INE table 2852 ("Población por provincias y sexo").
+    # CCAA + national are derived by summing provinces (population is additive),
+    # so no separate table is needed for them.
+    IneSpec("poblacion", "prov", "A", default_table="2852",
+            table_env="INE_POBLACION_PROV_TABLE", exclude_values=("hombres", "mujeres")),
+    # Renta (Atlas de distribución de renta de los hogares). The table carries
+    # several measures, so value_filters selects the intended one. No stable
+    # all-Spain id is hardcoded — pin the provincial table ids via env.
+    IneSpec("renta_persona", "prov", "A", table_env="INE_RENTA_PROV_TABLE",
+            value_filters=("renta neta media por persona",)),
+    IneSpec("renta_hogar", "prov", "A", table_env="INE_RENTA_HOGAR_TABLE",
+            value_filters=("renta neta media por hogar",)),
+    # Municipal renta is one ADRH table per province — pin them via a
+    # comma-separated INE_RENTA_MUNI_TABLES (best-effort title discovery else).
+    IneSpec("renta_persona", "muni", "A", tables_env="INE_RENTA_MUNI_TABLES",
+            value_filters=("renta neta media por persona",),
+            operation="ADRH", keywords=("renta", "municipios"), all_tables=True,
+            exclude=("distrito", "seccion", "grupo")),
 ]
 
 
@@ -98,7 +107,14 @@ def fetch_json(path: str, params: dict[str, Any] | None = None) -> Any:
     base = get_settings().ine_base_url.rstrip("/")
     resp = requests.get(f"{base}/{path.lstrip('/')}", params=params, timeout=_TIMEOUT)
     resp.raise_for_status()
-    return resp.json()
+    try:
+        return resp.json()
+    except ValueError as exc:
+        # INE answers 200 with an empty/HTML body for an unknown table or
+        # operation id; surface that cleanly instead of a raw JSONDecodeError.
+        snippet = " ".join(resp.text[:160].split())
+        raise ValueError(f"INE returned non-JSON for {path} ({len(resp.text)} bytes): {snippet!r}")\
+            from exc
 
 
 def choose_tables(tables: list[dict[str, Any]], spec: IneSpec) -> list[str]:
@@ -158,6 +174,8 @@ def series_matches(series: dict[str, Any], spec: IneSpec) -> bool:
     joined = normalize(" ".join(_labels(series)))
     if any(tok in joined for tok in _SKIP_TOKENS):
         return False
+    if any(tok in joined for tok in spec.exclude_values):
+        return False
     return all(f in joined for f in spec.value_filters)
 
 
@@ -201,7 +219,7 @@ def parse_table(
 
 
 def _resolve_table_ids(spec: IneSpec) -> list[str]:
-    """Table ids to ingest: pinned env (plural or single) overrides discovery."""
+    """Table ids to ingest: pinned env, then default id, then title discovery."""
     if spec.tables_env:
         pinned = os.environ.get(spec.tables_env, "").strip()
         if pinned:
@@ -210,21 +228,24 @@ def _resolve_table_ids(spec: IneSpec) -> list[str]:
         pinned = os.environ.get(spec.table_env, "").strip()
         if pinned:
             return [pinned]
+    if spec.default_table:
+        return [spec.default_table]
+    env_hint = spec.tables_env or spec.table_env or "a table env"
+    if not spec.operation:
+        log.info("INE %s: no table id configured — set %s to enable.", spec.indicator, env_hint)
+        return []
     try:
         raw = fetch_json(f"TABLAS_OPERACION/{spec.operation}")
-    except Exception:
-        log.exception("INE table discovery failed for %s/%s", spec.operation, spec.indicator)
+    except Exception as exc:  # unknown operation, non-JSON, network — best-effort
+        log.warning("INE discovery failed for %s (op %s): %s", spec.indicator, spec.operation, exc)
         return []
     tables = raw if isinstance(raw, list) else []
     ids = choose_tables(tables, spec) if spec.all_tables else (
         [t] if (t := choose_table(tables, spec)) else []
     )
     if not ids:
-        env_hint = spec.tables_env or spec.table_env or "the table env"
-        log.warning(
-            "No INE table matched %s for %s (keywords=%s); set %s to pin one.",
-            spec.operation, spec.indicator, spec.keywords, env_hint,
-        )
+        log.warning("No INE table matched %s (keywords=%s); set %s.",
+                    spec.indicator, spec.keywords, env_hint)
     return ids
 
 
@@ -336,8 +357,35 @@ def derive_density() -> int:
     return int(getattr(result, "rowcount", 0) or 0)
 
 
+# Roll an additive indicator up the hierarchy: parent = SUM(children). Run for
+# child='prov' then 'ccaa' in one transaction so CCAA totals feed the national
+# total. Only applied to indicators ingested at the finest (province) level.
+_AGGREGATE_UP = text(
+    """
+    INSERT INTO region_observations (region_code, indicator, period, value, source)
+    SELECT r.parent_code, o.indicator, o.period, SUM(o.value), 'derived'
+    FROM region_observations o
+    JOIN regions r ON r.code = o.region_code
+    WHERE o.indicator = :ind AND r.level = :child AND r.parent_code IS NOT NULL
+    GROUP BY r.parent_code, o.indicator, o.period
+    ON CONFLICT (region_code, indicator, period)
+      DO UPDATE SET value = EXCLUDED.value, source = EXCLUDED.source
+    """
+)
+
+
+def derive_aggregates(indicator: str) -> int:
+    """Sum an additive indicator province → CCAA → nation."""
+    written = 0
+    with session_scope() as session:
+        for child in ("prov", "ccaa"):
+            result = session.execute(_AGGREGATE_UP, {"ind": indicator, "child": child})
+            written += int(getattr(result, "rowcount", 0) or 0)
+    return written
+
+
 def ingest_ine() -> int:
-    """Run every INE spec; clear sample rows for the indicators populated."""
+    """Run every INE spec, clear sample rows populated, and derive aggregates."""
     total = 0
     touched: set[str] = set()
     for spec in INE_SPECS:
@@ -345,12 +393,18 @@ def ingest_ine() -> int:
         if written:
             touched.add(spec.indicator)
         total += written
+    if touched:
+        clear_sample_observations(touched)
+    for indicator in _SUMMABLE:
+        if indicator in touched:
+            try:
+                derive_aggregates(indicator)
+            except Exception:
+                log.exception("Aggregation failed for %s", indicator)
     try:
         derive_density()
     except Exception:
         log.exception("Density derivation failed")
-    if touched:
-        clear_sample_observations(touched)
     return total
 
 

@@ -111,7 +111,8 @@ def test_registry_names_match_geojson() -> None:
 
 
 def test_choose_table_matches_keywords_and_excludes() -> None:
-    spec = IneSpec("poblacion", "EPOB", ("poblacion", "provincia"), "prov", "A")
+    spec = IneSpec("poblacion", "prov", "A", operation="EPOB",
+                   keywords=("poblacion", "provincia"))
     tables = [
         {"Id": 1, "Nombre": "Población por comunidades autónomas"},
         {"Id": 2, "Nombre": "Población por provincias y grupos de edad"},
@@ -128,18 +129,26 @@ def test_series_region_by_name_and_code() -> None:
 
 
 def test_series_matches_filters_and_skips_variation() -> None:
-    spec = IneSpec("poblacion", "EPOB", (), "prov", "A", value_filters=("total",))
+    spec = IneSpec("poblacion", "prov", "A", value_filters=("total",))
     assert series_matches(_series(["Madrid", "Total"], []), spec) is True
     assert series_matches(_series(["Madrid", "Hombres"], []), spec) is False  # no "total"
-    var = IneSpec("x", "Y", (), "prov", "A")
+    var = IneSpec("x", "prov", "A")
     assert series_matches(_series(["Madrid", "Variación anual"], []), var) is False
+
+
+def test_series_matches_exclude_values_drops_sex_splits() -> None:
+    # Population table 2852 is provinces × sex; exclude_values keeps the total.
+    spec = IneSpec("poblacion", "prov", "A", exclude_values=("hombres", "mujeres"))
+    assert series_matches(_series(["Madrid", "Total"], []), spec) is True
+    assert series_matches(_series(["Madrid", "Hombres"], []), spec) is False
+    assert series_matches(_series(["Madrid", "Mujeres"], []), spec) is False
 
 
 def test_renta_value_filter_selects_the_intended_measure() -> None:
     # The ADRH renta table carries several measures; the filter picks one.
-    persona = IneSpec("renta_persona", "ADRH", (), "prov", "A",
+    persona = IneSpec("renta_persona", "prov", "A",
                       value_filters=("renta neta media por persona",))
-    hogar = IneSpec("renta_hogar", "ADRH", (), "prov", "A",
+    hogar = IneSpec("renta_hogar", "prov", "A",
                     value_filters=("renta neta media por hogar",))
     per_series = _series(["Madrid", "Renta neta media por persona"], [])
     hog_series = _series(["Madrid", "Renta neta media por hogar"], [])
@@ -150,8 +159,9 @@ def test_renta_value_filter_selects_the_intended_measure() -> None:
 
 
 def test_choose_tables_returns_all_matches() -> None:
-    spec = IneSpec("renta_persona", "ADRH", ("renta", "municipios"), "muni", "A",
-                   all_tables=True, exclude=("distrito", "grupo"))
+    spec = IneSpec("renta_persona", "muni", "A", operation="ADRH",
+                   keywords=("renta", "municipios"), all_tables=True,
+                   exclude=("distrito", "grupo"))
     tables = [
         {"Id": 31097, "Nombre": "Renta por municipios. Madrid"},
         {"Id": 30896, "Nombre": "Renta por municipios. Barcelona"},
@@ -177,7 +187,7 @@ def test_rows_from_series_normalises_period() -> None:
 
 
 def test_parse_table_end_to_end() -> None:
-    spec = IneSpec("poblacion", "EPOB", (), "prov", "A", value_filters=("total",))
+    spec = IneSpec("poblacion", "prov", "A", value_filters=("total",))
     table = [
         _series(["Madrid", "Total"], [{"Fecha": _ms(2023, 1, 1), "Valor": 6700000.0}]),
         _series(["Barcelona", "Total"], [{"Fecha": _ms(2023, 1, 1), "Valor": 5700000.0}]),
