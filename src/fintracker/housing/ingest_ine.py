@@ -61,21 +61,30 @@ class IneSpec:
     level: str  # ccaa | prov | muni
     frequency: str  # A | Q | M
     value_filters: tuple[str, ...] = ()  # normalized substrings a series must contain
-    table_env: str = ""  # env var pinning the table id (overrides discovery)
+    table_env: str = ""  # env var pinning a single table id
+    tables_env: str = ""  # env var pinning a comma-separated list of table ids
+    all_tables: bool = False  # loop EVERY table whose title matches (e.g. one per province)
     exclude: tuple[str, ...] = ("grupo",)  # title substrings that disqualify a table
 
 
 # Best-effort specs. Operation codes: EPOB = Estadística del Padrón Continuo,
-# ADRH = Atlas de distribución de renta de los hogares, ECV/Censos for stock.
+# ADRH = Atlas de distribución de renta de los hogares. The ADRH renta table
+# carries several measures (neta/bruta, per person/household, medians), so
+# ``value_filters`` selects the intended one; municipal renta is published one
+# table per province, so those specs loop every matching table (``all_tables``,
+# overridable with a comma-separated ``*_TABLES`` env var).
 INE_SPECS: list[IneSpec] = [
     IneSpec("poblacion", "EPOB", ("poblacion", "comunidad"), "ccaa", "A",
-            ("total",), "INE_POBLACION_CCAA_TABLE"),
+            ("total",), table_env="INE_POBLACION_CCAA_TABLE"),
     IneSpec("poblacion", "EPOB", ("poblacion", "provincia"), "prov", "A",
-            ("total",), "INE_POBLACION_PROV_TABLE"),
+            ("total",), table_env="INE_POBLACION_PROV_TABLE"),
     IneSpec("renta_persona", "ADRH", ("renta", "media", "persona"), "prov", "A",
-            (), "INE_RENTA_PROV_TABLE"),
-    IneSpec("renta_persona", "ADRH", ("renta", "media", "persona", "municipio"), "muni", "A",
-            (), "INE_RENTA_MUNI_TABLE"),
+            ("renta neta media por persona",), table_env="INE_RENTA_PROV_TABLE"),
+    IneSpec("renta_hogar", "ADRH", ("renta", "media", "hogar"), "prov", "A",
+            ("renta neta media por hogar",), table_env="INE_RENTA_HOGAR_TABLE"),
+    IneSpec("renta_persona", "ADRH", ("renta", "municipios"), "muni", "A",
+            ("renta neta media por persona",), tables_env="INE_RENTA_MUNI_TABLES",
+            all_tables=True, exclude=("distrito", "seccion", "grupo")),
 ]
 
 
@@ -92,8 +101,9 @@ def fetch_json(path: str, params: dict[str, Any] | None = None) -> Any:
     return resp.json()
 
 
-def choose_table(tables: list[dict[str, Any]], spec: IneSpec) -> str | None:
-    """Pick a table id whose title matches all keywords and no exclusions. Pure."""
+def choose_tables(tables: list[dict[str, Any]], spec: IneSpec) -> list[str]:
+    """All table ids whose title matches every keyword and no exclusion. Pure."""
+    out: list[str] = []
     for table in tables:
         name = normalize(str(table.get("Nombre", "")))
         table_id = table.get("Id")
@@ -102,8 +112,14 @@ def choose_table(tables: list[dict[str, Any]], spec: IneSpec) -> str | None:
         if any(x in name for x in spec.exclude):
             continue
         if all(kw in name for kw in spec.keywords):
-            return str(table_id)
-    return None
+            out.append(str(table_id))
+    return out
+
+
+def choose_table(tables: list[dict[str, Any]], spec: IneSpec) -> str | None:
+    """The first table id matching the spec (single-table discovery). Pure."""
+    matches = choose_tables(tables, spec)
+    return matches[0] if matches else None
 
 
 def _labels(series: dict[str, Any]) -> list[str]:
@@ -184,31 +200,54 @@ def parse_table(
     return rows
 
 
-def _resolve_table_id(spec: IneSpec) -> str | None:
-    pinned = os.environ.get(spec.table_env, "").strip() if spec.table_env else ""
-    if pinned:
-        return pinned
+def _resolve_table_ids(spec: IneSpec) -> list[str]:
+    """Table ids to ingest: pinned env (plural or single) overrides discovery."""
+    if spec.tables_env:
+        pinned = os.environ.get(spec.tables_env, "").strip()
+        if pinned:
+            return [t.strip() for t in pinned.split(",") if t.strip()]
+    if spec.table_env:
+        pinned = os.environ.get(spec.table_env, "").strip()
+        if pinned:
+            return [pinned]
     try:
-        tables = fetch_json(f"TABLAS_OPERACION/{spec.operation}")
+        raw = fetch_json(f"TABLAS_OPERACION/{spec.operation}")
     except Exception:
         log.exception("INE table discovery failed for %s/%s", spec.operation, spec.indicator)
-        return None
-    table_id = choose_table(tables if isinstance(tables, list) else [], spec)
-    if table_id is None:
+        return []
+    tables = raw if isinstance(raw, list) else []
+    ids = choose_tables(tables, spec) if spec.all_tables else (
+        [t] if (t := choose_table(tables, spec)) else []
+    )
+    if not ids:
+        env_hint = spec.tables_env or spec.table_env or "the table env"
         log.warning(
             "No INE table matched %s for %s (keywords=%s); set %s to pin one.",
-            spec.operation, spec.indicator, spec.keywords, spec.table_env or "the table env",
+            spec.operation, spec.indicator, spec.keywords, env_hint,
         )
-    return table_id
+    return ids
 
 
-def _has_rows(indicator: str) -> bool:
+_LEVEL_PREFIX = {"nation": "es", "ccaa": "ccaa-", "prov": "prov-", "muni": "muni-"}
+
+
+def _has_rows(indicator: str, level: str) -> bool:
+    """Whether live rows already exist for this indicator AT this level.
+
+    Per-level so the first run of a level (e.g. municipal renta after provincial)
+    still backfills its full history rather than only the last few periods.
+    """
+    prefix = _LEVEL_PREFIX.get(level, "")
     with session_scope() as session:
         return (
             session.execute(
                 select(func.count())
                 .select_from(RegionObservation)
-                .where(RegionObservation.indicator == indicator, RegionObservation.source == SOURCE)
+                .where(
+                    RegionObservation.indicator == indicator,
+                    RegionObservation.source == SOURCE,
+                    RegionObservation.region_code.like(f"{prefix}%"),
+                )
             ).scalar_one()
             > 0
         )
@@ -239,13 +278,7 @@ def _upsert(rows: list[tuple[str, str, dt.date, float]]) -> int:
     return len(rows)
 
 
-def ingest_spec(spec: IneSpec) -> int:
-    table_id = _resolve_table_id(spec)
-    if table_id is None:
-        return 0
-    params: dict[str, Any] = {"det": 2}
-    if _has_rows(spec.indicator):
-        params["nult"] = 6
+def _ingest_table(table_id: str, spec: IneSpec, params: dict[str, Any]) -> int:
     try:
         series_list = fetch_json(f"DATOS_TABLA/{table_id}", params=params)
     except Exception:
@@ -261,11 +294,22 @@ def ingest_spec(spec: IneSpec) -> int:
         )
         return 0
     rows = [(region, spec.indicator, period, value) for region, period, value in parsed]
-    written = _upsert(rows)
-    log.info(
-        "Ingested %d INE rows for %s (table %s, level %s, %d regions)",
-        written, spec.indicator, table_id, spec.level, len({r[0] for r in rows}),
-    )
+    return _upsert(rows)
+
+
+def ingest_spec(spec: IneSpec) -> int:
+    table_ids = _resolve_table_ids(spec)
+    if not table_ids:
+        return 0
+    params: dict[str, Any] = {"det": 2}
+    if _has_rows(spec.indicator, spec.level):
+        params["nult"] = 6
+    written = sum(_ingest_table(tid, spec, params) for tid in table_ids)
+    if written:
+        log.info(
+            "Ingested %d INE rows for %s (level %s, %d table(s))",
+            written, spec.indicator, spec.level, len(table_ids),
+        )
     return written
 
 

@@ -105,7 +105,7 @@ def build_sample_observations() -> list[Observation]:
             add(region.code, "price_eur_m2", period, base)
             add(region.code, "price_eur_m2_new", period, base * 1.08)
             add(region.code, "price_eur_m2_used", period, base * 0.965)
-            add(region.code, "appraisal_eur_m2", period, base * 1.02)
+            add(region.code, "price_eur_m2_protected", period, base * 0.72)  # VPO, cheaper
 
         # Income + demographics + housing stock — annual.
         area = _factor(region.code, 250, 21000) if region.level != "nation" else 505990

@@ -12,16 +12,24 @@ from fintracker.housing.indicators import INDICATORS_BY_CODE
 from fintracker.housing.ingest_ine import (
     IneSpec,
     choose_table,
+    choose_tables,
     parse_table,
     rows_from_series,
     series_matches,
     series_region,
 )
-from fintracker.housing.ingest_mivau import MivauSpec, parse_period, rows_from_frame
+from fintracker.housing.ingest_mivau import (
+    MivauSpec,
+    detect_header_row,
+    frame_from_raw,
+    parse_period,
+    rows_from_frame,
+)
 from fintracker.housing.regions import (
     all_regions,
     region_code_from_ine_code,
     region_code_from_ine_name,
+    region_codes_for_name,
     regions_at,
     regions_by_code,
 )
@@ -79,6 +87,17 @@ def test_region_code_from_ine_code_municipality() -> None:
     assert region_code_from_ine_code("99999", "muni") is None  # not a real muni
 
 
+def test_region_codes_for_name_spans_levels() -> None:
+    # A single-province community name feeds both its province and community.
+    assert set(region_codes_for_name("Madrid")) == {"prov-28", "ccaa-13"}
+    # A multi-province community name feeds only the community.
+    assert region_codes_for_name("Andalucía") == ["ccaa-01"]
+    # A plain province name feeds only the province.
+    assert region_codes_for_name("Barcelona") == ["prov-08"]
+    # The national total.
+    assert region_codes_for_name("Total Nacional") == ["es"]
+
+
 def test_registry_names_match_geojson() -> None:
     for level, fname in (("ccaa", "spain-ccaa.geojson"), ("prov", "spain-provinces.geojson")):
         geo = json.loads((REPO_ROOT / "grafana" / "geo" / fname).read_text("utf-8"))
@@ -114,6 +133,33 @@ def test_series_matches_filters_and_skips_variation() -> None:
     assert series_matches(_series(["Madrid", "Hombres"], []), spec) is False  # no "total"
     var = IneSpec("x", "Y", (), "prov", "A")
     assert series_matches(_series(["Madrid", "Variación anual"], []), var) is False
+
+
+def test_renta_value_filter_selects_the_intended_measure() -> None:
+    # The ADRH renta table carries several measures; the filter picks one.
+    persona = IneSpec("renta_persona", "ADRH", (), "prov", "A",
+                      value_filters=("renta neta media por persona",))
+    hogar = IneSpec("renta_hogar", "ADRH", (), "prov", "A",
+                    value_filters=("renta neta media por hogar",))
+    per_series = _series(["Madrid", "Renta neta media por persona"], [])
+    hog_series = _series(["Madrid", "Renta neta media por hogar"], [])
+    assert series_matches(per_series, persona) is True
+    assert series_matches(hog_series, persona) is False
+    assert series_matches(hog_series, hogar) is True
+    assert series_matches(per_series, hogar) is False
+
+
+def test_choose_tables_returns_all_matches() -> None:
+    spec = IneSpec("renta_persona", "ADRH", ("renta", "municipios"), "muni", "A",
+                   all_tables=True, exclude=("distrito", "grupo"))
+    tables = [
+        {"Id": 31097, "Nombre": "Renta por municipios. Madrid"},
+        {"Id": 30896, "Nombre": "Renta por municipios. Barcelona"},
+        {"Id": 99, "Nombre": "Renta por municipios y distritos. Madrid"},  # excluded
+        {"Id": 7, "Nombre": "Población por municipios"},                   # no "renta"
+    ]
+    assert choose_tables(tables, spec) == ["31097", "30896"]
+    assert choose_table(tables, spec) == "31097"
 
 
 def test_rows_from_series_normalises_period() -> None:
@@ -154,25 +200,43 @@ def test_parse_period_formats() -> None:
     assert parse_period("Provincia") is None
 
 
-def test_rows_from_frame_wide_table() -> None:
+def test_rows_from_frame_multi_level() -> None:
     frame = pd.DataFrame(
         {
-            "Provincia": ["Madrid", "Barcelona", "NoSuchPlace"],
-            "2023T4": [3200.0, 2600.0, 1.0],
-            "2024T1": [3300.0, None, 2.0],
+            "Ámbito": ["Total Nacional", "Andalucía", "Madrid", "Barcelona", "NoSuchPlace"],
+            "2023T4": [1800.0, 1300.0, 3200.0, 2600.0, 1.0],
+            "2024T1": [1850.0, 1350.0, 3300.0, None, 2.0],
         }
     )
-    rows = rows_from_frame(frame, "prov")
-    assert ("prov-28", dt.date(2023, 10, 1), 3200.0) in rows
-    assert ("prov-28", dt.date(2024, 1, 1), 3300.0) in rows
-    assert ("prov-08", dt.date(2023, 10, 1), 2600.0) in rows
-    # NaN cell dropped; unknown region dropped
-    assert all(r[0] in ("prov-28", "prov-08") for r in rows)
+    rows = rows_from_frame(frame)
+    assert ("es", dt.date(2023, 10, 1), 1800.0) in rows           # nation
+    assert ("ccaa-01", dt.date(2023, 10, 1), 1300.0) in rows      # community
+    assert ("prov-28", dt.date(2023, 10, 1), 3200.0) in rows      # province Madrid
+    assert ("ccaa-13", dt.date(2023, 10, 1), 3200.0) in rows      # Madrid also feeds its CCAA
+    assert ("prov-08", dt.date(2023, 10, 1), 2600.0) in rows      # Barcelona (province only)
+    assert ("ccaa-08", dt.date(2024, 1, 1), 3200.0) not in rows   # NaN cell dropped
+    assert all(not r[0].startswith("muni") for r in rows)         # NoSuchPlace dropped
+
+
+def test_detect_header_row_skips_title_rows() -> None:
+    raw = pd.DataFrame(
+        [
+            ["Precio medio de la vivienda (€/m²)", None, None],  # title
+            ["Serie histórica", None, None],                     # subtitle
+            ["Provincia", "2023T4", "2024T1"],                   # header row (index 2)
+            ["Madrid", 3200.0, 3300.0],
+        ]
+    )
+    assert detect_header_row(raw) == 2
+    frame = frame_from_raw(raw)
+    assert frame is not None
+    assert ("prov-28", dt.date(2024, 1, 1), 3300.0) in rows_from_frame(frame)
 
 
 def test_mivau_spec_defaults() -> None:
-    spec = MivauSpec("price_eur_m2", "MIVAU_PRICE_URL", "prov")
-    assert spec.sheet == 0 and spec.header_row == 0
+    spec = MivauSpec("price_eur_m2", "MIVAU_PRICE_URL", "http://x/35101000.XLS")
+    assert spec.sheet == 0
+    assert spec.default_url.endswith("35101000.XLS")
 
 
 # --- sample data -------------------------------------------------------------
