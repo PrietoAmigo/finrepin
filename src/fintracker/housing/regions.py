@@ -150,6 +150,22 @@ def region_code_from_ine_name(name: str, level: str = "ccaa") -> str | None:
     return None
 
 
+def region_codes_for_name(name: str) -> list[str]:
+    """All region codes a label matches across nation/CCAA/province levels.
+
+    A single MIVAU price sheet lists the nation, communities and provinces
+    together, so one row can feed several levels — e.g. "Madrid" is both
+    province ``prov-28`` and community ``ccaa-13`` (same value for a
+    single-province community). Municipalities are resolved by code, not here.
+    """
+    codes: list[str] = []
+    for level in ("prov", "ccaa"):  # the "ccaa" pass also resolves the nation
+        code = region_code_from_ine_name(name, level)
+        if code and code not in codes:
+            codes.append(code)
+    return codes
+
+
 def region_code_from_ine_code(ine_code: str, level: str) -> str | None:
     """Resolve an INE numeric code (2-digit CCAA/province, 5-digit municipality)
     to a namespaced region code, if that region exists."""

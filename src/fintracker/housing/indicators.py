@@ -29,7 +29,10 @@ INDICATORS: list[Indicator] = [
     Indicator("price_eur_m2_new", "House price, new (€/m²)", "eur_m2", "MIVAU", "Q", "price"),
     Indicator("price_eur_m2_used", "House price, second-hand (€/m²)", "eur_m2", "MIVAU", "Q",
               "price"),
-    Indicator("appraisal_eur_m2", "Appraised value (tasación, €/m²)", "eur_m2", "MIVAU", "Q",
+    # MIVAU's whole statistic is the appraised (tasado) value, so a separate
+    # "appraisal" of the free-market price would duplicate price_eur_m2. This
+    # fourth price slot is the distinct protected-housing (VPO) series instead.
+    Indicator("price_eur_m2_protected", "House price, protected VPO (€/m²)", "eur_m2", "MIVAU", "Q",
               "price"),
     # --- INE: income (Atlas de distribución de renta de los hogares) ----------
     Indicator("renta_persona", "Net mean income per person (€)", "eur", "INE", "A", "income",

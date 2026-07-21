@@ -166,13 +166,16 @@ and timeframe** — a filled choropleth of Spain wired to the time-series panels
   (denormalised) and `v_region_yoy` (year-on-year %) are what the panels query.
 - **Data sources.**
   - **Prices (€/m²)** — *Ministerio de Vivienda* (all / new / second-hand /
-    appraisal). The ministry ships **spreadsheets**, not a JSON API, so the ingest
-    is URL-driven: set `MIVAU_*_URL` in `.env` to the current workbooks (see
-    [Notes on data sources](#notes-on-data-sources)).
-  - **Renta, población, densidad, viviendas, superficie, antigüedad** — *INE*'s
-    free, key-less Tempus3 JSON API. The ingest discovers each series' table from
-    its operation at run time; pin a table id with the matching `INE_*_TABLE` env
-    var if one comes back empty. `densidad` is derived (población / superficie).
+    protected-VPO). The ministry ships legacy `.XLS` **spreadsheets**, not a JSON
+    API; the ingest downloads them (built-in default URLs, override with
+    `MIVAU_*_URL`), auto-detects the header row, and maps each region row to every
+    level it matches (see [Notes on data sources](#notes-on-data-sources)).
+  - **Renta (per person/household), población, densidad, viviendas, superficie,
+    antigüedad** — *INE*'s free, key-less Tempus3 JSON API. The ingest discovers
+    each series' table from its operation at run time and selects the right measure
+    with label filters; pin a table id with the matching `INE_*_TABLE`(S) env var
+    if one comes back empty (municipal renta is one table per province, so it loops
+    them). `densidad` is derived (población / superficie).
   - Both run daily (`HOUSING_HOUR`/`HOUSING_MINUTE`) and once on boot. Trigger one
     by hand with `docker compose exec app python -m fintracker.housing.pipeline`.
 - **Sample data until then.** With `HOUSING_SEED_SAMPLE=true` (the template
@@ -362,18 +365,26 @@ alembic upgrade head
   (`servicios.ine.es/wstempus/js/ES`) — free, no API key. Población, renta,
   viviendas, superficie and antigüedad are fetched via `DATOS_TABLA/<id>`; the
   ingest finds each table from its operation via `TABLAS_OPERACION/<op>` at run
-  time (pin one with the matching `INE_*_TABLE` env var). Only level series are
-  stored (year-on-year % is derived by the `v_region_yoy` view); `densidad` is
-  derived as población / superficie. The table-selection keywords are best-effort
-  and may need tuning against live responses. Ceuta/Melilla and small
-  municipalities can be sparse in INE and simply show no data where absent.
-- **Spain house prices (Ministerio de Vivienda):** the ministry (MIVAU/MITMA)
-  publishes its €/m² price statistics (all / new / second-hand / appraisal) as
-  **spreadsheets**, not a JSON API, and the URLs and layouts change between
-  releases. So the ingest is URL-driven: set `MIVAU_*_URL` to the current
-  workbooks and a generic wide-table parser (regions in rows, periods in columns)
-  maps them in. Left unset, the dashboard shows sample €/m² until you configure
-  them. **Catastro** was considered too but its free services are cadastral
+  time and, where a table carries several measures (the ADRH renta table has
+  neta/bruta × person/household × medians), selects the intended one with label
+  filters. Municipal renta is published **one table per province**, so those
+  specs loop every matching table (override with a comma-separated
+  `INE_RENTA_MUNI_TABLES`). Pin any table id with the matching `INE_*_TABLE`(S)
+  env var. Only level series are stored (year-on-year % is derived by the
+  `v_region_yoy` view); `densidad` is derived as población / superficie. The
+  table-selection keywords are best-effort and may need tuning against live
+  responses. Ceuta/Melilla and small municipalities can be sparse in INE.
+- **Spain house prices (Ministerio de Vivienda):** the ministry (MIVAU/ex-Fomento)
+  publishes its €/m² price statistics as legacy **`.XLS` spreadsheets** (the
+  "BoletinOnline" sedal files: `35101000` all, `35101500` new, `35102000`
+  second-hand, `35102500` protected/VPO), not a JSON API. The ingest downloads
+  each workbook (`.xls` via `xlrd`, with an HTML-table fallback), auto-detects the
+  header row (the sheets carry title rows above the grid), and maps each region
+  row into every level it matches — so one sheet fills nation, community and
+  province. The default URLs are built in; override with `MIVAU_*_URL`. Note the
+  whole statistic is the appraised (tasado) value, so there is no separate
+  "appraisal" series — the fourth slot is protected housing (VPO) instead.
+  **Catastro** was considered too but its free services are cadastral
   geometry/reference data (not transaction prices); the schema already stores all
   granularities (`regions.level` incl. `muni`) if you later add a cadastral or
   transaction-count series.
