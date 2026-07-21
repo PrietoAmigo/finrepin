@@ -30,7 +30,7 @@ def main() -> None:
     wait_for_db()
     run_migrations()
     seed_instruments()
-    seed_housing()  # regions + indicators (+ sample data when enabled)
+    seed_housing()  # regions + indicators (reference data only)
     heartbeat.beat()  # pass the healthcheck while the first ingest runs
 
     if settings.run_on_start:

@@ -39,7 +39,6 @@ from fintracker.housing.regions import (
     region_code_from_ine_code,
     region_code_from_ine_name,
 )
-from fintracker.housing.seed import clear_sample_observations
 from fintracker.housing.store import upsert_observations
 from fintracker.models import RegionObservation
 
@@ -309,9 +308,6 @@ def ingest_spec(spec: IneSpec) -> int:
     return written
 
 
-# Sample rows are excluded from every derivation: derived values must only ever
-# come from live (or previously derived) data, or the 'derived' label would
-# launder clearly-marked sample figures into something that looks real.
 _DERIVE_DENSITY = text(
     """
     INSERT INTO region_observations (region_code, indicator, period, value, source)
@@ -321,7 +317,6 @@ _DERIVE_DENSITY = text(
       ON s.region_code = p.region_code AND s.period = p.period
      AND s.indicator = 'superficie_km2' AND s.value > 0
     WHERE p.indicator = 'poblacion'
-      AND p.source <> 'sample' AND s.source <> 'sample'
     ON CONFLICT (region_code, indicator, period)
       DO UPDATE SET value = EXCLUDED.value, source = EXCLUDED.source
     """
@@ -332,8 +327,7 @@ def derive_density() -> int:
     """densidad = poblacion / superficie_km2, per region and matching period.
 
     Recomputed from scratch each run (stale derived rows are dropped first) so
-    revisions in either input propagate. Sample rows are neither an input nor
-    deleted here; they are cleared only once real derived data replaces them.
+    revisions in either input propagate.
     """
     with session_scope() as session:
         session.execute(
@@ -343,10 +337,7 @@ def derive_density() -> int:
             )
         )
         result = session.execute(_DERIVE_DENSITY)
-    written = int(getattr(result, "rowcount", 0) or 0)
-    if written:
-        clear_sample_observations(["densidad"])
-    return written
+    return int(getattr(result, "rowcount", 0) or 0)
 
 
 # Roll an additive indicator up the hierarchy: parent = SUM(children). Run for
@@ -359,7 +350,6 @@ _AGGREGATE_UP = text(
     FROM region_observations o
     JOIN regions r ON r.code = o.region_code
     WHERE o.indicator = :ind AND r.level = :child AND r.parent_code IS NOT NULL
-      AND o.source <> 'sample'
     GROUP BY r.parent_code, o.indicator, o.period
     ON CONFLICT (region_code, indicator, period)
       DO UPDATE SET value = EXCLUDED.value, source = EXCLUDED.source
@@ -378,7 +368,7 @@ def derive_aggregates(indicator: str) -> int:
 
 
 def ingest_ine() -> int:
-    """Run every INE spec, clear sample rows populated, and derive aggregates."""
+    """Run every INE spec and derive aggregates from what was ingested."""
     total = 0
     touched: set[str] = set()
     for spec in INE_SPECS:
@@ -386,8 +376,6 @@ def ingest_ine() -> int:
         if written:
             touched.add(spec.indicator)
         total += written
-    if touched:
-        clear_sample_observations(touched)
     for indicator in _SUMMABLE:
         if indicator in touched:
             try:

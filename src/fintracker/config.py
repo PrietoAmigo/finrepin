@@ -70,9 +70,6 @@ class Settings:
     ine_base_url: str
     housing_hour: int
     housing_minute: int
-    # Seed clearly-labelled sample observations so Grafana renders before any
-    # live ingest (only fills indicators with no data; live data supersedes it).
-    housing_seed_sample: bool
 
     # Healthcheck
     heartbeat_file: str
@@ -122,6 +119,5 @@ def get_settings() -> Settings:
         ine_base_url=_str("INE_BASE_URL", "https://servicios.ine.es/wstempus/js/ES"),
         housing_hour=_int("HOUSING_HOUR", 6),
         housing_minute=_int("HOUSING_MINUTE", 30),
-        housing_seed_sample=_bool("HOUSING_SEED_SAMPLE", False),
         heartbeat_file=_str("HEARTBEAT_FILE", "/tmp/fintracker-heartbeat"),
     )

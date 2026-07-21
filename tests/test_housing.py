@@ -8,7 +8,6 @@ from pathlib import Path
 
 import pandas as pd
 
-from fintracker.housing.indicators import INDICATORS_BY_CODE
 from fintracker.housing.ingest_ine import (
     IneSpec,
     choose_table,
@@ -35,7 +34,6 @@ from fintracker.housing.regions import (
     regions_at,
     regions_by_code,
 )
-from fintracker.housing.sample import _RENTA_ANCHORS, _interp, build_sample_observations
 from fintracker.housing.store import dedupe_observations
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -358,27 +356,3 @@ def test_read_raw_html_fallback_recovers_promoted_header() -> None:
     rows = rows_from_frame(frame)
     assert ("prov-28", dt.date(2023, 10, 1), 3210.4) in rows
     assert ("prov-08", dt.date(2024, 1, 1), 2700.5) in rows
-
-
-# --- sample data -------------------------------------------------------------
-
-
-def test_interp_clamps_beyond_anchor_range() -> None:
-    # Years past the last anchor hold the last value (they used to snap back to
-    # the FIRST anchor, plunging the final sample year).
-    last_year = max(_RENTA_ANCHORS)
-    assert _interp(_RENTA_ANCHORS, dt.date(last_year + 1, 1, 1)) == _RENTA_ANCHORS[last_year]
-    assert _interp(_RENTA_ANCHORS, dt.date(1990, 1, 1)) == _RENTA_ANCHORS[min(_RENTA_ANCHORS)]
-
-
-def test_sample_observations_cover_indicators() -> None:
-    obs = build_sample_observations()
-    indicators = {o[1] for o in obs}
-    for code in ("price_eur_m2", "price_eur_m2_new", "poblacion", "renta_persona", "densidad"):
-        assert code in indicators, code
-        assert code in INDICATORS_BY_CODE
-    # every sampled value is a finite number
-    assert all(isinstance(o[3], float) for o in obs)
-    # provinces are covered (map default level)
-    prov_codes = {o[0] for o in obs if o[0].startswith("prov-")}
-    assert len(prov_codes) == 52
