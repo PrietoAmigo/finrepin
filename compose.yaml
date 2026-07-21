@@ -71,9 +71,6 @@ services:
       - grafana-storage:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
-      # Serve the Spain GeoJSON from Grafana itself (/public/geo/...), so the
-      # ECharts choropleth fetches map geometry same-origin (no external host).
-      - ./grafana/geo:/usr/share/grafana/public/geo:ro
     logging:
       driver: json-file
       options:
