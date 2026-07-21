@@ -30,25 +30,29 @@ from dataclasses import dataclass
 
 import pandas as pd
 import requests
-from sqlalchemy.dialects.postgresql import insert as pg_insert
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from fintracker.config import get_settings
-from fintracker.db import session_scope
 from fintracker.housing.regions import region_codes_for_name
 from fintracker.housing.seed import clear_sample_observations
-from fintracker.models import RegionObservation
+from fintracker.housing.store import upsert_observations
 
 log = logging.getLogger(__name__)
 
 SOURCE = "MIVAU"
 _TIMEOUT = (10, 120)
-_UPSERT_CHUNK = 500
 _SEDAL = "https://apps.fomento.gob.es/BoletinOnline2/sedal"
 
-# Period headers like "2024T1", "1T2024", "2024TI", "2024-Q1", "2024".
-_QUARTER_RE = re.compile(r"(?:(\d{4})\s*[t q]\s*([1-4ivx]+))|(?:([1-4])\s*t\s*(\d{4}))", re.I)
+# Period headers like "2024T1", "2024 T1", "2024-Q1", "2024TI", "1T2024", "2024".
+# Roman numerals longest-first so "TIV" isn't read as "TI".
+_QUARTER_RE = re.compile(
+    r"(?:(\d{4})\s*[-–]?\s*[tq]\s*(iv|iii|ii|i|[1-4]))|(?:([1-4])\s*[tq]\s*[-–]?\s*(\d{4}))",
+    re.I,
+)
 _ROMAN = {"i": 1, "ii": 2, "iii": 3, "iv": 4}
+# Sanity bounds: the statistic starts in the 1990s, and 4-digit *values* in a
+# sheet (€/m² prices are 4-digit numbers) must never be read as years.
+_YEAR_MIN, _YEAR_MAX = 1980, 2100
 
 
 @dataclass(frozen=True)
@@ -74,7 +78,8 @@ def parse_period(label: str) -> dt.date | None:
     text = str(label).strip().lower()
     plain_year = re.fullmatch(r"(\d{4})(?:\.0)?", text)
     if plain_year:
-        return dt.date(int(plain_year.group(1)), 1, 1)
+        year = int(plain_year.group(1))
+        return dt.date(year, 1, 1) if _YEAR_MIN <= year <= _YEAR_MAX else None
     match = _QUARTER_RE.search(text)
     if not match:
         return None
@@ -82,9 +87,9 @@ def parse_period(label: str) -> dt.date | None:
         year, q_raw = int(match.group(1)), match.group(2)
     else:
         year, q_raw = int(match.group(4)), match.group(3)
-    quarter = _ROMAN.get(q_raw) if q_raw in _ROMAN else (int(q_raw) if q_raw.isdigit() else None)
-    if quarter is None or not 1 <= quarter <= 4:
+    if not _YEAR_MIN <= year <= _YEAR_MAX:
         return None
+    quarter = _ROMAN[q_raw] if q_raw in _ROMAN else int(q_raw)
     return dt.date(year, (quarter - 1) * 3 + 1, 1)
 
 
@@ -112,31 +117,50 @@ def frame_from_raw(raw: pd.DataFrame) -> pd.DataFrame | None:
     return body
 
 
+def _to_float(value: object) -> float | None:
+    """A cell as a number, handling es-locale strings ("1.834,5"). Pure."""
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return None
+    if isinstance(value, int | float):
+        return float(value)
+    text = str(value).strip().replace("\xa0", "").replace(" ", "")
+    if "," in text:  # es-locale: dots are thousands separators
+        text = text.replace(".", "").replace(",", ".")
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+
 def rows_from_frame(frame: pd.DataFrame) -> list[tuple[str, dt.date, float]]:
     """Parse a wide MIVAU frame into (region_code, period, value) rows. Pure.
 
-    The first non-period column is the region column; each region name is mapped
-    to every level it matches, so one sheet fills nation/community/province.
+    The region column is the non-period column with the most resolvable region
+    names (sheets can carry blank filler columns before it). Each region name is
+    mapped to every level it matches, so one sheet fills nation/community/
+    province. Positional indexing throughout — repeated blank headers give
+    duplicate column labels.
     """
-    columns = list(frame.columns)
-    period_cols = [(c, parse_period(str(c))) for c in columns]
-    region_col = next((c for c, p in period_cols if p is None), None)
-    if region_col is None:
+    periods = [parse_period(str(c)) for c in frame.columns]
+    region_idx, best_hits = None, 0
+    for idx, period in enumerate(periods):
+        if period is not None:
+            continue
+        hits = sum(1 for v in frame.iloc[:, idx] if region_codes_for_name(str(v)))
+        if hits > best_hits:
+            region_idx, best_hits = idx, hits
+    if region_idx is None:
         return []
     rows: list[tuple[str, dt.date, float]] = []
     for _, record in frame.iterrows():
-        codes = region_codes_for_name(str(record[region_col]))
+        codes = region_codes_for_name(str(record.iloc[region_idx]))
         if not codes:
             continue
-        for col, period in period_cols:
-            if period is None or col == region_col:
+        for idx, period in enumerate(periods):
+            if period is None:
                 continue
-            value = record[col]
-            if pd.isna(value):
-                continue
-            try:
-                numeric = float(value)
-            except (ValueError, TypeError):
+            numeric = _to_float(record.iloc[idx])
+            if numeric is None:
                 continue
             for code in codes:
                 rows.append((code, period, numeric))
@@ -155,52 +179,34 @@ def _download(url: str) -> bytes:
     return resp.content
 
 
-def _read_raw(content: bytes, url: str) -> pd.DataFrame | None:
+def _read_raw(content: bytes, url: str, sheet: str | int = 0) -> pd.DataFrame | None:
     """Read a workbook into a header-less frame; ``.xls`` via xlrd, else openpyxl.
 
     Falls back to parsing an HTML table, since some ministry ``.XLS`` downloads
-    are actually HTML.
+    are actually HTML. HTML numbers are es-locale ("1.834,5"); and read_html may
+    promote ``<th>`` cells to column labels, so those are pushed back down as a
+    row to keep the frame header-less like the Excel path.
     """
     engine = "xlrd" if url.lower().endswith(".xls") else "openpyxl"
     try:
-        return pd.read_excel(io.BytesIO(content), sheet_name=0, header=None, engine=engine)
+        return pd.read_excel(io.BytesIO(content), sheet_name=sheet, header=None, engine=engine)
     except Exception:
         try:
-            tables = pd.read_html(io.BytesIO(content), header=None)
+            tables = pd.read_html(io.BytesIO(content), thousands=".", decimal=",")
         except Exception:
             return None
-        return max(tables, key=lambda t: t.shape[0]) if tables else None
-
-
-def _upsert(rows: list[tuple[str, str, dt.date, float]]) -> int:
-    with session_scope() as session:
-        for offset in range(0, len(rows), _UPSERT_CHUNK):
-            chunk = rows[offset : offset + _UPSERT_CHUNK]
-            stmt = pg_insert(RegionObservation).values(
-                [
-                    {
-                        "region_code": region,
-                        "indicator": indicator,
-                        "period": period,
-                        "value": value,
-                        "source": SOURCE,
-                    }
-                    for region, indicator, period, value in chunk
-                ]
-            )
-            session.execute(
-                stmt.on_conflict_do_update(
-                    constraint="uq_region_obs_region_indicator_period",
-                    set_={"value": stmt.excluded.value, "source": stmt.excluded.source},
-                )
-            )
-    return len(rows)
+        if not tables:
+            return None
+        table = max(tables, key=lambda t: t.shape[0])
+        header = pd.DataFrame([[str(c) for c in table.columns]])
+        table.columns = range(len(table.columns))
+        return pd.concat([header, table], ignore_index=True)
 
 
 def ingest_spec(spec: MivauSpec) -> int:
     url = os.environ.get(spec.url_env, "").strip() or spec.default_url
     try:
-        raw = _read_raw(_download(url), url)
+        raw = _read_raw(_download(url), url, spec.sheet)
     except Exception:
         log.exception("MIVAU download failed for %s (%s)", spec.indicator, url)
         return 0
@@ -213,7 +219,7 @@ def ingest_spec(spec: MivauSpec) -> int:
         log.warning("Parsed 0 MIVAU rows for %s from %s", spec.indicator, url)
         return 0
     rows = [(region, spec.indicator, period, value) for region, period, value in parsed]
-    written = _upsert(rows)
+    written = upsert_observations(rows, SOURCE)
     clear_sample_observations([spec.indicator])
     log.info(
         "Ingested %d MIVAU rows for %s (%d regions)",

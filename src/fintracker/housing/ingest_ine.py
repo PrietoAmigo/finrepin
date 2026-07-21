@@ -30,7 +30,6 @@ from typing import Any
 
 import requests
 from sqlalchemy import delete, func, select, text
-from sqlalchemy.dialects.postgresql import insert as pg_insert
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from fintracker.config import get_settings
@@ -41,13 +40,13 @@ from fintracker.housing.regions import (
     region_code_from_ine_name,
 )
 from fintracker.housing.seed import clear_sample_observations
+from fintracker.housing.store import upsert_observations
 from fintracker.models import RegionObservation
 
 log = logging.getLogger(__name__)
 
 SOURCE = "INE"
 _TIMEOUT = (10, 60)
-_UPSERT_CHUNK = 500
 # Skip variation/rate series; we store levels and derive change in SQL.
 _SKIP_TOKENS = ("variacion", "tasa de", "porcentaje")
 _MUNI_CODE_RE = re.compile(r"\b(\d{5})\b")
@@ -113,8 +112,9 @@ def fetch_json(path: str, params: dict[str, Any] | None = None) -> Any:
         # INE answers 200 with an empty/HTML body for an unknown table or
         # operation id; surface that cleanly instead of a raw JSONDecodeError.
         snippet = " ".join(resp.text[:160].split())
-        raise ValueError(f"INE returned non-JSON for {path} ({len(resp.text)} bytes): {snippet!r}")\
-            from exc
+        raise ValueError(
+            f"INE returned non-JSON for {path} ({len(resp.text)} bytes): {snippet!r}"
+        ) from exc
 
 
 def choose_tables(tables: list[dict[str, Any]], spec: IneSpec) -> list[str]:
@@ -274,31 +274,6 @@ def _has_rows(indicator: str, level: str) -> bool:
         )
 
 
-def _upsert(rows: list[tuple[str, str, dt.date, float]]) -> int:
-    with session_scope() as session:
-        for offset in range(0, len(rows), _UPSERT_CHUNK):
-            chunk = rows[offset : offset + _UPSERT_CHUNK]
-            stmt = pg_insert(RegionObservation).values(
-                [
-                    {
-                        "region_code": region,
-                        "indicator": indicator,
-                        "period": period,
-                        "value": value,
-                        "source": SOURCE,
-                    }
-                    for region, indicator, period, value in chunk
-                ]
-            )
-            session.execute(
-                stmt.on_conflict_do_update(
-                    constraint="uq_region_obs_region_indicator_period",
-                    set_={"value": stmt.excluded.value, "source": stmt.excluded.source},
-                )
-            )
-    return len(rows)
-
-
 def _ingest_table(table_id: str, spec: IneSpec, params: dict[str, Any]) -> int:
     try:
         series_list = fetch_json(f"DATOS_TABLA/{table_id}", params=params)
@@ -315,7 +290,7 @@ def _ingest_table(table_id: str, spec: IneSpec, params: dict[str, Any]) -> int:
         )
         return 0
     rows = [(region, spec.indicator, period, value) for region, period, value in parsed]
-    return _upsert(rows)
+    return upsert_observations(rows, SOURCE)
 
 
 def ingest_spec(spec: IneSpec) -> int:
@@ -334,6 +309,9 @@ def ingest_spec(spec: IneSpec) -> int:
     return written
 
 
+# Sample rows are excluded from every derivation: derived values must only ever
+# come from live (or previously derived) data, or the 'derived' label would
+# launder clearly-marked sample figures into something that looks real.
 _DERIVE_DENSITY = text(
     """
     INSERT INTO region_observations (region_code, indicator, period, value, source)
@@ -343,6 +321,7 @@ _DERIVE_DENSITY = text(
       ON s.region_code = p.region_code AND s.period = p.period
      AND s.indicator = 'superficie_km2' AND s.value > 0
     WHERE p.indicator = 'poblacion'
+      AND p.source <> 'sample' AND s.source <> 'sample'
     ON CONFLICT (region_code, indicator, period)
       DO UPDATE SET value = EXCLUDED.value, source = EXCLUDED.source
     """
@@ -350,11 +329,24 @@ _DERIVE_DENSITY = text(
 
 
 def derive_density() -> int:
-    """densidad = poblacion / superficie_km2, per region and matching period."""
+    """densidad = poblacion / superficie_km2, per region and matching period.
+
+    Recomputed from scratch each run (stale derived rows are dropped first) so
+    revisions in either input propagate. Sample rows are neither an input nor
+    deleted here; they are cleared only once real derived data replaces them.
+    """
     with session_scope() as session:
-        session.execute(delete(RegionObservation).where(RegionObservation.indicator == "densidad"))
+        session.execute(
+            delete(RegionObservation).where(
+                RegionObservation.indicator == "densidad",
+                RegionObservation.source == "derived",
+            )
+        )
         result = session.execute(_DERIVE_DENSITY)
-    return int(getattr(result, "rowcount", 0) or 0)
+    written = int(getattr(result, "rowcount", 0) or 0)
+    if written:
+        clear_sample_observations(["densidad"])
+    return written
 
 
 # Roll an additive indicator up the hierarchy: parent = SUM(children). Run for
@@ -367,6 +359,7 @@ _AGGREGATE_UP = text(
     FROM region_observations o
     JOIN regions r ON r.code = o.region_code
     WHERE o.indicator = :ind AND r.level = :child AND r.parent_code IS NOT NULL
+      AND o.source <> 'sample'
     GROUP BY r.parent_code, o.indicator, o.period
     ON CONFLICT (region_code, indicator, period)
       DO UPDATE SET value = EXCLUDED.value, source = EXCLUDED.source
@@ -375,7 +368,7 @@ _AGGREGATE_UP = text(
 
 
 def derive_aggregates(indicator: str) -> int:
-    """Sum an additive indicator province → CCAA → nation."""
+    """Sum an additive indicator province → CCAA → nation (live rows only)."""
     written = 0
     with session_scope() as session:
         for child in ("prov", "ccaa"):

@@ -194,7 +194,8 @@ class Indicator(Base):
 
     code: Mapped[str] = mapped_column(String(40), primary_key=True)
     name: Mapped[str] = mapped_column(String(160))
-    unit: Mapped[str] = mapped_column(String(24))  # eur_m2 | eur | count | m2 | km2 | year | ratio
+    # eur_m2 | eur | count | m2 | km2 | year | inhab_km2
+    unit: Mapped[str] = mapped_column(String(24))
     source: Mapped[str] = mapped_column(String(16))  # MIVAU | INE
     frequency: Mapped[str] = mapped_column(String(2))  # A | Q | M
     # price | income | demographic | housing | area
