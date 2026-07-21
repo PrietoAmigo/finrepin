@@ -87,11 +87,10 @@ thing runs under Docker Compose and schedules itself — no external cron.
   superficie, antigüedad** — by **region and timeframe**. Region data is stored
   at every granularity (nation → CCAA → province → municipality) with parent
   links, so any series rolls up. Click a region on the choropleth and every panel
-  filters to it; the map defaults to province level with a CCAA/municipality
-  selector. Prices come from the **Ministerio de Vivienda**; the demographic and
-  income series from **INE**'s free Tempus3 JSON API. The choropleth is an Apache
-  ECharts panel (the Business Charts plugin). Until live data arrives, the
-  dashboard renders clearly-labelled **sample** data. See
+  filters to it; cascading **CCAA → province → municipality** selectors keep the
+  list short as you drill down. Prices come from the **Ministerio de Vivienda**;
+  the demographic and income series from **INE**'s free Tempus3 JSON API. The
+  choropleth is an Apache ECharts panel (the Business Charts plugin). See
   [Spain housing dashboard](#spain-housing-dashboard) below.
 
 All core features are in. What remains is **M7/M8 polish**: richer
@@ -154,11 +153,13 @@ and timeframe** — a filled choropleth of Spain wired to the time-series panels
 
 - **Everything in Grafana.** The choropleth is an **Apache ECharts** panel (the
   *Business Charts* plugin, `volkovlabs-echarts-panel`, installed on Grafana
-  startup via `GF_INSTALL_PLUGINS`). **Click a region** on the map and it sets the
-  dashboard's `region` variable, so every panel (price, YoY, population, income,
-  the all-indicators table) filters to it. Template variables pick the map metric,
-  the granularity (**CCAA / province / municipality**, province by default), and an
-  extra series.
+  startup via `GF_INSTALL_PLUGINS`). It is **selection-only** — **click a region**
+  to filter, there is no zoom or pan — and every panel (price, YoY, population,
+  income, the all-indicators table) follows the selection. Template variables pick
+  the map metric, the granularity (**CCAA / province / municipality**, province by
+  default) and an extra series; **cascading CCAA → province → municipality**
+  selectors narrow the region list as you drill down, so the municipality picker
+  only ever lists the municipalities of the chosen province.
 - **All granularities, stored.** The `regions` table holds the whole hierarchy —
   nation → CCAA → province → municipality (~8,200 regions) — with `parent_code`
   links, so a fine-grained series always rolls up to a coarser one. Observations
@@ -178,12 +179,8 @@ and timeframe** — a filled choropleth of Spain wired to the time-series panels
     them). `densidad` is derived (población / superficie).
   - Both run daily (`HOUSING_HOUR`/`HOUSING_MINUTE`) and once on boot. Trigger one
     by hand with `docker compose exec app python -m fintracker.housing.pipeline`.
-- **Sample data until then.** With `HOUSING_SEED_SAMPLE=true` (the template
-  default) the app seeds clearly-labelled `source='sample'` observations — plausible
-  but **not real** figures — so the dashboard renders immediately. Sample rows only
-  fill indicators with no data, and each live ingest clears the sample rows for the
-  indicators it populates, so real data supersedes them. Set it `false` once live
-  ingest is running.
+    Panels stay empty for any indicator with no ingested rows yet — no placeholder
+    data is ever written.
 - **Geometry.** Province and CCAA polygons come from
   [es-atlas](https://github.com/martgnz/es-atlas) — feature ids are INE codes, so
   data joins to the map exactly — simplified and **inlined into the panel** (the
@@ -311,12 +308,12 @@ docker compose exec app python -m fintracker.ingest.market
 ```
 
 To refresh just one housing source (or re-seed the region/indicator reference
-data, plus sample data when `HOUSING_SEED_SAMPLE=true`):
+data):
 
 ```bash
 docker compose exec app python -m fintracker.housing.ingest_ine     # INE series only
 docker compose exec app python -m fintracker.housing.ingest_mivau   # €/m² prices (MIVAU) only
-docker compose exec app python -m fintracker.housing.seed           # regions + indicators (+ sample)
+docker compose exec app python -m fintracker.housing.seed           # regions + indicators
 ```
 
 (On the server these run against the container the deploy timer manages; prefix
@@ -358,7 +355,7 @@ Schedule that command from host cron if you want periodic backups.
 │   ├── ingest/                 # prices, forex, crypto, market orchestrator,
 │   │                           #   fundamentals + sec_client, earnings
 │   ├── housing/                # Spain housing: region hierarchy + indicators,
-│   │                           #   INE + MIVAU ingest, sample seed, data/regions_all.json
+│   │                           #   INE + MIVAU ingest, data/regions_all.json
 │   └── report/                 # weekly email: data (queries), render (HTML/text), email_report (SMTP)
 ├── tests/                      # pure-parsing unit tests (no network/DB)
 └── .github/workflows/ci.yml    # ruff + mypy + pytest + alembic offline check
@@ -428,7 +425,7 @@ alembic upgrade head
   `… por hogar`); it has no hardcoded id, so pin the provincial ids via
   `INE_RENTA_PROV_TABLE`/`INE_RENTA_HOGAR_TABLE`, and municipal renta (one table
   per province) via a comma-separated `INE_RENTA_MUNI_TABLES` — until then renta
-  stays on sample data. Only level series are stored (year-on-year % is derived
+  panels stay empty. Only level series are stored (year-on-year % is derived
   by the `v_region_yoy` view); `densidad` is derived as población / superficie.
   Ceuta/Melilla and small municipalities can be sparse in INE.
 - **Spain house prices (Ministerio de Vivienda):** the ministry (MIVAU/ex-Fomento)

@@ -34,7 +34,6 @@ from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_ex
 
 from fintracker.config import get_settings
 from fintracker.housing.regions import region_codes_for_name
-from fintracker.housing.seed import clear_sample_observations
 from fintracker.housing.store import upsert_observations
 
 log = logging.getLogger(__name__)
@@ -220,7 +219,6 @@ def ingest_spec(spec: MivauSpec) -> int:
         return 0
     rows = [(region, spec.indicator, period, value) for region, period, value in parsed]
     written = upsert_observations(rows, SOURCE)
-    clear_sample_observations([spec.indicator])
     log.info(
         "Ingested %d MIVAU rows for %s (%d regions)",
         written, spec.indicator, len({r[0] for r in rows}),
