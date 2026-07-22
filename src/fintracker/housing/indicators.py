@@ -63,6 +63,8 @@ INDICATORS: list[Indicator] = [
     Indicator("compraventa", "Home sales (count)", "count", "INE", "M", "market"),
     Indicator("ipv", "House price index (2015=100)", "index", "INE", "Q", "market"),
     Indicator("precio_suelo_m2", "Urban land price (€/m²)", "eur_m2", "MIVAU", "Q", "market"),
+    Indicator("hipoteca", "Mortgages on dwellings (count)", "count", "INE", "M", "market"),
+    Indicator("visados", "New-build permits (count)", "count", "MIVAU", "M", "market"),
 ]
 
 INDICATORS_BY_CODE: dict[str, Indicator] = {i.code: i for i in INDICATORS}

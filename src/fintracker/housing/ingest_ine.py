@@ -69,7 +69,7 @@ class IneSpec:
 
 # Series aggregated up the hierarchy (province → CCAA → nation) after ingest,
 # because they are additive counts.
-_SUMMABLE = ("poblacion", "compraventa")
+_SUMMABLE = ("poblacion", "compraventa", "hipoteca")
 
 # Prefer known DATOS_TABLA ids over operation-title discovery (INE operation
 # codes are easy to get wrong; a fixed table id is reliable).
@@ -108,6 +108,12 @@ INE_SPECS: list[IneSpec] = [
     IneSpec("ipv", "ccaa", "Q", table_env="INE_IPV_TABLE",
             value_filters=("general", "indice"),
             exclude_values=("variacion", "tasa")),
+    # Mortgages constituted on dwellings (Estadística de Hipotecas), monthly by
+    # province. Additive → rolls up. Pin INE_HIPOTECA_TABLE (the count-of-
+    # mortgages-on-dwellings-by-province table); importe/capital rows are dropped.
+    IneSpec("hipoteca", "prov", "M", table_env="INE_HIPOTECA_TABLE",
+            value_filters=("vivienda",),
+            exclude_values=("importe", "capital", "rustica")),
 ]
 
 

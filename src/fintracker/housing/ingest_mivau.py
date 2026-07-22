@@ -79,6 +79,9 @@ MIVAU_SPECS: list[MivauSpec] = [
     # €/m² grid shape. The sedal code needs confirming, so there is no built-in
     # default: it stays inert until MIVAU_SUELO_URL is set.
     MivauSpec("precio_suelo_m2", "MIVAU_SUELO_URL", ""),
+    # New-build permits (visados de dirección de obra) — a BoletinOnline .XLS of
+    # the same wide shape. Inert until MIVAU_VISADOS_URL is set.
+    MivauSpec("visados", "MIVAU_VISADOS_URL", ""),
 ]
 
 

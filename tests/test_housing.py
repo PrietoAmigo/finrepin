@@ -365,7 +365,7 @@ def test_read_sheets_html_fallback_recovers_promoted_header() -> None:
 
 
 def test_market_indicators_registered() -> None:
-    for code in ("compraventa", "ipv", "precio_suelo_m2"):
+    for code in ("compraventa", "ipv", "precio_suelo_m2", "hipoteca", "visados"):
         assert INDICATORS_BY_CODE[code].category == "market"
     # Land price is €/m² but must NOT join the set the choropleth colours by.
     assert "precio_suelo_m2" not in PRICE_INDICATORS
