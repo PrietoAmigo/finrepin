@@ -8,7 +8,9 @@ from pathlib import Path
 
 import pandas as pd
 
+from fintracker.housing.indicators import INDICATORS_BY_CODE, PRICE_INDICATORS
 from fintracker.housing.ingest_ine import (
+    INE_SPECS,
     IneSpec,
     choose_table,
     choose_tables,
@@ -357,3 +359,38 @@ def test_read_sheets_html_fallback_recovers_promoted_header() -> None:
     rows = rows_from_sheet(sheets[0])
     assert ("prov-28", dt.date(2023, 10, 1), 3210.4) in rows
     assert ("prov-08", dt.date(2024, 1, 1), 2700.5) in rows
+
+
+# --- Registry + ingest guardrails --------------------------------------------
+
+
+def test_market_indicators_registered() -> None:
+    for code in ("compraventa", "ipv", "precio_suelo_m2"):
+        assert INDICATORS_BY_CODE[code].category == "market"
+    # Land price is €/m² but must NOT join the set the choropleth colours by.
+    assert "precio_suelo_m2" not in PRICE_INDICATORS
+
+
+def test_no_ine_spec_auto_discovers() -> None:
+    # The ADRH auto-discovery (all_tables) fetched ~1.6M series and OOM-killed the
+    # ingest; every spec must pin its table(s) by id/env instead. Keep it that way.
+    offenders = [s.indicator for s in INE_SPECS if s.all_tables]
+    assert offenders == [], f"specs must not auto-discover whole operations: {offenders}"
+
+
+def test_pinned_ine_specs_are_inert_without_config(monkeypatch) -> None:
+    # A spec with no default_table must resolve to zero tables when its env is
+    # unset — so market/renta series stay empty (and never fetch) until pinned.
+    # (No no-default spec sets `operation`, so this makes no network call.)
+    from fintracker.housing import ingest_ine
+
+    for spec in INE_SPECS:
+        for var in (spec.table_env, spec.tables_env):
+            if var:
+                monkeypatch.delenv(var, raising=False)
+        assert not (not spec.default_table and spec.operation), (
+            f"{spec.indicator}: a no-default spec with discovery would fetch on every run"
+        )
+    for spec in INE_SPECS:
+        if not spec.default_table:
+            assert ingest_ine._resolve_table_ids(spec) == []

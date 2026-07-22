@@ -450,6 +450,16 @@ alembic upgrade head
   and the `densidad` that would derive from área, stay empty. No `source =
   'sample'` placeholder is ever written; migration 0018 removes any left by the
   old sample-data feature.
+- **Market-activity series (INE + MIVAU):** alongside the €/m² prices, the
+  registry also carries **home sales** (`compraventa`, INE ETDP, monthly/
+  province, additive so it rolls up), the **House Price Index** (`ipv`, INE
+  operation 25, quarterly/CCAA, an index) and **urban land price**
+  (`precio_suelo_m2`, a MIVAU `.XLS`). These are **off by default** — pinned by
+  id only, never auto-discovered — and stay empty until their env var is set
+  (`INE_COMPRAVENTA_TABLE`, `INE_IPV_TABLE`, `MIVAU_SUELO_URL`; find the ids on
+  the server, they can't be reached from CI). More adjacent series (mortgages,
+  transactions, permits, Euríbor, affordability ratios) slot into the same
+  generic store the same way.
 - **Spain house prices (Ministerio de Vivienda):** the ministry (MIVAU/ex-Fomento)
   publishes its €/m² price statistics as legacy **`.XLS` spreadsheets** (the
   "BoletinOnline" sedal files: `35101000` all, `35101500` new, `35102000`

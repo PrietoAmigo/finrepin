@@ -75,6 +75,10 @@ MIVAU_SPECS: list[MivauSpec] = [
     # 35102500 is protected housing (VPO) — a distinct series, not a re-appraisal
     # of the free-market price.
     MivauSpec("price_eur_m2_protected", "MIVAU_PROTECTED_URL", f"{_SEDAL}/35102500.XLS"),
+    # Urban land price (€/m² de suelo) — a separate BoletinOnline workbook, same
+    # €/m² grid shape. The sedal code needs confirming, so there is no built-in
+    # default: it stays inert until MIVAU_SUELO_URL is set.
+    MivauSpec("precio_suelo_m2", "MIVAU_SUELO_URL", ""),
 ]
 
 
@@ -307,6 +311,9 @@ def _read_sheets(content: bytes, url: str) -> list[pd.DataFrame]:
 
 def ingest_spec(spec: MivauSpec) -> int:
     url = os.environ.get(spec.url_env, "").strip() or spec.default_url
+    if not url:
+        log.info("MIVAU %s: no workbook URL — set %s to enable.", spec.indicator, spec.url_env)
+        return 0
     try:
         sheets = _read_sheets(_download(url), url)
     except Exception:

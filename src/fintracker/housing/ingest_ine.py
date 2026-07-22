@@ -69,7 +69,7 @@ class IneSpec:
 
 # Series aggregated up the hierarchy (province → CCAA → nation) after ingest,
 # because they are additive counts.
-_SUMMABLE = ("poblacion",)
+_SUMMABLE = ("poblacion", "compraventa")
 
 # Prefer known DATOS_TABLA ids over operation-title discovery (INE operation
 # codes are easy to get wrong; a fixed table id is reliable).
@@ -97,6 +97,17 @@ INE_SPECS: list[IneSpec] = [
     IneSpec("renta_persona", "muni", "A", tables_env="INE_RENTA_MUNI_TABLES",
             value_filters=("renta neta media por persona",),
             exclude_values=("seccion", "distrito")),
+    # --- Market activity (small province/CCAA tables; pinned ids only, never
+    # auto-discovered, so no OOM risk). Both stay empty until their env id is set.
+    # Home sales (Estadística de Transmisiones de Derechos de la Propiedad):
+    # compraventas of dwellings, monthly, by province. Additive → rolls up.
+    IneSpec("compraventa", "prov", "M", table_env="INE_COMPRAVENTA_TABLE",
+            value_filters=("compraventa",), exclude_values=("rustica",)),
+    # House Price Index (IPV), quarterly, national + CCAA. An index (base 2015),
+    # so not additive; value_filters keeps the general index level, not a % change.
+    IneSpec("ipv", "ccaa", "Q", table_env="INE_IPV_TABLE",
+            value_filters=("general", "indice"),
+            exclude_values=("variacion", "tasa")),
 ]
 
 

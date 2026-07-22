@@ -56,6 +56,13 @@ INDICATORS: list[Indicator] = [
     Indicator("viviendas_principales", "Main-residence dwellings", "count", "INE", "A", "housing"),
     Indicator("superficie_media_m2", "Mean dwelling floor area (m²)", "m2", "INE", "A", "housing"),
     Indicator("antiguedad_media", "Mean dwelling age (years)", "year", "INE", "A", "housing"),
+    # --- Market activity ------------------------------------------------------
+    # Demand/supply signals that sit alongside the €/m² prices. All are pinned by
+    # env id (never auto-discovered) and stay empty until configured — see
+    # ingest_ine.INE_SPECS / ingest_mivau.MIVAU_SPECS and the README.
+    Indicator("compraventa", "Home sales (count)", "count", "INE", "M", "market"),
+    Indicator("ipv", "House price index (2015=100)", "index", "INE", "Q", "market"),
+    Indicator("precio_suelo_m2", "Urban land price (€/m²)", "eur_m2", "MIVAU", "Q", "market"),
 ]
 
 INDICATORS_BY_CODE: dict[str, Indicator] = {i.code: i for i in INDICATORS}
