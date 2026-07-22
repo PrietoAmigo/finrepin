@@ -87,14 +87,16 @@ INE_SPECS: list[IneSpec] = [
     IneSpec("renta_hogar", "prov", "A", table_env="INE_RENTA_HOGAR_TABLE",
             value_filters=("renta neta media por hogar",)),
     # Municipal renta lives in the ADRH's "Indicadores de renta media y mediana"
-    # tables (operation 353) — one per province, 54 in all, every one carrying
-    # that title. Discovery loops them all (all_tables) and resolves each series'
-    # municipality from its 5-digit code; pin a subset with a comma-separated
-    # INE_RENTA_MUNI_TABLES to skip discovery (and its ~54 fetches).
+    # tables (operation 353), one per province. Each is HUGE — ~30k series
+    # (municipality × district × section × six measures), so auto-discovering and
+    # fetching all 54 would pull ~1.6M series and OOM the ingest, and the section
+    # rows carry 5-digit codes that collide with municipality codes. So this is
+    # env-gated: set INE_RENTA_MUNI_TABLES to specific province table ids to
+    # enable it. exclude_values drops the district/section series, keeping only
+    # municipality-level rows. (A compact province/CCAA renta source is TODO.)
     IneSpec("renta_persona", "muni", "A", tables_env="INE_RENTA_MUNI_TABLES",
             value_filters=("renta neta media por persona",),
-            operation="353", keywords=("indicadores", "renta", "media"), all_tables=True,
-            exclude=("distrito", "seccion", "grupo")),
+            exclude_values=("seccion", "distrito")),
 ]
 
 
