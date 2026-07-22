@@ -168,14 +168,18 @@ and timeframe** — a filled choropleth of Spain wired to the time-series panels
 - **Data sources.**
   - **Prices (€/m²)** — *Ministerio de Vivienda* (all / new / second-hand /
     protected-VPO). The ministry ships legacy `.XLS` **spreadsheets**, not a JSON
-    API; the ingest downloads them (built-in default URLs, override with
-    `MIVAU_*_URL`), auto-detects the header row, and maps each region row to every
-    level it matches (see [Notes on data sources](#notes-on-data-sources)).
+    API; each workbook has **one sheet per four-year block** and a **two-row
+    header** (a year row over a quarter row). The ingest downloads them (built-in
+    default URLs, override with `MIVAU_*_URL`), reads every sheet, reconstructs
+    each column's `(year, quarter)` period from the two header rows, and maps each
+    region row to every level it matches (see
+    [Notes on data sources](#notes-on-data-sources)).
   - **Población and renta (per person/household)** — *INE*'s free, key-less
     Tempus3 JSON API (`DATOS_TABLA/<id>`). Población ships from table **2852**;
-    renta from the ADRH "Indicadores de renta media y mediana" tables (one per
-    province — pin them via the matching `INE_*_TABLE`(S) env var; municipal
-    renta loops the per-province list). Not every listed indicator is reachable
+    municipal renta is **auto-discovered** from the ADRH's 54 "Indicadores de
+    renta media y mediana" tables (operation **353**), each resolved to its
+    municipality by INE code — pin a subset via `INE_RENTA_MUNI_TABLES` to skip
+    the ~54 discovery fetches. Not every listed indicator is reachable
     this way: **dwelling counts** live in Tempus3 (table 3457) but aren't wired
     yet, while **mean floor area, mean dwelling age, and territory area (km²)**
     are only in INE's PC-Axis (`.px`) census tables — not this JSON API — so
@@ -429,10 +433,12 @@ alembic upgrade head
   national are derived by summing provinces** (population is additive). **Renta**
   (Atlas de distribución de renta de los hogares) has several measures per table,
   so a label filter selects the intended one (`renta neta media por persona` /
-  `… por hogar`); it has no hardcoded id, so pin the provincial ids via
-  `INE_RENTA_PROV_TABLE`/`INE_RENTA_HOGAR_TABLE`, and municipal renta (one table
-  per province) via a comma-separated `INE_RENTA_MUNI_TABLES` — until then renta
-  panels stay empty. Only level series are stored (year-on-year % is derived
+  `… por hogar`). Municipal renta is **discovered automatically** from the ADRH
+  (operation `353`): its 54 tables are all titled "Indicadores de renta media y
+  mediana", so the ingest loops them and resolves each series' municipality by
+  its 5-digit code. Pin a subset via `INE_RENTA_MUNI_TABLES` to skip the ~54
+  fetches; the provincial/household aggregates still take a pinned
+  `INE_RENTA_PROV_TABLE`/`INE_RENTA_HOGAR_TABLE`. Only level series are stored (year-on-year % is derived
   by the `v_region_yoy` view). Ceuta/Melilla and small municipalities can be
   sparse in INE. **Not everything is in this JSON API:** dwelling **counts** are
   (table `3457`, not wired yet), but **mean floor area**, **mean dwelling age**
@@ -444,11 +450,15 @@ alembic upgrade head
 - **Spain house prices (Ministerio de Vivienda):** the ministry (MIVAU/ex-Fomento)
   publishes its €/m² price statistics as legacy **`.XLS` spreadsheets** (the
   "BoletinOnline" sedal files: `35101000` all, `35101500` new, `35102000`
-  second-hand, `35102500` protected/VPO), not a JSON API. The ingest downloads
-  each workbook (`.xls` via `xlrd`, with an HTML-table fallback), auto-detects the
-  header row (the sheets carry title rows above the grid), and maps each region
-  row into every level it matches — so one sheet fills nation, community and
-  province. The default URLs are built in; override with `MIVAU_*_URL`. Note the
+  second-hand, `35102500` protected/VPO), not a JSON API. Each workbook holds
+  **one sheet per four-year block** ("Tabla 1" = 1995–1998, …) under a **two-row
+  header** — a year row (`Año 1995`, once per four columns) above a quarter row
+  (`1º 2º 3º 4º`). The ingest downloads each workbook (`.xls` via `xlrd`, with an
+  HTML-table fallback), reads **every** sheet, carries each year across its four
+  quarter columns to rebuild the period, and maps each region row into every
+  level it matches — so one sheet fills nation, community and province. (A
+  single-header fallback covers plain-year / `2024T1`-style layouts.) The default
+  URLs are built in; override with `MIVAU_*_URL`. Note the
   whole statistic is the appraised (tasado) value, so there is no separate
   "appraisal" series — the fourth slot is protected housing (VPO) instead.
   **Catastro** was considered too but its free services are cadastral

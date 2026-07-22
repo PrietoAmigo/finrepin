@@ -19,12 +19,11 @@ from fintracker.housing.ingest_ine import (
 )
 from fintracker.housing.ingest_mivau import (
     MivauSpec,
-    _read_raw,
+    _read_sheets,
     _to_float,
     detect_header_row,
-    frame_from_raw,
     parse_period,
-    rows_from_frame,
+    rows_from_sheet,
 )
 from fintracker.housing.regions import (
     all_regions,
@@ -230,21 +229,25 @@ def test_parse_period_rejects_implausible_years() -> None:
     assert parse_period("2024 1") is None  # a bare space is not a quarter marker
 
 
-def test_rows_from_frame_multi_level() -> None:
-    frame = pd.DataFrame(
-        {
-            "Ámbito": ["Total Nacional", "Andalucía", "Madrid", "Barcelona", "NoSuchPlace"],
-            "2023T4": [1800.0, 1300.0, 3200.0, 2600.0, 1.0],
-            "2024T1": [1850.0, 1350.0, 3300.0, None, 2.0],
-        }
+def test_rows_from_sheet_single_header_multi_level() -> None:
+    # A single header row of "2023T4"/"2024T1" labels (the fallback path).
+    raw = pd.DataFrame(
+        [
+            ["Ámbito", "2023T4", "2024T1"],
+            ["Total Nacional", 1800.0, 1850.0],
+            ["Andalucía", 1300.0, 1350.0],
+            ["Madrid", 3200.0, 3300.0],
+            ["Barcelona", 2600.0, None],
+            ["NoSuchPlace", 1.0, 2.0],
+        ]
     )
-    rows = rows_from_frame(frame)
+    rows = rows_from_sheet(raw)
     assert ("es", dt.date(2023, 10, 1), 1800.0) in rows           # nation
     assert ("ccaa-01", dt.date(2023, 10, 1), 1300.0) in rows      # community
     assert ("prov-28", dt.date(2023, 10, 1), 3200.0) in rows      # province Madrid
     assert ("ccaa-13", dt.date(2023, 10, 1), 3200.0) in rows      # Madrid also feeds its CCAA
     assert ("prov-08", dt.date(2023, 10, 1), 2600.0) in rows      # Barcelona (province only)
-    assert ("ccaa-08", dt.date(2024, 1, 1), 3200.0) not in rows   # NaN cell dropped
+    assert ("prov-08", dt.date(2024, 1, 1), 2700.0) not in rows   # NaN cell dropped
     assert all(not r[0].startswith("muni") for r in rows)         # NoSuchPlace dropped
 
 
@@ -258,14 +261,11 @@ def test_detect_header_row_skips_title_rows() -> None:
         ]
     )
     assert detect_header_row(raw) == 2
-    frame = frame_from_raw(raw)
-    assert frame is not None
-    assert ("prov-28", dt.date(2024, 1, 1), 3300.0) in rows_from_frame(frame)
+    assert ("prov-28", dt.date(2024, 1, 1), 3300.0) in rows_from_sheet(raw)
 
 
 def test_mivau_spec_defaults() -> None:
     spec = MivauSpec("price_eur_m2", "MIVAU_PRICE_URL", "http://x/35101000.XLS")
-    assert spec.sheet == 0
     assert spec.default_url.endswith("35101000.XLS")
 
 
@@ -283,17 +283,17 @@ def test_detect_header_row_not_fooled_by_price_like_cells() -> None:
     assert detect_header_row(raw) == 1
 
 
-def test_rows_from_frame_skips_leading_blank_column() -> None:
+def test_rows_from_sheet_skips_leading_blank_column() -> None:
     # Sheets can carry a blank filler column before the region names; the region
     # column is the one whose values resolve, not blindly the first non-period.
-    frame = pd.DataFrame(
-        {
-            "nan": [None, None],
-            "Provincia": ["Madrid", "Barcelona"],
-            "2024T1": [3300.0, 2700.0],
-        }
+    raw = pd.DataFrame(
+        [
+            [None, "Provincia", "2023T4", "2024T1"],
+            [None, "Madrid", 3200.0, 3300.0],
+            [None, "Barcelona", 2600.0, 2700.0],
+        ]
     )
-    rows = rows_from_frame(frame)
+    rows = rows_from_sheet(raw)
     assert ("prov-28", dt.date(2024, 1, 1), 3300.0) in rows
     assert ("prov-08", dt.date(2024, 1, 1), 2700.0) in rows
 
@@ -302,17 +302,20 @@ def test_duplicate_region_rows_collapse_before_upsert() -> None:
     # One sheet lists "Madrid, Comunidad de" (→ ccaa-13) and "Madrid" (province,
     # → prov-28 AND ccaa-13): ccaa-13 appears twice, which a single INSERT ..
     # ON CONFLICT DO UPDATE would reject. The store dedupes first.
-    frame = pd.DataFrame(
-        {
-            "Ámbito": ["Madrid, Comunidad de", "Madrid"],
-            "2024T1": [3300.0, 3300.0],
-        }
+    raw = pd.DataFrame(
+        [
+            ["Ámbito", "2023T4", "2024T1"],
+            ["Madrid, Comunidad de", 3300.0, 3310.0],
+            ["Madrid", 3300.0, 3310.0],
+        ]
     )
-    parsed = rows_from_frame(frame)
+    parsed = rows_from_sheet(raw)
     rows = [(region, "price_eur_m2", period, value) for region, period, value in parsed]
-    assert len(rows) == 3  # ccaa-13 twice + prov-28 once
+    # ccaa-13 comes from BOTH rows at each period → duplicate keys a raw upsert rejects.
+    assert sum(r[0] == "ccaa-13" for r in rows) == 4  # 2 rows × 2 periods
     deduped = dedupe_observations(rows)
-    assert sorted(r[0] for r in deduped) == ["ccaa-13", "prov-28"]
+    assert sorted({r[0] for r in deduped}) == ["ccaa-13", "prov-28"]
+    assert len(deduped) == 4  # {ccaa-13, prov-28} × 2 periods
 
 
 def test_dedupe_observations_last_value_wins() -> None:
@@ -337,9 +340,9 @@ def test_to_float_handles_spanish_locale_strings() -> None:
     assert _to_float(float("nan")) is None
 
 
-def test_read_raw_html_fallback_recovers_promoted_header() -> None:
+def test_read_sheets_html_fallback_recovers_promoted_header() -> None:
     # Some ministry ".XLS" downloads are HTML; read_html promotes <th> cells to
-    # column labels, which _read_raw pushes back down so header detection works.
+    # column labels, which _read_sheets pushes back down so header detection works.
     html = """
     <table>
       <thead><tr><th>Provincia</th><th>2023T4</th><th>2024T1</th></tr></thead>
@@ -349,10 +352,8 @@ def test_read_raw_html_fallback_recovers_promoted_header() -> None:
       </tbody>
     </table>
     """
-    raw = _read_raw(html.encode(), "http://x/35101000.XLS")
-    assert raw is not None
-    frame = frame_from_raw(raw)
-    assert frame is not None
-    rows = rows_from_frame(frame)
+    sheets = _read_sheets(html.encode(), "http://x/35101000.XLS")
+    assert sheets
+    rows = rows_from_sheet(sheets[0])
     assert ("prov-28", dt.date(2023, 10, 1), 3210.4) in rows
     assert ("prov-08", dt.date(2024, 1, 1), 2700.5) in rows
