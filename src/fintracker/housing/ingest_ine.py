@@ -86,11 +86,14 @@ INE_SPECS: list[IneSpec] = [
             value_filters=("renta neta media por persona",)),
     IneSpec("renta_hogar", "prov", "A", table_env="INE_RENTA_HOGAR_TABLE",
             value_filters=("renta neta media por hogar",)),
-    # Municipal renta is one ADRH table per province — pin them via a
-    # comma-separated INE_RENTA_MUNI_TABLES (best-effort title discovery else).
+    # Municipal renta lives in the ADRH's "Indicadores de renta media y mediana"
+    # tables (operation 353) — one per province, 54 in all, every one carrying
+    # that title. Discovery loops them all (all_tables) and resolves each series'
+    # municipality from its 5-digit code; pin a subset with a comma-separated
+    # INE_RENTA_MUNI_TABLES to skip discovery (and its ~54 fetches).
     IneSpec("renta_persona", "muni", "A", tables_env="INE_RENTA_MUNI_TABLES",
             value_filters=("renta neta media por persona",),
-            operation="ADRH", keywords=("renta", "municipios"), all_tables=True,
+            operation="353", keywords=("indicadores", "renta", "media"), all_tables=True,
             exclude=("distrito", "seccion", "grupo")),
 ]
 
