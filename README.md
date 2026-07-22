@@ -176,10 +176,11 @@ and timeframe** — a filled choropleth of Spain wired to the time-series panels
     [Notes on data sources](#notes-on-data-sources)).
   - **Población and renta (per person/household)** — *INE*'s free, key-less
     Tempus3 JSON API (`DATOS_TABLA/<id>`). Población ships from table **2852**;
-    municipal renta is **auto-discovered** from the ADRH's 54 "Indicadores de
-    renta media y mediana" tables (operation **353**), each resolved to its
-    municipality by INE code — pin a subset via `INE_RENTA_MUNI_TABLES` to skip
-    the ~54 discovery fetches. Not every listed indicator is reachable
+    municipal renta comes from the ADRH's "Indicadores de renta media y mediana"
+    tables (operation **353**), one huge (~30k-series) table per province — so
+    it is **not** auto-discovered (that would OOM the ingest); set
+    `INE_RENTA_MUNI_TABLES` to the specific province table ids you want. Not
+    every listed indicator is reachable
     this way: **dwelling counts** live in Tempus3 (table 3457) but aren't wired
     yet, while **mean floor area, mean dwelling age, and territory area (km²)**
     are only in INE's PC-Axis (`.px`) census tables — not this JSON API — so
@@ -433,12 +434,14 @@ alembic upgrade head
   national are derived by summing provinces** (population is additive). **Renta**
   (Atlas de distribución de renta de los hogares) has several measures per table,
   so a label filter selects the intended one (`renta neta media por persona` /
-  `… por hogar`). Municipal renta is **discovered automatically** from the ADRH
-  (operation `353`): its 54 tables are all titled "Indicadores de renta media y
-  mediana", so the ingest loops them and resolves each series' municipality by
-  its 5-digit code. Pin a subset via `INE_RENTA_MUNI_TABLES` to skip the ~54
-  fetches; the provincial/household aggregates still take a pinned
-  `INE_RENTA_PROV_TABLE`/`INE_RENTA_HOGAR_TABLE`. Only level series are stored (year-on-year % is derived
+  `… por hogar`). Municipal renta comes from the ADRH's "Indicadores de renta
+  media y mediana" tables (operation `353`), but each is ONE PROVINCE and is
+  huge (~30k series: municipality × district × section × six measures), so they
+  are **not** auto-discovered — looping all 54 would pull ~1.6M series and OOM
+  the ingest. Set `INE_RENTA_MUNI_TABLES` to the specific province table ids you
+  want (district/section rows are dropped); the provincial/household aggregates
+  take a pinned `INE_RENTA_PROV_TABLE`/`INE_RENTA_HOGAR_TABLE`. A compact
+  province/CCAA renta source is still TODO. Only level series are stored (year-on-year % is derived
   by the `v_region_yoy` view). Ceuta/Melilla and small municipalities can be
   sparse in INE. **Not everything is in this JSON API:** dwelling **counts** are
   (table `3457`, not wired yet), but **mean floor area**, **mean dwelling age**
