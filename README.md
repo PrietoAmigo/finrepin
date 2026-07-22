@@ -171,12 +171,16 @@ and timeframe** — a filled choropleth of Spain wired to the time-series panels
     API; the ingest downloads them (built-in default URLs, override with
     `MIVAU_*_URL`), auto-detects the header row, and maps each region row to every
     level it matches (see [Notes on data sources](#notes-on-data-sources)).
-  - **Renta (per person/household), población, densidad, viviendas, superficie,
-    antigüedad** — *INE*'s free, key-less Tempus3 JSON API. The ingest discovers
-    each series' table from its operation at run time and selects the right measure
-    with label filters; pin a table id with the matching `INE_*_TABLE`(S) env var
-    if one comes back empty (municipal renta is one table per province, so it loops
-    them). `densidad` is derived (población / superficie).
+  - **Población and renta (per person/household)** — *INE*'s free, key-less
+    Tempus3 JSON API (`DATOS_TABLA/<id>`). Población ships from table **2852**;
+    renta from the ADRH "Indicadores de renta media y mediana" tables (one per
+    province — pin them via the matching `INE_*_TABLE`(S) env var; municipal
+    renta loops the per-province list). Not every listed indicator is reachable
+    this way: **dwelling counts** live in Tempus3 (table 3457) but aren't wired
+    yet, while **mean floor area, mean dwelling age, and territory area (km²)**
+    are only in INE's PC-Axis (`.px`) census tables — not this JSON API — so
+    they (and the `densidad` derived from area) stay empty. No placeholder data
+    is ever written.
   - Both run daily (`HOUSING_HOUR`/`HOUSING_MINUTE`) and once on boot. Trigger one
     by hand with `docker compose exec app python -m fintracker.housing.pipeline`.
     Panels stay empty for any indicator with no ingested rows yet — no placeholder
@@ -193,7 +197,10 @@ and timeframe** — a filled choropleth of Spain wired to the time-series panels
 > Postgres, but the **live ingests** (INE table specs, MIVAU spreadsheet layouts)
 > and the **ECharts panel** could not be exercised end-to-end. They're written to
 > the documented shapes and are easy to adjust (env-var table ids / URLs, the panel
-> code) if the first real run needs a tweak.
+> code) if the first real run needs a tweak. An earlier build also seeded
+> clearly-labelled **placeholder rows** (`source = 'sample'`) for indicators with
+> no live data; that feature was removed, and migration **0018** deletes any such
+> rows left in an existing database, so panels now show real data or nothing.
 
 ## Configuration
 
@@ -426,8 +433,14 @@ alembic upgrade head
   `INE_RENTA_PROV_TABLE`/`INE_RENTA_HOGAR_TABLE`, and municipal renta (one table
   per province) via a comma-separated `INE_RENTA_MUNI_TABLES` — until then renta
   panels stay empty. Only level series are stored (year-on-year % is derived
-  by the `v_region_yoy` view); `densidad` is derived as población / superficie.
-  Ceuta/Melilla and small municipalities can be sparse in INE.
+  by the `v_region_yoy` view). Ceuta/Melilla and small municipalities can be
+  sparse in INE. **Not everything is in this JSON API:** dwelling **counts** are
+  (table `3457`, not wired yet), but **mean floor area**, **mean dwelling age**
+  (año de construcción) and **territory area (km²)** are published only as INE
+  PC-Axis (`.px`) census tables, which `DATOS_TABLA` does not serve — so those,
+  and the `densidad` that would derive from área, stay empty. No `source =
+  'sample'` placeholder is ever written; migration 0018 removes any left by the
+  old sample-data feature.
 - **Spain house prices (Ministerio de Vivienda):** the ministry (MIVAU/ex-Fomento)
   publishes its €/m² price statistics as legacy **`.XLS` spreadsheets** (the
   "BoletinOnline" sedal files: `35101000` all, `35101500` new, `35102000`
