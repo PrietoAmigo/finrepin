@@ -11,6 +11,7 @@ import logging
 from fintracker.housing.ingest_censo import ingest_censo
 from fintracker.housing.ingest_ine import ingest_ine
 from fintracker.housing.ingest_mivau import ingest_mivau
+from fintracker.housing.ingest_visados import ingest_visados
 from fintracker.housing.territory import seed_territory_area
 
 log = logging.getLogger(__name__)
@@ -27,6 +28,7 @@ def ingest_housing() -> None:
         ("territory", seed_territory_area),
         ("ine", ingest_ine),
         ("mivau", ingest_mivau),
+        ("visados", ingest_visados),
         ("censo", ingest_censo),
     ):
         try:

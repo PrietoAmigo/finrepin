@@ -531,11 +531,21 @@ alembic upgrade head
   9947/9949), **urban land price** (`precio_suelo_m2`, MIVAU chapter 36 table 4
   `sedal/36400500.XLS`, €/m² by CCAA/province — pinned to the price table since
   chapter 36 also holds land-transaction *count* tables; override with
-  `MIVAU_SUELO_URL`) and **new-build permits** (`visados`, MIVAU chapter 09
-  `sedal/09034720.XLS`, unverified from CI — override with `MIVAU_VISADOS_URL`).
-  Province/municipal renta from the ADRH is
-  too large to fetch, so renta shows at CCAA granularity. Euríbor and
+  `MIVAU_SUELO_URL`) and **new-build permits** (`visados`, nº de viviendas
+  visadas, monthly/province, additive — see below). Province/municipal renta from
+  the ADRH is too large to fetch, so renta shows at CCAA granularity. Euríbor and
   affordability ratios slot into the same store the same way.
+- **New-build permits (MIVAU, `ingest_visados`):** the number of dwellings in
+  new-construction permits is published by the aparejadores' colleges as **one
+  `.XLS` per province** (Boletinonline v1 chapter 09, table 21,
+  `sedal/0903<PP>10.XLS` where `PP` is the INE province code). Each workbook is
+  **transposed** — one province, year down column 0, Spanish month in column 2,
+  total nº de viviendas in the right-most column — so it has its own reader
+  (`ingest_visados.py`) rather than the price-file engine; it reads the monthly
+  total per province and rolls the additive count up to CCAA + nation. That's
+  **50 downloads per run**, and a province that fails to fetch/parse is logged and
+  skipped. Override the sedal base with `MIVAU_VISADOS_BASE_URL`. (Ceuta/Melilla
+  aren't published.)
 - **Spain house prices (Ministerio de Vivienda):** the ministry (MIVAU/ex-Fomento)
   publishes its €/m² price statistics as legacy **`.XLS` spreadsheets** (the
   "BoletinOnline" sedal files: `35101000` all, `35101500` new, `35102000`
