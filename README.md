@@ -443,13 +443,17 @@ alembic upgrade head
   take a pinned `INE_RENTA_PROV_TABLE`/`INE_RENTA_HOGAR_TABLE`. A compact
   province/CCAA renta source is still TODO. Only level series are stored (year-on-year % is derived
   by the `v_region_yoy` view). Ceuta/Melilla and small municipalities can be
-  sparse in INE. **Not everything is in this JSON API:** dwelling **counts** are
-  (table `3457`, not wired yet), but **mean floor area**, **mean dwelling age**
-  (año de construcción) and **territory area (km²)** are published only as INE
-  PC-Axis (`.px`) census tables, which `DATOS_TABLA` does not serve — so those,
-  and the `densidad` that would derive from área, stay empty. No `source =
-  'sample'` placeholder is ever written; migration 0018 removes any left by the
-  old sample-data feature.
+  sparse in INE. No `source = 'sample'` placeholder is ever written; migration
+  0018 removes any left by the old sample-data feature.
+- **Census housing detail (INE PC-Axis `.px`):** dwelling **counts**, **mean
+  floor area** and **mean dwelling age** live only in the Censo 2021 `.px` files,
+  not the Tempus3 JSON — so `fintracker/housing/pcaxis.py` parses that format and
+  `ingest_censo.py` maps it to region rows, computing the two means as weighted
+  means of the surface-band / year-of-construction distributions. Each series is
+  off until its `CENSO_*_PX_URL` is set (the `.px` dimension names in
+  `CENSO_SPECS` are best-effort — inspect a real file and adjust). **Territory
+  area (km²)** — and thus the derived `densidad` — still has no clean source, so
+  it stays empty.
 - **Market-activity series (INE + MIVAU):** alongside the €/m² prices, the
   registry also carries a demand→financing→supply picture — **home sales**
   (`compraventa`, INE ETDP, monthly/province, additive so it rolls up), the

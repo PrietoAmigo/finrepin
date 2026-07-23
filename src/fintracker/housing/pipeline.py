@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 
+from fintracker.housing.ingest_censo import ingest_censo
 from fintracker.housing.ingest_ine import ingest_ine
 from fintracker.housing.ingest_mivau import ingest_mivau
 
@@ -17,7 +18,7 @@ log = logging.getLogger(__name__)
 def ingest_housing() -> None:
     """Run all housing ingestors; one source failing must not stop the others."""
     totals: dict[str, int] = {}
-    for name, ingestor in (("ine", ingest_ine), ("mivau", ingest_mivau)):
+    for name, ingestor in (("ine", ingest_ine), ("mivau", ingest_mivau), ("censo", ingest_censo)):
         try:
             totals[name] = ingestor()
         except Exception:
