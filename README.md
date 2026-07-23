@@ -184,8 +184,9 @@ and timeframe** — a filled choropleth of Spain wired to the time-series panels
     ("Viviendas según tamaño del municipio por tipo de vivienda"). The remaining
     census detail — **mean floor area** and **mean dwelling age** — is only in
     INE's PC-Axis (`.px`) census tables, read by a separate ingest (see below).
-    Only **territory area (km²)** (and the `densidad` derived from it) still has
-    no clean INE source and stays empty. No placeholder data is ever written.
+    **Territory area (km²)** has no INE API series, so it is seeded from official
+    IGN/INE province figures (`fintracker.housing.territory`), which populates the
+    derived **`densidad`**. No measured data is ever fabricated.
   - Both run daily (`HOUSING_HOUR`/`HOUSING_MINUTE`) and once on boot. Trigger one
     by hand with `docker compose exec app python -m fintracker.housing.pipeline`.
     Panels stay empty for any indicator with no ingested rows yet — no placeholder
@@ -206,6 +207,64 @@ and timeframe** — a filled choropleth of Spain wired to the time-series panels
 > clearly-labelled **placeholder rows** (`source = 'sample'`) for indicators with
 > no live data; that feature was removed, and migration **0018** deletes any such
 > rows left in an existing database, so panels now show real data or nothing.
+
+### Housing data we could add next
+
+Every series lands in one generic store — `region_observations` (region ×
+indicator × period), surfaced through `v_region_series` — so a new indicator is
+just another `IneSpec` / `MivauSpec` / `CensoSpec` (or a derived SQL view),
+**never a schema change**. Once ingested it shows up automatically in the
+comparison panel's **Series to compare** selector and the all-indicators table.
+Roughly in order of value-for-effort:
+
+**Derived — no new source, just SQL** (like `densidad` and the `v_region_yoy`
+view):
+
+- **Affordability** — years of household income to buy an average-size home:
+  `price_eur_m2 × superficie_media_m2 / renta_hogar`. All three inputs are
+  already ingested, so this is a view/derivation away.
+- **Price-to-income**, and — once rents land (below) — **price-to-rent** and
+  **gross rental yield**.
+
+**Same INE Tempus3 JSON — add an `IneSpec`, then confirm the label filters with
+the probe** (`python -m fintracker.housing.probe table <id>`):
+
+| Candidate series | Where | Confidence | Note |
+| --- | --- | --- | --- |
+| **IPV new** & **second-hand** | table **80270** (already fetched for `ipv`) | High — the table is "general, vivienda nueva y de segunda mano" | two more `value_filters` on a table we already read |
+| Mortgage **average amount** / **capital lent** | table **76317** (already fetched for `hipoteca`) | High — today `exclude_values=("importe",)` drops it | financing signal beside the mortgage count |
+| Home sales **new vs used** | ETDP (operation of table **6149**) | Medium | verify the split table with `probe op` |
+| **Foreclosures** on dwellings (ejecuciones hipotecarias) | INE operation — discover with `probe op` | Medium | quarterly/province housing-distress signal |
+| **Empty** & **secondary** dwellings | census table **3457** (already fetched) or a `.px` | Medium | occupancy of the existing stock |
+| **Households** & mean household size | INE (ECH / Cifras de población) | Medium | a demand driver alongside `poblacion` |
+
+**Already ingested elsewhere — just surface it:** **Euríbor 12M** is already
+pulled from the ECB into the market `prices` table (`EURIBOR12M`). Add it to the
+housing dashboard as mortgage-cost context — either a cross-datasource panel or
+by copying the national series into `region_observations`.
+
+**Bigger / new sources (a new client or spreadsheet spec):**
+
+- **Rental prices** — the biggest gap: the app has **sale** €/m² but no **rent**.
+  MIVAU's *Sistema Estatal de Índices de Precios de Referencia del Alquiler*
+  (municipal, 2024+) and INE's experimental rental-price index are the
+  candidates; needs a confirmed URL plus a new ingest (or a `MivauSpec`). Unlocks
+  the price-to-rent / yield metrics above.
+- **Catastro** — building stock, built area and cadastral value by municipality
+  (*Estadísticas del Catastro Inmobiliario*), via its SOAP/OVC services — a
+  dedicated client. The schema already stores `muni`-level codes for it.
+- **Colegio de Registradores** — *Estadística Registral Inmobiliaria*
+  (foreign-buyer share, loan-to-value). Excel/PDF, no clean API.
+- **Idealista / Fotocasa** — actual **asking** sale & rent prices by
+  municipality; free-tier Idealista API (registration, rate limits, commercial
+  terms).
+- **Eurostat / Banco de España** — harmonised HPI and price-to-income to
+  benchmark Spain against the EU; BdE household-debt and new-mortgage-rate series.
+
+Use `fintracker/housing/probe.py` to check a candidate's availability and exact
+labels **before** wiring it into a spec — it prints an operation's tables
+(`probe op 15`) or a table's series labels (`probe table 80270`) straight from
+the live API, and writes nothing.
 
 ## Configuration
 
@@ -459,19 +518,24 @@ alembic upgrade head
   ship **live by default** against pinned sources; the `.px` URL and band
   midpoints in `CENSO_SPECS` (and the 3457 series filters) are overridable via
   env — inspect a real file with `parse_px` and adjust if a series comes back
-  empty. **Territory area (km²)** — and thus the derived `densidad` — still has no
-  clean source, so it stays empty.
+  empty. **Territory area (km²)** has no INE API series, so it is seeded from
+  official IGN/INE province areas (`fintracker.housing.territory`), summed up the
+  hierarchy since area is additive — which populates the derived **`densidad`**
+  (`derive_density` divides each population figure by the region's area).
 - **Market-activity series (INE + MIVAU):** alongside the €/m² prices, the
   registry carries a demand→financing→supply picture, all pinned by table id
   (never auto-discovered). **Live by default:** **home sales** (`compraventa`,
   INE table 6149, monthly/province, additive), **mortgages** (`hipoteca`, INE
   table 76317, monthly/province, additive), the **House Price Index** (`ipv`,
   INE table 80270, quarterly/CCAA) and **renta** at CCAA level (ECV tables
-  9947/9949). **Env-gated until a URL is set:** **urban land price**
-  (`precio_suelo_m2`, `MIVAU_SUELO_URL`) and **new-build permits** (`visados`,
-  `MIVAU_VISADOS_URL`). Province/municipal renta from the ADRH is too large to
-  fetch, so renta shows at CCAA granularity. Euríbor and affordability ratios
-  slot into the same store the same way.
+  9947/9949) and **new-build permits** (`visados`, MIVAU chapter 09
+  `sedal/09034720.XLS`, shipped as a default but unverified from CI — override
+  with `MIVAU_VISADOS_URL`). **Still env-gated until a URL is set:** **urban land
+  price** (`precio_suelo_m2`, `MIVAU_SUELO_URL`) — MIVAU chapter 36 also holds
+  land-transaction-count tables, so its exact €/m² sedal code is left for the
+  operator to paste rather than guessed. Province/municipal renta from the ADRH is
+  too large to fetch, so renta shows at CCAA granularity. Euríbor and
+  affordability ratios slot into the same store the same way.
 - **Spain house prices (Ministerio de Vivienda):** the ministry (MIVAU/ex-Fomento)
   publishes its €/m² price statistics as legacy **`.XLS` spreadsheets** (the
   "BoletinOnline" sedal files: `35101000` all, `35101500` new, `35102000`

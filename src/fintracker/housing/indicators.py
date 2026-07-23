@@ -41,7 +41,7 @@ INDICATORS: list[Indicator] = [
               "good"),
     # --- INE: demographics (Padrón / Cifras de población) ---------------------
     Indicator("poblacion", "Population (persons)", "count", "INE", "A", "demographic"),
-    Indicator("superficie_km2", "Territory area (km²)", "km2", "INE", "A", "area"),
+    Indicator("superficie_km2", "Territory area (km²)", "km2", "IGN", "A", "area"),
     Indicator("densidad", "Population density (inhab/km²)", "inhab_km2", "derived", "A",
               "demographic"),
     # --- INE: housing stock (Censo de Población y Viviendas) -------------------
@@ -49,8 +49,8 @@ INDICATORS: list[Indicator] = [
     # mean floor area and mean dwelling age come from a PC-Axis (.px) census table
     # (via ingest_censo), each a weighted mean of the surface-band /
     # year-of-construction distribution. All four ship enabled against pinned
-    # sources. superficie_km2 (and thus the derived densidad) still has no clean
-    # source — see the README.
+    # sources. superficie_km2 is seeded from official IGN/INE province areas
+    # (see fintracker.housing.territory), which unblocks the derived densidad.
     Indicator("viviendas_total", "Dwellings (total)", "count", "INE", "A", "housing"),
     Indicator("viviendas_principales", "Main-residence dwellings", "count", "INE", "A", "housing"),
     Indicator("superficie_media_m2", "Mean dwelling floor area (m²)", "m2", "INE", "A", "housing"),
