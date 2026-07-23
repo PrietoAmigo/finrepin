@@ -528,12 +528,12 @@ alembic upgrade head
   INE table 6149, monthly/province, additive), **mortgages** (`hipoteca`, INE
   table 76317, monthly/province, additive), the **House Price Index** (`ipv`,
   INE table 80270, quarterly/CCAA) and **renta** at CCAA level (ECV tables
-  9947/9949) and **new-build permits** (`visados`, MIVAU chapter 09
-  `sedal/09034720.XLS`, shipped as a default but unverified from CI — override
-  with `MIVAU_VISADOS_URL`). **Still env-gated until a URL is set:** **urban land
-  price** (`precio_suelo_m2`, `MIVAU_SUELO_URL`) — MIVAU chapter 36 also holds
-  land-transaction-count tables, so its exact €/m² sedal code is left for the
-  operator to paste rather than guessed. Province/municipal renta from the ADRH is
+  9947/9949), **urban land price** (`precio_suelo_m2`, MIVAU chapter 36 table 4
+  `sedal/36400500.XLS`, €/m² by CCAA/province — pinned to the price table since
+  chapter 36 also holds land-transaction *count* tables; override with
+  `MIVAU_SUELO_URL`) and **new-build permits** (`visados`, MIVAU chapter 09
+  `sedal/09034720.XLS`, unverified from CI — override with `MIVAU_VISADOS_URL`).
+  Province/municipal renta from the ADRH is
   too large to fetch, so renta shows at CCAA granularity. Euríbor and
   affordability ratios slot into the same store the same way.
 - **Spain house prices (Ministerio de Vivienda):** the ministry (MIVAU/ex-Fomento)
