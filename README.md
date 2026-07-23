@@ -207,6 +207,65 @@ and timeframe** — a filled choropleth of Spain wired to the time-series panels
 > no live data; that feature was removed, and migration **0018** deletes any such
 > rows left in an existing database, so panels now show real data or nothing.
 
+### Housing data we could add next
+
+Every series lands in one generic store — `region_observations` (region ×
+indicator × period), surfaced through `v_region_series` — so a new indicator is
+just another `IneSpec` / `MivauSpec` / `CensoSpec` (or a derived SQL view),
+**never a schema change**. Once ingested it shows up automatically in the
+comparison panel's **Series to compare** selector and the all-indicators table.
+Roughly in order of value-for-effort:
+
+**Derived — no new source, just SQL** (like `densidad` and the `v_region_yoy`
+view):
+
+- **Affordability** — years of household income to buy an average-size home:
+  `price_eur_m2 × superficie_media_m2 / renta_hogar`. All three inputs are
+  already ingested, so this is a view/derivation away.
+- **Price-to-income**, and — once rents land (below) — **price-to-rent** and
+  **gross rental yield**.
+
+**Same INE Tempus3 JSON — add an `IneSpec`, then confirm the label filters with
+the probe** (`python -m fintracker.housing.probe table <id>`):
+
+| Candidate series | Where | Confidence | Note |
+| --- | --- | --- | --- |
+| **IPV new** & **second-hand** | table **80270** (already fetched for `ipv`) | High — the table is "general, vivienda nueva y de segunda mano" | two more `value_filters` on a table we already read |
+| Mortgage **average amount** / **capital lent** | table **76317** (already fetched for `hipoteca`) | High — today `exclude_values=("importe",)` drops it | financing signal beside the mortgage count |
+| Home sales **new vs used** | ETDP (operation of table **6149**) | Medium | verify the split table with `probe op` |
+| **Foreclosures** on dwellings (ejecuciones hipotecarias) | INE operation — discover with `probe op` | Medium | quarterly/province housing-distress signal |
+| **Empty** & **secondary** dwellings | census table **3457** (already fetched) or a `.px` | Medium | occupancy of the existing stock |
+| **Households** & mean household size | INE (ECH / Cifras de población) | Medium | a demand driver alongside `poblacion` |
+| **Territory area (km²)** | INE reference table | Medium | the one missing input that unblocks the derived `densidad` |
+
+**Already ingested elsewhere — just surface it:** **Euríbor 12M** is already
+pulled from the ECB into the market `prices` table (`EURIBOR12M`). Add it to the
+housing dashboard as mortgage-cost context — either a cross-datasource panel or
+by copying the national series into `region_observations`.
+
+**Bigger / new sources (a new client or spreadsheet spec):**
+
+- **Rental prices** — the biggest gap: the app has **sale** €/m² but no **rent**.
+  MIVAU's *Sistema Estatal de Índices de Precios de Referencia del Alquiler*
+  (municipal, 2024+) and INE's experimental rental-price index are the
+  candidates; needs a confirmed URL plus a new ingest (or a `MivauSpec`). Unlocks
+  the price-to-rent / yield metrics above.
+- **Catastro** — building stock, built area and cadastral value by municipality
+  (*Estadísticas del Catastro Inmobiliario*), via its SOAP/OVC services — a
+  dedicated client. The schema already stores `muni`-level codes for it.
+- **Colegio de Registradores** — *Estadística Registral Inmobiliaria*
+  (foreign-buyer share, loan-to-value). Excel/PDF, no clean API.
+- **Idealista / Fotocasa** — actual **asking** sale & rent prices by
+  municipality; free-tier Idealista API (registration, rate limits, commercial
+  terms).
+- **Eurostat / Banco de España** — harmonised HPI and price-to-income to
+  benchmark Spain against the EU; BdE household-debt and new-mortgage-rate series.
+
+Use `fintracker/housing/probe.py` to check a candidate's availability and exact
+labels **before** wiring it into a spec — it prints an operation's tables
+(`probe op 15`) or a table's series labels (`probe table 80270`) straight from
+the live API, and writes nothing.
+
 ## Configuration
 
 All configuration is environment-driven; see `.env.example` for the full list.
