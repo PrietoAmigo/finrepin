@@ -100,6 +100,16 @@ def test_region_codes_for_name_spans_levels() -> None:
     assert region_codes_for_name("Total Nacional") == ["es"]
 
 
+def test_single_province_community_labels_feed_the_province() -> None:
+    # MIVAU labels these rows by the community name, which resolves only to the
+    # CCAA; the sole province must be filled too (the prov-28 Madrid gap).
+    assert set(region_codes_for_name("Comunidad de Madrid")) == {"ccaa-13", "prov-28"}
+    assert set(region_codes_for_name("Principado de Asturias")) == {"ccaa-03", "prov-33"}
+    assert set(region_codes_for_name("Región de Murcia")) == {"ccaa-14", "prov-30"}
+    # A multi-province community still adds no province.
+    assert region_codes_for_name("Castilla y León") == ["ccaa-07"]
+
+
 def test_registry_names_match_geojson() -> None:
     for level, fname in (("ccaa", "spain-ccaa.geojson"), ("prov", "spain-provinces.geojson")):
         geo = json.loads((REPO_ROOT / "grafana" / "geo" / fname).read_text("utf-8"))

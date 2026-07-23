@@ -150,19 +150,43 @@ def region_code_from_ine_name(name: str, level: str = "ccaa") -> str | None:
     return None
 
 
+@functools.lru_cache(maxsize=1)
+def _sole_province_of_ccaa() -> dict[str, str]:
+    """CCAA code → its only province code, for single-province communities.
+
+    Madrid, Asturias, Cantabria, Murcia, Navarra, La Rioja, Baleares, Ceuta and
+    Melilla each contain exactly one province, so a row labelled with the
+    community name (which resolves only to the CCAA) still describes that
+    province. Derived from the seeded hierarchy, not hardcoded.
+    """
+    children: dict[str, list[str]] = {}
+    for region in regions_at("prov"):
+        if region.parent:
+            children.setdefault(region.parent, []).append(region.code)
+    return {ccaa: provinces[0] for ccaa, provinces in children.items() if len(provinces) == 1}
+
+
 def region_codes_for_name(name: str) -> list[str]:
     """All region codes a label matches across nation/CCAA/province levels.
 
     A single MIVAU price sheet lists the nation, communities and provinces
     together, so one row can feed several levels — e.g. "Madrid" is both
     province ``prov-28`` and community ``ccaa-13`` (same value for a
-    single-province community). Municipalities are resolved by code, not here.
+    single-province community). When only the community resolves (the row is
+    labelled "Comunidad de Madrid" / "Principado de Asturias", …) its sole
+    province is added too, so those provinces aren't left empty. Municipalities
+    are resolved by code, not here.
     """
     codes: list[str] = []
     for level in ("prov", "ccaa"):  # the "ccaa" pass also resolves the nation
         code = region_code_from_ine_name(name, level)
         if code and code not in codes:
             codes.append(code)
+    sole = _sole_province_of_ccaa()
+    for code in list(codes):
+        province = sole.get(code)
+        if province and province not in codes:
+            codes.append(province)
     return codes
 
 
