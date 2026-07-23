@@ -62,6 +62,28 @@ def fetch_ecb_csv(series_key: str, start: dt.date | None = None) -> str:
     return resp.text
 
 
+def _parse_ecb_period(raw: str) -> dt.date | None:
+    """ECB ``TIME_PERIOD`` → the first day of its period. Pure.
+
+    Handles daily (``2024-06-15``), monthly (``2024-06``), quarterly
+    (``2024-Q2``) and annual (``2024``) frequencies, so monthly series like
+    Euribor parse alongside the daily yield curve.
+    """
+    raw = raw.strip()
+    try:
+        if len(raw) == 4:
+            return dt.date(int(raw), 1, 1)
+        if "-Q" in raw:
+            year, quarter = raw.split("-Q")
+            return dt.date(int(year), (int(quarter) - 1) * 3 + 1, 1)
+        if len(raw) == 7:
+            year, month = raw.split("-")
+            return dt.date(int(year), int(month), 1)
+        return dt.date.fromisoformat(raw)
+    except (ValueError, IndexError):
+        return None
+
+
 def rows_from_ecb_csv(text: str) -> list[dict[str, Any]]:
     """Parse an ECB `csvdata` response into upsertable price dicts, oldest first.
 
@@ -85,8 +107,10 @@ def rows_from_ecb_csv(text: str) -> list[dict[str, Any]]:
         raw_date, raw_value = record[date_i].strip(), record[value_i].strip()
         if not raw_date or not raw_value:
             continue
+        date = _parse_ecb_period(raw_date)
+        if date is None:
+            continue
         try:
-            date = dt.date.fromisoformat(raw_date)
             value = float(raw_value)
         except ValueError:
             continue

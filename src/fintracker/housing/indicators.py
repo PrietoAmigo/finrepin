@@ -45,17 +45,25 @@ INDICATORS: list[Indicator] = [
     Indicator("densidad", "Population density (inhab/km²)", "inhab_km2", "derived", "A",
               "demographic"),
     # --- INE: housing stock (Censo de Población y Viviendas) -------------------
-    # ⚠️ Not wired into ingest_ine.INE_SPECS yet, so these stay empty (no
-    # placeholder data is written). Dwelling COUNTS (viviendas_*) are available
-    # via the Tempus3 JSON API (candidate table 3457) and only need a spec + id.
-    # Mean floor area (superficie_media_m2) and mean age (antiguedad_media) are
-    # published ONLY as PC-Axis (.px) census tables, which this JSON ingest
-    # cannot read. superficie_km2 (and thus the derived densidad) likewise has
-    # no clean Tempus3 series — see the README "Notes on data sources".
+    # These come from the PC-Axis (.px) census via ingest_censo (mean floor area
+    # and mean dwelling age are computed as weighted means of the surface-band /
+    # year-of-construction distributions). Off until their CENSO_*_PX_URL is set,
+    # so they stay empty (no placeholder written). superficie_km2 (and thus the
+    # derived densidad) still has no clean source — see the README.
     Indicator("viviendas_total", "Dwellings (total)", "count", "INE", "A", "housing"),
     Indicator("viviendas_principales", "Main-residence dwellings", "count", "INE", "A", "housing"),
     Indicator("superficie_media_m2", "Mean dwelling floor area (m²)", "m2", "INE", "A", "housing"),
     Indicator("antiguedad_media", "Mean dwelling age (years)", "year", "INE", "A", "housing"),
+    # --- Market activity ------------------------------------------------------
+    # Demand/supply signals alongside the €/m² prices, pinned by table id (never
+    # auto-discovered). compraventa, hipoteca and ipv have live INE tables;
+    # precio_suelo_m2 and visados are env-gated on a MIVAU URL (see
+    # ingest_ine.INE_SPECS / ingest_mivau.MIVAU_SPECS and the README).
+    Indicator("compraventa", "Home sales (count)", "count", "INE", "M", "market"),
+    Indicator("ipv", "House price index (IPV)", "index", "INE", "Q", "market"),
+    Indicator("precio_suelo_m2", "Urban land price (€/m²)", "eur_m2", "MIVAU", "Q", "market"),
+    Indicator("hipoteca", "Mortgages constituted (count)", "count", "INE", "M", "market"),
+    Indicator("visados", "New-build permits (count)", "count", "MIVAU", "M", "market"),
 ]
 
 INDICATORS_BY_CODE: dict[str, Indicator] = {i.code: i for i in INDICATORS}

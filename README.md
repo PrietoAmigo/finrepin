@@ -417,9 +417,12 @@ alembic upgrade head
   emerging-markets USD-bond index yield (`BAMLEMCBPIEY`, daily). The euro-area
   benchmark comes from the **ECB Data Portal** instead — its daily 10-year
   all-issuer government bond spot rate (`YC.B.U2.EUR.4F.G_N_C.SV_C_YM.SR_10Y`)
-  — because FRED's monthly OECD euro-area series lags by months. Both sources
-  need no API key. Full history backfills on the first run, incremental
-  thereafter — the same state-aware path as prices.
+  — because FRED's monthly OECD euro-area series lags by months. The **12-month
+  Euribor** (`FM.M.U2.EUR.RT.MM.EURIBOR1YD_.HSTA`, monthly) is also pulled from
+  the ECB Data Portal — the reference rate most Spanish variable mortgages track
+  — so the ECB CSV parser handles monthly/quarterly/annual periods, not just the
+  daily yield curve. Both sources need no API key. Full history backfills on the
+  first run, incremental thereafter — the same state-aware path as prices.
 - **Fundamentals:** SEC `data.sec.gov` XBRL — numbers only, no documents;
   requires a descriptive `SEC_USER_AGENT` with a contact email. Names without
   SEC coverage fall back to Yahoo Finance statements via `yfinance` (~4–5
@@ -443,13 +446,28 @@ alembic upgrade head
   take a pinned `INE_RENTA_PROV_TABLE`/`INE_RENTA_HOGAR_TABLE`. A compact
   province/CCAA renta source is still TODO. Only level series are stored (year-on-year % is derived
   by the `v_region_yoy` view). Ceuta/Melilla and small municipalities can be
-  sparse in INE. **Not everything is in this JSON API:** dwelling **counts** are
-  (table `3457`, not wired yet), but **mean floor area**, **mean dwelling age**
-  (año de construcción) and **territory area (km²)** are published only as INE
-  PC-Axis (`.px`) census tables, which `DATOS_TABLA` does not serve — so those,
-  and the `densidad` that would derive from área, stay empty. No `source =
-  'sample'` placeholder is ever written; migration 0018 removes any left by the
-  old sample-data feature.
+  sparse in INE. No `source = 'sample'` placeholder is ever written; migration
+  0018 removes any left by the old sample-data feature.
+- **Census housing detail (INE PC-Axis `.px`):** dwelling **counts**, **mean
+  floor area** and **mean dwelling age** live only in the Censo 2021 `.px` files,
+  not the Tempus3 JSON — so `fintracker/housing/pcaxis.py` parses that format and
+  `ingest_censo.py` maps it to region rows, computing the two means as weighted
+  means of the surface-band / year-of-construction distributions. Each series is
+  off until its `CENSO_*_PX_URL` is set (the `.px` dimension names in
+  `CENSO_SPECS` are best-effort — inspect a real file and adjust). **Territory
+  area (km²)** — and thus the derived `densidad` — still has no clean source, so
+  it stays empty.
+- **Market-activity series (INE + MIVAU):** alongside the €/m² prices, the
+  registry carries a demand→financing→supply picture, all pinned by table id
+  (never auto-discovered). **Live by default:** **home sales** (`compraventa`,
+  INE table 6149, monthly/province, additive), **mortgages** (`hipoteca`, INE
+  table 76317, monthly/province, additive), the **House Price Index** (`ipv`,
+  INE table 80270, quarterly/CCAA) and **renta** at CCAA level (ECV tables
+  9947/9949). **Env-gated until a URL is set:** **urban land price**
+  (`precio_suelo_m2`, `MIVAU_SUELO_URL`) and **new-build permits** (`visados`,
+  `MIVAU_VISADOS_URL`). Province/municipal renta from the ADRH is too large to
+  fetch, so renta shows at CCAA granularity. Euríbor and affordability ratios
+  slot into the same store the same way.
 - **Spain house prices (Ministerio de Vivienda):** the ministry (MIVAU/ex-Fomento)
   publishes its €/m² price statistics as legacy **`.XLS` spreadsheets** (the
   "BoletinOnline" sedal files: `35101000` all, `35101500` new, `35102000`
