@@ -219,6 +219,16 @@ INSTRUMENTS: list[dict[str, Any]] = [
         "EUR",
         "YC.B.U2.EUR.4F.G_N_C.SV_C_YM.SR_10Y",
     ),
+    # ECB Data Portal: 12-month Euribor (monthly) — the reference rate most
+    # Spanish variable-rate mortgages track, so it sits naturally with the
+    # housing series. Distinct from the govt-bond yield above; if the series key
+    # ever 404s the ingest just logs a warning and skips it.
+    _ecb_rate(
+        "EURIBOR12M",
+        "Euribor 12M (euro mortgage benchmark)",
+        "EUR",
+        "FM.M.U2.EUR.RT.MM.EURIBOR1YD_.HSTA",
+    ),
     _rate("JP10Y", "Japan 10Y govt bond (Japan)", "JPY", "IRLTLT01JPM156N"),
     _rate("BRTBILL", "Brazil T-bill rate (South America)", "BRL", "INTGSTBRM193N"),
     _rate("EMBOND", "EM USD-bond yield (Emerging markets)", "USD", "BAMLEMCBPIEY"),

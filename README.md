@@ -417,9 +417,12 @@ alembic upgrade head
   emerging-markets USD-bond index yield (`BAMLEMCBPIEY`, daily). The euro-area
   benchmark comes from the **ECB Data Portal** instead — its daily 10-year
   all-issuer government bond spot rate (`YC.B.U2.EUR.4F.G_N_C.SV_C_YM.SR_10Y`)
-  — because FRED's monthly OECD euro-area series lags by months. Both sources
-  need no API key. Full history backfills on the first run, incremental
-  thereafter — the same state-aware path as prices.
+  — because FRED's monthly OECD euro-area series lags by months. The **12-month
+  Euribor** (`FM.M.U2.EUR.RT.MM.EURIBOR1YD_.HSTA`, monthly) is also pulled from
+  the ECB Data Portal — the reference rate most Spanish variable mortgages track
+  — so the ECB CSV parser handles monthly/quarterly/annual periods, not just the
+  daily yield curve. Both sources need no API key. Full history backfills on the
+  first run, incremental thereafter — the same state-aware path as prices.
 - **Fundamentals:** SEC `data.sec.gov` XBRL — numbers only, no documents;
   requires a descriptive `SEC_USER_AGENT` with a contact email. Names without
   SEC coverage fall back to Yahoo Finance statements via `yfinance` (~4–5

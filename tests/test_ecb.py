@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 
-from fintracker.ingest.ecb import rows_from_ecb_csv
+from fintracker.ingest.ecb import _parse_ecb_period, rows_from_ecb_csv
 
 # An ECB `csvdata` response: the SDMX dimension columns, then TIME_PERIOD and
 # OBS_VALUE (with trailing attribute columns). Includes an out-of-order row, a
@@ -52,3 +52,27 @@ class TestRowsFromEcbCsv:
     def test_missing_expected_columns_yields_no_rows(self) -> None:
         assert rows_from_ecb_csv("FOO,BAR\n1,2\n") == []
         assert rows_from_ecb_csv("") == []
+
+    def test_monthly_series_parse(self) -> None:
+        # A monthly series (e.g. Euribor) uses "YYYY-MM"; each maps to the 1st.
+        monthly = (
+            "KEY,TIME_PERIOD,OBS_VALUE\n"
+            "X,2026-05,3.10\n"
+            "X,2026-06,3.05\n"
+        )
+        assert [(r["date"], r["close"]) for r in rows_from_ecb_csv(monthly)] == [
+            (dt.date(2026, 5, 1), 3.10),
+            (dt.date(2026, 6, 1), 3.05),
+        ]
+
+
+class TestParseEcbPeriod:
+    def test_frequencies(self) -> None:
+        assert _parse_ecb_period("2024-06-15") == dt.date(2024, 6, 15)  # daily
+        assert _parse_ecb_period("2024-06") == dt.date(2024, 6, 1)      # monthly
+        assert _parse_ecb_period("2024-Q2") == dt.date(2024, 4, 1)      # quarterly
+        assert _parse_ecb_period("2024") == dt.date(2024, 1, 1)         # annual
+
+    def test_bad_values_return_none(self) -> None:
+        assert _parse_ecb_period("not-a-date") is None
+        assert _parse_ecb_period("2024-13") is None
