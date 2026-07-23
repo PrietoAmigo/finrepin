@@ -125,20 +125,20 @@ INE_SPECS: list[IneSpec] = [
             value_filters=("numero de hipotecas", "total fincas", "base nueva"),
             exclude_values=("importe",)),
     # Dwelling counts — INE table 3457 "Viviendas según tamaño del municipio por
-    # tipo de vivienda" (nacional + CCAA + provincias). Two independent "Total"
-    # categories (all municipality sizes × all dwelling types), and dedup is
-    # last-wins, so each indicator must match exactly ONE series per province:
-    # keep the tamaño=Total rollup by dropping the per-size bands (they carry
-    # "... habitantes"), then pick the dwelling type by name. Province, additive
-    # → rolls up to CCAA/nation. (Census 2011.)
+    # tipo de vivienda" (nacional + CCAA + provincias). In this JSON view the
+    # municipality-size dimension is collapsed to its all-sizes total, labelled
+    # "Total habitantes", so each series is one (territory × tipo-de-vivienda).
+    # Pin the tipo — "Total viviendas" for the grand total, "Vivienda principal"
+    # (singular) for the main-residence stock — plus "total habitantes" so we
+    # stay on the all-sizes rollup even if INE later expands the size bands.
+    # Province, additive → rolls up to CCAA/nation. (Census 2011.)
     IneSpec("viviendas_total", "prov", "A", default_table="3457",
             table_env="INE_VIVIENDAS_TABLE",
-            value_filters=("total",),
-            exclude_values=("habitantes", "principal", "secundaria", "vacia")),
+            value_filters=("total viviendas", "total habitantes")),
     IneSpec("viviendas_principales", "prov", "A", default_table="3457",
             table_env="INE_VIVIENDAS_TABLE",
-            value_filters=("viviendas principales",),
-            exclude_values=("habitantes", "no principal")),
+            value_filters=("vivienda principal", "total habitantes"),
+            exclude_values=("no principal",)),
 ]
 
 
