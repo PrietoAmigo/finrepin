@@ -82,12 +82,8 @@ MIVAU_SPECS: list[MivauSpec] = [
     # (36100500 etc.) whose values are not €/m², so the code is pinned to the
     # price table specifically. Override with MIVAU_SUELO_URL.
     MivauSpec("precio_suelo_m2", "MIVAU_SUELO_URL", f"{_SEDAL}/36400500.XLS"),
-    # New-build permits (visados de dirección de obra) — same wide .XLS shape,
-    # from the older Boletinonline (v1) chapter 09. This default was found via
-    # search, not verified from here (host unreachable); confirm on the first
-    # real run and override with MIVAU_VISADOS_URL if it 404s or parses 0 rows.
-    MivauSpec("visados", "MIVAU_VISADOS_URL",
-              "https://apps.fomento.gob.es/Boletinonline/sedal/09034720.XLS"),
+    # New-build permits (visados) are NOT here: that statistic is one transposed
+    # .XLS per province, so it has its own reader — see ingest_visados.py.
 ]
 
 
