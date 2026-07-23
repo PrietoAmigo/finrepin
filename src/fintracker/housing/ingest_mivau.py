@@ -76,14 +76,12 @@ MIVAU_SPECS: list[MivauSpec] = [
     # of the free-market price.
     MivauSpec("price_eur_m2_protected", "MIVAU_PROTECTED_URL", f"{_SEDAL}/35102500.XLS"),
     # Urban land price (€/m² de suelo) — a separate BoletinOnline2 workbook, same
-    # €/m² grid shape, under chapter 36 ("Estadística de precios de suelo
-    # urbano": apps.fomento.gob.es/BoletinOnline2/?nivel=2&orden=36000000; also
-    # datos.gob.es dataset a06004074). The exact sedal .XLS code could not be
-    # confirmed from here (the ministry host is unreachable in this environment)
-    # and chapter 36 also holds land-transaction-count tables, so we do NOT guess
-    # a code: set MIVAU_SUELO_URL to the "€/m² por provincias, serie histórica"
-    # workbook link to enable it.
-    MivauSpec("precio_suelo_m2", "MIVAU_SUELO_URL", ""),
+    # €/m² grid shape, chapter 36 ("Estadística de precios de suelo urbano"),
+    # table 4: "Precio medio del m² de suelo urbano por CCAA y provincias"
+    # (sedal 36400500). Chapter 36 also holds land-transaction *count* tables
+    # (36100500 etc.) whose values are not €/m², so the code is pinned to the
+    # price table specifically. Override with MIVAU_SUELO_URL.
+    MivauSpec("precio_suelo_m2", "MIVAU_SUELO_URL", f"{_SEDAL}/36400500.XLS"),
     # New-build permits (visados de dirección de obra) — same wide .XLS shape,
     # from the older Boletinonline (v1) chapter 09. This default was found via
     # search, not verified from here (host unreachable); confirm on the first
