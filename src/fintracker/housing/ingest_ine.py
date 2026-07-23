@@ -69,7 +69,7 @@ class IneSpec:
 
 # Series aggregated up the hierarchy (province → CCAA → nation) after ingest,
 # because they are additive counts.
-_SUMMABLE = ("poblacion", "compraventa", "hipoteca")
+_SUMMABLE = ("poblacion", "compraventa", "hipoteca", "viviendas_total", "viviendas_principales")
 
 # Prefer known DATOS_TABLA ids over operation-title discovery (INE operation
 # codes are easy to get wrong; a fixed table id is reliable).
@@ -124,6 +124,21 @@ INE_SPECS: list[IneSpec] = [
             table_env="INE_HIPOTECA_TABLE",
             value_filters=("numero de hipotecas", "total fincas", "base nueva"),
             exclude_values=("importe",)),
+    # Dwelling counts — INE table 3457 "Viviendas según tamaño del municipio por
+    # tipo de vivienda" (nacional + CCAA + provincias). Two independent "Total"
+    # categories (all municipality sizes × all dwelling types), and dedup is
+    # last-wins, so each indicator must match exactly ONE series per province:
+    # keep the tamaño=Total rollup by dropping the per-size bands (they carry
+    # "... habitantes"), then pick the dwelling type by name. Province, additive
+    # → rolls up to CCAA/nation. (Census 2011.)
+    IneSpec("viviendas_total", "prov", "A", default_table="3457",
+            table_env="INE_VIVIENDAS_TABLE",
+            value_filters=("total",),
+            exclude_values=("habitantes", "principal", "secundaria", "vacia")),
+    IneSpec("viviendas_principales", "prov", "A", default_table="3457",
+            table_env="INE_VIVIENDAS_TABLE",
+            value_filters=("viviendas principales",),
+            exclude_values=("habitantes", "no principal")),
 ]
 
 

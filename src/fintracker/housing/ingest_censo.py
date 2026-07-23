@@ -50,8 +50,9 @@ _CODE_RE = re.compile(r"\b(\d{2,5})\b")
 @dataclass(frozen=True)
 class CensoSpec:
     indicator: str
-    url_env: str  # env var holding the .px URL (off until set)
+    url_env: str  # env var holding the .px URL (overrides default_url)
     level: str = "prov"  # ccaa | prov | muni
+    default_url: str = ""  # built-in .px URL; empty ⇒ off until the env var is set
     period: dt.date = dt.date(2021, 1, 1)  # census reference date
     # Fix one or more dimensions to a category before reading (e.g. type=Total).
     select: tuple[tuple[str, str], ...] = ()
@@ -61,29 +62,41 @@ class CensoSpec:
     midpoints: tuple[tuple[str, float], ...] = ()
 
 
-# Off by default: no URL configured → nothing fetched, nothing written.
+# Dwelling COUNTS come from the JSON table 3457 (see ingest_ine). Mean floor area
+# and mean dwelling age both come from ONE census .px — "Número de viviendas
+# principales por provincias según año de construcción y superficie útil"
+# (t20/p274/serie/def/p09/l0/03004.px): Provincias × Año de construcción ×
+# periodo × Superficie útil. Fix periodo + the other characteristic to Total, then
+# take a weighted mean over the remaining bands. Latest periodo is 2020.
+_PX_VIVIENDAS = (
+    "https://www.ine.es/jaxi/files/_px/es/px/t20/p274/serie/def/p09/l0/03004.px"
+)
+_PERIODO = "2020"
+
 CENSO_SPECS: list[CensoSpec] = [
-    CensoSpec("viviendas_total", "CENSO_VIVIENDAS_PX_URL", "prov",
-              select=(("Tipo de vivienda", "Total"),)),
-    CensoSpec("viviendas_principales", "CENSO_VIVIENDAS_PX_URL", "prov",
-              select=(("Tipo de vivienda", "Viviendas principales"),)),
+    # Mean floor area: fix año=Total, weighted-mean over the surface bands.
     CensoSpec(
         "superficie_media_m2", "CENSO_SUPERFICIE_PX_URL", "prov",
+        default_url=_PX_VIVIENDAS, period=dt.date(int(_PERIODO), 1, 1),
+        select=(("Año de construcción", "Total"), ("periodo", _PERIODO)),
         bucket_dim="Superficie útil",
         midpoints=(
-            ("hasta 30", 25.0), ("30", 38.0), ("46", 53.0), ("61", 68.0),
-            ("76", 83.0), ("91", 98.0), ("106", 113.0), ("121", 135.0),
-            ("151", 165.0), ("más de 180", 200.0),
+            ("menos de 46", 38.0), ("46 y 75", 60.0), ("76 y 105", 90.0),
+            ("106 y 150", 128.0), ("de 150", 185.0),
         ),
     ),
+    # Mean dwelling age: fix superficie=Total, weighted-mean over construction-year
+    # bands, each midpoint expressed as age = periodo − mid-year.
     CensoSpec(
         "antiguedad_media", "CENSO_ANTIGUEDAD_PX_URL", "prov",
+        default_url=_PX_VIVIENDAS, period=dt.date(int(_PERIODO), 1, 1),
+        select=(("Superficie útil", "Total"), ("periodo", _PERIODO)),
         bucket_dim="Año de construcción",
-        # Midpoint = dwelling age in years at the 2021 census (2021 − build year).
         midpoints=(
-            ("antes de 1900", 130.0), ("1900", 111.0), ("1921", 91.0),
-            ("1941", 71.0), ("1961", 51.0), ("1981", 31.0), ("2001", 15.0),
-            ("2011", 5.0),
+            ("posterior al 2010", 5.0), ("2006 y 2010", 12.0), ("2001 y 2005", 17.0),
+            ("1991 y 2000", 25.0), ("1981 y 1990", 35.0), ("1971 y 1980", 45.0),
+            ("1961 y 1970", 55.0), ("1951 y 1960", 65.0), ("1941 y 1950", 75.0),
+            ("1921 y 1940", 90.0), ("antes de 1921", 110.0),
         ),
     ),
 ]
@@ -188,7 +201,7 @@ def fetch_px(url: str) -> str:
 
 
 def ingest_spec(spec: CensoSpec) -> int:
-    url = os.environ.get(spec.url_env, "").strip()
+    url = os.environ.get(spec.url_env, "").strip() or spec.default_url
     if not url:
         log.info("Censo %s: no .px URL — set %s to enable.", spec.indicator, spec.url_env)
         return 0

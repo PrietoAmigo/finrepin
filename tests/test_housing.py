@@ -211,6 +211,34 @@ def test_parse_table_end_to_end() -> None:
     assert len(rows) == 2
 
 
+def test_viviendas_specs_pick_one_series_per_province() -> None:
+    # Table 3457 is geographic × tamaño-municipio × tipo-vivienda, with two
+    # independent "Total" categories. Dedup is last-wins (not additive), so each
+    # shipped spec must resolve to exactly ONE series per province: tamaño=Total
+    # (size bands carry "habitantes") crossed with the chosen dwelling type.
+    by_code = {s.indicator: s for s in INE_SPECS}
+    ms = _ms(2011, 1, 1)
+    table = [
+        _series(["Albacete", "Total", "Total"], [{"Fecha": ms, "Valor": 300000.0}]),
+        _series(["Albacete", "Total", "Viviendas principales"],
+                [{"Fecha": ms, "Valor": 200000.0}]),
+        _series(["Albacete", "Total", "Viviendas no principales"],
+                [{"Fecha": ms, "Valor": 100000.0}]),
+        _series(["Albacete", "Menos de 101 habitantes", "Total"],
+                [{"Fecha": ms, "Valor": 5000.0}]),
+        _series(["Albacete", "Menos de 101 habitantes", "Viviendas principales"],
+                [{"Fecha": ms, "Valor": 3000.0}]),
+        # National row: matches the filter but resolves to no province → dropped.
+        _series(["Total Nacional", "Total", "Total"], [{"Fecha": ms, "Valor": 2.5e7}]),
+    ]
+    assert parse_table(table, by_code["viviendas_total"]) == [
+        ("prov-02", dt.date(2011, 1, 1), 300000.0)
+    ]
+    assert parse_table(table, by_code["viviendas_principales"]) == [
+        ("prov-02", dt.date(2011, 1, 1), 200000.0)
+    ]
+
+
 # --- MIVAU spreadsheet parsing -----------------------------------------------
 
 

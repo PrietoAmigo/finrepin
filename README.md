@@ -179,13 +179,13 @@ and timeframe** — a filled choropleth of Spain wired to the time-series panels
     municipal renta comes from the ADRH's "Indicadores de renta media y mediana"
     tables (operation **353**), one huge (~30k-series) table per province — so
     it is **not** auto-discovered (that would OOM the ingest); set
-    `INE_RENTA_MUNI_TABLES` to the specific province table ids you want. Not
-    every listed indicator is reachable
-    this way: **dwelling counts** live in Tempus3 (table 3457) but aren't wired
-    yet, while **mean floor area, mean dwelling age, and territory area (km²)**
-    are only in INE's PC-Axis (`.px`) census tables — not this JSON API — so
-    they (and the `densidad` derived from area) stay empty. No placeholder data
-    is ever written.
+    `INE_RENTA_MUNI_TABLES` to the specific province table ids you want.
+    **Dwelling counts** (total + main-residence) come from Tempus3 table **3457**
+    ("Viviendas según tamaño del municipio por tipo de vivienda"). The remaining
+    census detail — **mean floor area** and **mean dwelling age** — is only in
+    INE's PC-Axis (`.px`) census tables, read by a separate ingest (see below).
+    Only **territory area (km²)** (and the `densidad` derived from it) still has
+    no clean INE source and stays empty. No placeholder data is ever written.
   - Both run daily (`HOUSING_HOUR`/`HOUSING_MINUTE`) and once on boot. Trigger one
     by hand with `docker compose exec app python -m fintracker.housing.pipeline`.
     Panels stay empty for any indicator with no ingested rows yet — no placeholder
@@ -448,15 +448,19 @@ alembic upgrade head
   by the `v_region_yoy` view). Ceuta/Melilla and small municipalities can be
   sparse in INE. No `source = 'sample'` placeholder is ever written; migration
   0018 removes any left by the old sample-data feature.
-- **Census housing detail (INE PC-Axis `.px`):** dwelling **counts**, **mean
-  floor area** and **mean dwelling age** live only in the Censo 2021 `.px` files,
-  not the Tempus3 JSON — so `fintracker/housing/pcaxis.py` parses that format and
-  `ingest_censo.py` maps it to region rows, computing the two means as weighted
-  means of the surface-band / year-of-construction distributions. Each series is
-  off until its `CENSO_*_PX_URL` is set (the `.px` dimension names in
-  `CENSO_SPECS` are best-effort — inspect a real file and adjust). **Territory
-  area (km²)** — and thus the derived `densidad` — still has no clean source, so
-  it stays empty.
+- **Census housing detail (INE):** dwelling **counts** (total + main-residence)
+  come from Tempus3 table **3457** ("Viviendas según tamaño del municipio por tipo
+  de vivienda") via `ingest_ine` — the province, all-sizes rollup for each dwelling
+  type, additive up the hierarchy. **Mean floor area** and **mean dwelling age**
+  are only in a PC-Axis (`.px`) census table (`03004.px`), not the Tempus3 JSON —
+  so `fintracker/housing/pcaxis.py` parses that format and `ingest_censo.py` maps
+  it to region rows, computing both as weighted means of the surface-band /
+  year-of-construction distributions (each band mapped to a midpoint). All four
+  ship **live by default** against pinned sources; the `.px` URL and band
+  midpoints in `CENSO_SPECS` (and the 3457 series filters) are overridable via
+  env — inspect a real file with `parse_px` and adjust if a series comes back
+  empty. **Territory area (km²)** — and thus the derived `densidad` — still has no
+  clean source, so it stays empty.
 - **Market-activity series (INE + MIVAU):** alongside the €/m² prices, the
   registry carries a demand→financing→supply picture, all pinned by table id
   (never auto-discovered). **Live by default:** **home sales** (`compraventa`,

@@ -45,11 +45,12 @@ INDICATORS: list[Indicator] = [
     Indicator("densidad", "Population density (inhab/km²)", "inhab_km2", "derived", "A",
               "demographic"),
     # --- INE: housing stock (Censo de Población y Viviendas) -------------------
-    # These come from the PC-Axis (.px) census via ingest_censo (mean floor area
-    # and mean dwelling age are computed as weighted means of the surface-band /
-    # year-of-construction distributions). Off until their CENSO_*_PX_URL is set,
-    # so they stay empty (no placeholder written). superficie_km2 (and thus the
-    # derived densidad) still has no clean source — see the README.
+    # Dwelling counts come from the Tempus3 JSON table 3457 (via ingest_ine);
+    # mean floor area and mean dwelling age come from a PC-Axis (.px) census table
+    # (via ingest_censo), each a weighted mean of the surface-band /
+    # year-of-construction distribution. All four ship enabled against pinned
+    # sources. superficie_km2 (and thus the derived densidad) still has no clean
+    # source — see the README.
     Indicator("viviendas_total", "Dwellings (total)", "count", "INE", "A", "housing"),
     Indicator("viviendas_principales", "Main-residence dwellings", "count", "INE", "A", "housing"),
     Indicator("superficie_media_m2", "Mean dwelling floor area (m²)", "m2", "INE", "A", "housing"),
