@@ -87,7 +87,7 @@ thing runs under Docker Compose and schedules itself — no external cron.
   superficie, antigüedad** — by **region and timeframe**. Region data is stored
   at every granularity (nation → CCAA → province → municipality) with parent
   links, so any series rolls up. Click a region on the choropleth and every panel
-  filters to it; cascading **CCAA → province → municipality** selectors keep the
+  filters to it; cascading **CCAA → province** selectors keep the
   list short as you drill down. Prices come from the **Ministerio de Vivienda**;
   the demographic and income series from **INE**'s free Tempus3 JSON API. The
   choropleth is an Apache ECharts panel (the Business Charts plugin). See
@@ -154,12 +154,12 @@ and timeframe** — a filled choropleth of Spain wired to the time-series panels
 - **Everything in Grafana.** The choropleth is an **Apache ECharts** panel (the
   *Business Charts* plugin, `volkovlabs-echarts-panel`, installed on Grafana
   startup via `GF_INSTALL_PLUGINS`). It is **selection-only** — **click a region**
-  to filter, there is no zoom or pan — and every panel (price, YoY, population,
-  income, the all-indicators table) follows the selection. Template variables pick
-  the map metric, the granularity (**CCAA / province / municipality**, province by
-  default) and an extra series; **cascading CCAA → province → municipality**
-  selectors narrow the region list as you drill down, so the municipality picker
-  only ever lists the municipalities of the chosen province.
+  to filter, there is no zoom or pan — and both other panels (a multi-series
+  comparison panel and the all-indicators table) follow the selection. Template
+  variables pick the map metric, the granularity (**CCAA / province**, province by
+  default) and — for the comparison panel — one or more series to plot together;
+  **cascading CCAA → province** selectors narrow the region list as you drill down,
+  so the province picker only ever lists the provinces of the chosen community.
 - **All granularities, stored.** The `regions` table holds the whole hierarchy —
   nation → CCAA → province → municipality (~8,200 regions) — with `parent_code`
   links, so a fine-grained series always rolls up to a coarser one. Observations
