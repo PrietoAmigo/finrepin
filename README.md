@@ -461,9 +461,9 @@ alembic upgrade head
   registry carries a demand→financing→supply picture, all pinned by table id
   (never auto-discovered). **Live by default:** **home sales** (`compraventa`,
   INE table 6149, monthly/province, additive), **mortgages** (`hipoteca`, INE
-  table 3232, monthly/province, additive) and **renta** at CCAA level (ECV
-  tables 9947/9949). **Env-gated until an id/URL is set:** the **House Price
-  Index** (`ipv`, INE operation 15 — set `INE_IPV_TABLE`), **urban land price**
+  table 76317, monthly/province, additive), the **House Price Index** (`ipv`,
+  INE table 80270, quarterly/CCAA) and **renta** at CCAA level (ECV tables
+  9947/9949). **Env-gated until a URL is set:** **urban land price**
   (`precio_suelo_m2`, `MIVAU_SUELO_URL`) and **new-build permits** (`visados`,
   `MIVAU_VISADOS_URL`). Province/municipal renta from the ADRH is too large to
   fetch, so renta shows at CCAA granularity. Euríbor and affordability ratios

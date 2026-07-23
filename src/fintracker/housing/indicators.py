@@ -56,8 +56,8 @@ INDICATORS: list[Indicator] = [
     Indicator("antiguedad_media", "Mean dwelling age (years)", "year", "INE", "A", "housing"),
     # --- Market activity ------------------------------------------------------
     # Demand/supply signals alongside the €/m² prices, pinned by table id (never
-    # auto-discovered). compraventa + hipoteca have live INE tables; ipv,
-    # precio_suelo_m2 and visados are env-gated until an id/URL is set (see
+    # auto-discovered). compraventa, hipoteca and ipv have live INE tables;
+    # precio_suelo_m2 and visados are env-gated on a MIVAU URL (see
     # ingest_ine.INE_SPECS / ingest_mivau.MIVAU_SPECS and the README).
     Indicator("compraventa", "Home sales (count)", "count", "INE", "M", "market"),
     Indicator("ipv", "House price index (IPV)", "index", "INE", "Q", "market"),

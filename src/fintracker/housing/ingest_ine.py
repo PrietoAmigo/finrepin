@@ -109,18 +109,20 @@ INE_SPECS: list[IneSpec] = [
     IneSpec("compraventa", "prov", "M", default_table="6149",
             table_env="INE_COMPRAVENTA_TABLE",
             value_filters=("compraventa",)),
-    # House Price Index (IPV) — INE operation 15. Quarterly, national + CCAA, an
-    # index (not additive). Env-gated until its by-CCAA general-index table id is
-    # pinned (INE_IPV_TABLE); value_filters keep the general index level.
-    IneSpec("ipv", "ccaa", "Q", table_env="INE_IPV_TABLE",
-            value_filters=("general", "indice"),
+    # House Price Index (IPV) — INE operation 15, table 80270 ("Índices por CCAA:
+    # general, vivienda nueva y de segunda mano. Trimestrales"). Quarterly,
+    # national + CCAA. Keep the general INDEX (drop the variación rows); an index,
+    # so not additive.
+    IneSpec("ipv", "ccaa", "Q", default_table="80270",
+            table_env="INE_IPV_TABLE",
+            value_filters=("general",),
             exclude_values=("variacion", "tasa")),
-    # Mortgages — Estadística de Hipotecas, table 3232: naturaleza × medida ×
-    # province × month. Keep the total-fincas mortgage COUNT; additive → rolls
-    # up. (3232 is "base antigua"; if it lags, pin a newer table via env.)
-    IneSpec("hipoteca", "prov", "M", default_table="3232",
+    # Mortgages — Estadística de Hipotecas, table 76317 (nacional + provincias).
+    # Keep the total-fincas mortgage COUNT on the current "base nueva" series
+    # (the table also carries the old/linked bases); province, additive.
+    IneSpec("hipoteca", "prov", "M", default_table="76317",
             table_env="INE_HIPOTECA_TABLE",
-            value_filters=("numero de hipotecas", "total fincas"),
+            value_filters=("numero de hipotecas", "total fincas", "base nueva"),
             exclude_values=("importe",)),
 ]
 
