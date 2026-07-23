@@ -358,11 +358,14 @@ def ingest_spec(spec: IneSpec) -> int:
 _DERIVE_DENSITY = text(
     """
     INSERT INTO region_observations (region_code, indicator, period, value, source)
-    SELECT p.region_code, 'densidad', p.period, p.value / s.value, 'derived'
+    SELECT p.region_code, 'densidad', p.period, p.value / a.value, 'derived'
     FROM region_observations p
-    JOIN region_observations s
-      ON s.region_code = p.region_code AND s.period = p.period
-     AND s.indicator = 'superficie_km2' AND s.value > 0
+    JOIN (
+        SELECT DISTINCT ON (region_code) region_code, value
+        FROM region_observations
+        WHERE indicator = 'superficie_km2' AND value > 0
+        ORDER BY region_code, period DESC
+    ) a ON a.region_code = p.region_code
     WHERE p.indicator = 'poblacion'
     ON CONFLICT (region_code, indicator, period)
       DO UPDATE SET value = EXCLUDED.value, source = EXCLUDED.source
@@ -371,10 +374,12 @@ _DERIVE_DENSITY = text(
 
 
 def derive_density() -> int:
-    """densidad = poblacion / superficie_km2, per region and matching period.
+    """densidad = poblacion / superficie_km2, per region and population period.
 
-    Recomputed from scratch each run (stale derived rows are dropped first) so
-    revisions in either input propagate.
+    Uses each region's latest area (area is a single static reference row from
+    ``territory.py``, so it applies to every population year). Recomputed from
+    scratch each run (stale derived rows are dropped first) so revisions in
+    either input propagate.
     """
     with session_scope() as session:
         session.execute(

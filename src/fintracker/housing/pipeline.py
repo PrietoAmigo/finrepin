@@ -11,14 +11,24 @@ import logging
 from fintracker.housing.ingest_censo import ingest_censo
 from fintracker.housing.ingest_ine import ingest_ine
 from fintracker.housing.ingest_mivau import ingest_mivau
+from fintracker.housing.territory import seed_territory_area
 
 log = logging.getLogger(__name__)
 
 
 def ingest_housing() -> None:
-    """Run all housing ingestors; one source failing must not stop the others."""
+    """Run all housing ingestors; one source failing must not stop the others.
+
+    Territory area runs first (a static reference series) so the density
+    derivation at the end of the INE step has an area to divide population by.
+    """
     totals: dict[str, int] = {}
-    for name, ingestor in (("ine", ingest_ine), ("mivau", ingest_mivau), ("censo", ingest_censo)):
+    for name, ingestor in (
+        ("territory", seed_territory_area),
+        ("ine", ingest_ine),
+        ("mivau", ingest_mivau),
+        ("censo", ingest_censo),
+    ):
         try:
             totals[name] = ingestor()
         except Exception:

@@ -184,8 +184,9 @@ and timeframe** — a filled choropleth of Spain wired to the time-series panels
     ("Viviendas según tamaño del municipio por tipo de vivienda"). The remaining
     census detail — **mean floor area** and **mean dwelling age** — is only in
     INE's PC-Axis (`.px`) census tables, read by a separate ingest (see below).
-    Only **territory area (km²)** (and the `densidad` derived from it) still has
-    no clean INE source and stays empty. No placeholder data is ever written.
+    **Territory area (km²)** has no INE API series, so it is seeded from official
+    IGN/INE province figures (`fintracker.housing.territory`), which populates the
+    derived **`densidad`**. No measured data is ever fabricated.
   - Both run daily (`HOUSING_HOUR`/`HOUSING_MINUTE`) and once on boot. Trigger one
     by hand with `docker compose exec app python -m fintracker.housing.pipeline`.
     Panels stay empty for any indicator with no ingested rows yet — no placeholder
@@ -236,7 +237,6 @@ the probe** (`python -m fintracker.housing.probe table <id>`):
 | **Foreclosures** on dwellings (ejecuciones hipotecarias) | INE operation — discover with `probe op` | Medium | quarterly/province housing-distress signal |
 | **Empty** & **secondary** dwellings | census table **3457** (already fetched) or a `.px` | Medium | occupancy of the existing stock |
 | **Households** & mean household size | INE (ECH / Cifras de población) | Medium | a demand driver alongside `poblacion` |
-| **Territory area (km²)** | INE reference table | Medium | the one missing input that unblocks the derived `densidad` |
 
 **Already ingested elsewhere — just surface it:** **Euríbor 12M** is already
 pulled from the ECB into the market `prices` table (`EURIBOR12M`). Add it to the
@@ -518,19 +518,24 @@ alembic upgrade head
   ship **live by default** against pinned sources; the `.px` URL and band
   midpoints in `CENSO_SPECS` (and the 3457 series filters) are overridable via
   env — inspect a real file with `parse_px` and adjust if a series comes back
-  empty. **Territory area (km²)** — and thus the derived `densidad` — still has no
-  clean source, so it stays empty.
+  empty. **Territory area (km²)** has no INE API series, so it is seeded from
+  official IGN/INE province areas (`fintracker.housing.territory`), summed up the
+  hierarchy since area is additive — which populates the derived **`densidad`**
+  (`derive_density` divides each population figure by the region's area).
 - **Market-activity series (INE + MIVAU):** alongside the €/m² prices, the
   registry carries a demand→financing→supply picture, all pinned by table id
   (never auto-discovered). **Live by default:** **home sales** (`compraventa`,
   INE table 6149, monthly/province, additive), **mortgages** (`hipoteca`, INE
   table 76317, monthly/province, additive), the **House Price Index** (`ipv`,
   INE table 80270, quarterly/CCAA) and **renta** at CCAA level (ECV tables
-  9947/9949). **Env-gated until a URL is set:** **urban land price**
-  (`precio_suelo_m2`, `MIVAU_SUELO_URL`) and **new-build permits** (`visados`,
-  `MIVAU_VISADOS_URL`). Province/municipal renta from the ADRH is too large to
-  fetch, so renta shows at CCAA granularity. Euríbor and affordability ratios
-  slot into the same store the same way.
+  9947/9949) and **new-build permits** (`visados`, MIVAU chapter 09
+  `sedal/09034720.XLS`, shipped as a default but unverified from CI — override
+  with `MIVAU_VISADOS_URL`). **Still env-gated until a URL is set:** **urban land
+  price** (`precio_suelo_m2`, `MIVAU_SUELO_URL`) — MIVAU chapter 36 also holds
+  land-transaction-count tables, so its exact €/m² sedal code is left for the
+  operator to paste rather than guessed. Province/municipal renta from the ADRH is
+  too large to fetch, so renta shows at CCAA granularity. Euríbor and
+  affordability ratios slot into the same store the same way.
 - **Spain house prices (Ministerio de Vivienda):** the ministry (MIVAU/ex-Fomento)
   publishes its €/m² price statistics as legacy **`.XLS` spreadsheets** (the
   "BoletinOnline" sedal files: `35101000` all, `35101500` new, `35102000`

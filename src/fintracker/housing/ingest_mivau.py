@@ -75,13 +75,21 @@ MIVAU_SPECS: list[MivauSpec] = [
     # 35102500 is protected housing (VPO) — a distinct series, not a re-appraisal
     # of the free-market price.
     MivauSpec("price_eur_m2_protected", "MIVAU_PROTECTED_URL", f"{_SEDAL}/35102500.XLS"),
-    # Urban land price (€/m² de suelo) — a separate BoletinOnline workbook, same
-    # €/m² grid shape. The sedal code needs confirming, so there is no built-in
-    # default: it stays inert until MIVAU_SUELO_URL is set.
+    # Urban land price (€/m² de suelo) — a separate BoletinOnline2 workbook, same
+    # €/m² grid shape, under chapter 36 ("Estadística de precios de suelo
+    # urbano": apps.fomento.gob.es/BoletinOnline2/?nivel=2&orden=36000000; also
+    # datos.gob.es dataset a06004074). The exact sedal .XLS code could not be
+    # confirmed from here (the ministry host is unreachable in this environment)
+    # and chapter 36 also holds land-transaction-count tables, so we do NOT guess
+    # a code: set MIVAU_SUELO_URL to the "€/m² por provincias, serie histórica"
+    # workbook link to enable it.
     MivauSpec("precio_suelo_m2", "MIVAU_SUELO_URL", ""),
-    # New-build permits (visados de dirección de obra) — a BoletinOnline .XLS of
-    # the same wide shape. Inert until MIVAU_VISADOS_URL is set.
-    MivauSpec("visados", "MIVAU_VISADOS_URL", ""),
+    # New-build permits (visados de dirección de obra) — same wide .XLS shape,
+    # from the older Boletinonline (v1) chapter 09. This default was found via
+    # search, not verified from here (host unreachable); confirm on the first
+    # real run and override with MIVAU_VISADOS_URL if it 404s or parses 0 rows.
+    MivauSpec("visados", "MIVAU_VISADOS_URL",
+              "https://apps.fomento.gob.es/Boletinonline/sedal/09034720.XLS"),
 ]
 
 
