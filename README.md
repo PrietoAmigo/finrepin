@@ -458,17 +458,16 @@ alembic upgrade head
   area (km²)** — and thus the derived `densidad` — still has no clean source, so
   it stays empty.
 - **Market-activity series (INE + MIVAU):** alongside the €/m² prices, the
-  registry also carries a demand→financing→supply picture — **home sales**
-  (`compraventa`, INE ETDP, monthly/province, additive so it rolls up), the
-  **House Price Index** (`ipv`, INE op 25, quarterly/CCAA, an index),
-  **mortgages on dwellings** (`hipoteca`, INE, monthly/province, additive),
-  **urban land price** (`precio_suelo_m2`, MIVAU `.XLS`) and **new-build
-  permits** (`visados`, MIVAU `.XLS`). All are **off by default** — pinned by
-  id/URL only, never auto-discovered — and stay empty until their env var is set
-  (`INE_COMPRAVENTA_TABLE`, `INE_IPV_TABLE`, `INE_HIPOTECA_TABLE`,
-  `MIVAU_SUELO_URL`, `MIVAU_VISADOS_URL`; find the ids on the server, they can't
-  be reached from CI). Further series (Euríbor, affordability ratios) slot into
-  the same generic store the same way.
+  registry carries a demand→financing→supply picture, all pinned by table id
+  (never auto-discovered). **Live by default:** **home sales** (`compraventa`,
+  INE table 6149, monthly/province, additive), **mortgages** (`hipoteca`, INE
+  table 3232, monthly/province, additive) and **renta** at CCAA level (ECV
+  tables 9947/9949). **Env-gated until an id/URL is set:** the **House Price
+  Index** (`ipv`, INE operation 15 — set `INE_IPV_TABLE`), **urban land price**
+  (`precio_suelo_m2`, `MIVAU_SUELO_URL`) and **new-build permits** (`visados`,
+  `MIVAU_VISADOS_URL`). Province/municipal renta from the ADRH is too large to
+  fetch, so renta shows at CCAA granularity. Euríbor and affordability ratios
+  slot into the same store the same way.
 - **Spain house prices (Ministerio de Vivienda):** the ministry (MIVAU/ex-Fomento)
   publishes its €/m² price statistics as legacy **`.XLS` spreadsheets** (the
   "BoletinOnline" sedal files: `35101000` all, `35101500` new, `35102000`

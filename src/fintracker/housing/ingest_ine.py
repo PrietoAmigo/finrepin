@@ -79,12 +79,16 @@ INE_SPECS: list[IneSpec] = [
     # so no separate table is needed for them.
     IneSpec("poblacion", "prov", "A", default_table="2852",
             table_env="INE_POBLACION_PROV_TABLE", exclude_values=("hombres", "mujeres")),
-    # Renta (Atlas de distribución de renta de los hogares). The table carries
-    # several measures, so value_filters selects the intended one. No stable
-    # all-Spain id is hardcoded — pin the provincial table ids via env.
-    IneSpec("renta_persona", "prov", "A", table_env="INE_RENTA_PROV_TABLE",
+    # Renta at CCAA level from the ECV compact tables (9947 renta por persona,
+    # 9949 por hogar) — territory by name, "renta neta media por persona/hogar"
+    # picks the measure (the "por unidad de consumo" / "con alquiler imputado"
+    # variants don't match). Province/municipal renta from the ADRH is too large
+    # to fetch (see the muni spec), so renta shows at CCAA granularity.
+    IneSpec("renta_persona", "ccaa", "A", default_table="9947",
+            table_env="INE_RENTA_PROV_TABLE",
             value_filters=("renta neta media por persona",)),
-    IneSpec("renta_hogar", "prov", "A", table_env="INE_RENTA_HOGAR_TABLE",
+    IneSpec("renta_hogar", "ccaa", "A", default_table="9949",
+            table_env="INE_RENTA_HOGAR_TABLE",
             value_filters=("renta neta media por hogar",)),
     # Municipal renta lives in the ADRH's "Indicadores de renta media y mediana"
     # tables (operation 353), one per province. Each is HUGE — ~30k series
@@ -98,22 +102,26 @@ INE_SPECS: list[IneSpec] = [
             value_filters=("renta neta media por persona",),
             exclude_values=("seccion", "distrito")),
     # --- Market activity (small province/CCAA tables; pinned ids only, never
-    # auto-discovered, so no OOM risk). Both stay empty until their env id is set.
-    # Home sales (Estadística de Transmisiones de Derechos de la Propiedad):
-    # compraventas of dwellings, monthly, by province. Additive → rolls up.
-    IneSpec("compraventa", "prov", "M", table_env="INE_COMPRAVENTA_TABLE",
-            value_filters=("compraventa",), exclude_values=("rustica",)),
-    # House Price Index (IPV), quarterly, national + CCAA. An index (base 2015),
-    # so not additive; value_filters keeps the general index level, not a % change.
+    # auto-discovered, so no OOM risk). ---------------------------------------
+    # Home sales — Estadística de Transmisión de Derechos de la Propiedad, table
+    # 6149: national+CCAA+province × título × Número. At province level the
+    # "compraventa" título is kept; additive → rolls up to CCAA/nation.
+    IneSpec("compraventa", "prov", "M", default_table="6149",
+            table_env="INE_COMPRAVENTA_TABLE",
+            value_filters=("compraventa",)),
+    # House Price Index (IPV) — INE operation 15. Quarterly, national + CCAA, an
+    # index (not additive). Env-gated until its by-CCAA general-index table id is
+    # pinned (INE_IPV_TABLE); value_filters keep the general index level.
     IneSpec("ipv", "ccaa", "Q", table_env="INE_IPV_TABLE",
             value_filters=("general", "indice"),
             exclude_values=("variacion", "tasa")),
-    # Mortgages constituted on dwellings (Estadística de Hipotecas), monthly by
-    # province. Additive → rolls up. Pin INE_HIPOTECA_TABLE (the count-of-
-    # mortgages-on-dwellings-by-province table); importe/capital rows are dropped.
-    IneSpec("hipoteca", "prov", "M", table_env="INE_HIPOTECA_TABLE",
-            value_filters=("vivienda",),
-            exclude_values=("importe", "capital", "rustica")),
+    # Mortgages — Estadística de Hipotecas, table 3232: naturaleza × medida ×
+    # province × month. Keep the total-fincas mortgage COUNT; additive → rolls
+    # up. (3232 is "base antigua"; if it lags, pin a newer table via env.)
+    IneSpec("hipoteca", "prov", "M", default_table="3232",
+            table_env="INE_HIPOTECA_TABLE",
+            value_filters=("numero de hipotecas", "total fincas"),
+            exclude_values=("importe",)),
 ]
 
 
