@@ -34,7 +34,7 @@ import pandas as pd
 import requests
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
 from fintracker.db import session_scope
 from fintracker.ingest.prices import (
@@ -47,7 +47,20 @@ from fintracker.models import Instrument, Price
 
 log = logging.getLogger(__name__)
 
-STOOQ_CSV = "https://stooq.com/q/d/l/"
+# The .com host and its .pl mirror serve the same CSV; some networks get a 404
+# from one and a normal file from the other, so both are tried in order.
+STOOQ_BASE_URLS = ("https://stooq.com/q/d/l/", "https://stooq.pl/q/d/l/")
+
+# Stooq answers the default `python-requests/<ver>` agent with a 404 even for
+# symbols it serves fine in a browser, so send a browser-like User-Agent (the
+# same accommodation pandas-datareader's Stooq reader makes).
+_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/csv,text/plain,*/*",
+}
 
 # Stooq is a plain static-file host; a (connect, read) tuple keeps a slow
 # full-history download from hanging the whole ingest.
@@ -57,12 +70,30 @@ _TIMEOUT = (10, 60)
 _OHLC_COLUMNS = ("open", "high", "low", "close")
 
 
+def _is_retryable(exc: BaseException) -> bool:
+    """Retry transport failures and 5xx, never a 4xx.
+
+    A 404/403 from Stooq is a settled answer — retrying it four times with
+    exponential backoff just stalls the whole market ingest before the Yahoo
+    fallback gets its turn.
+    """
+    if isinstance(exc, requests.HTTPError):
+        return exc.response is not None and exc.response.status_code >= 500
+    return isinstance(exc, requests.RequestException)
+
+
 @retry(
-    retry=retry_if_exception_type(requests.RequestException),
-    stop=stop_after_attempt(4),
-    wait=wait_exponential(multiplier=2, max=30),
+    retry=retry_if_exception(_is_retryable),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=2, max=15),
     reraise=True,
 )
+def _get_csv(base_url: str, params: dict[str, str]) -> str:
+    resp = requests.get(base_url, params=params, headers=_HEADERS, timeout=_TIMEOUT)
+    resp.raise_for_status()
+    return resp.text
+
+
 def fetch_stooq_csv(
     symbol: str, start: dt.date | None = None, today: dt.date | None = None
 ) -> str:
@@ -70,15 +101,22 @@ def fetch_stooq_csv(
 
     `start` maps to Stooq's `d1` (from) parameter; it only honours a range when
     both ends are given, so `d2` is pinned to today. Without `start` the whole
-    available history comes back.
+    available history comes back. Each host in `STOOQ_BASE_URLS` is tried in
+    turn; the last error is raised if none answers.
     """
     params = {"s": symbol, "i": "d"}
     if start is not None:
         params["d1"] = start.strftime("%Y%m%d")
         params["d2"] = (today or dt.date.today()).strftime("%Y%m%d")
-    resp = requests.get(STOOQ_CSV, params=params, timeout=_TIMEOUT)
-    resp.raise_for_status()
-    return resp.text
+
+    last_error: Exception | None = None
+    for base_url in STOOQ_BASE_URLS:
+        try:
+            return _get_csv(base_url, params)
+        except requests.RequestException as exc:
+            log.warning("Stooq %s did not serve %s: %s", base_url, symbol, exc)
+            last_error = exc
+    raise last_error if last_error is not None else RuntimeError("no Stooq host configured")
 
 
 def rows_from_stooq_csv(text: str) -> list[dict[str, Any]]:
@@ -148,6 +186,11 @@ def metal_rows(
     if inst.stooq_symbol:
         try:
             rows = rows_from_stooq_csv(fetch_stooq(inst.stooq_symbol, start=start))
+        except requests.RequestException as exc:
+            # An expected, recoverable outcome — the fallback below covers it,
+            # so log one line rather than a traceback.
+            log.warning("Stooq fetch failed for %s (%s): %s", inst.symbol, inst.stooq_symbol, exc)
+            rows = []
         except Exception:
             log.exception("Stooq fetch failed for %s (%s)", inst.symbol, inst.stooq_symbol)
             rows = []
@@ -186,6 +229,16 @@ def _stored_bounds(session: Session, instrument_id: int) -> tuple[dt.date | None
     return earliest, latest
 
 
+def _stored_source(session: Session, instrument_id: int) -> str | None:
+    """Source of the newest stored bar, or None when there is none yet."""
+    return session.execute(
+        select(Price.source)
+        .where(Price.instrument_id == instrument_id)
+        .order_by(Price.date.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+
+
 def ingest_metal_prices() -> int:
     """Fetch + upsert daily bars for every `kind='metal'` instrument."""
     total = 0
@@ -195,11 +248,26 @@ def ingest_metal_prices() -> int:
         )
         for inst in instruments:
             earliest, latest = _stored_bounds(session, inst.id)
+            stored_source = _stored_source(session, inst.id)
             start = incremental_start(earliest, latest, dt.date.today())
             rows, source = metal_rows(inst, start)
             if not rows:
                 log.warning("No price rows returned for %s from any source", inst.symbol)
                 continue
+            if start is not None and stored_source is not None and source != stored_source:
+                # The answering source changed (Stooq spot came back, or it went
+                # away and Yahoo futures took over). Re-fetch the whole history
+                # from the new source so the stored series stays one series
+                # rather than a splice of spot and futures at the switch date.
+                log.info(
+                    "Source for %s changed %s -> %s; re-backfilling full history.",
+                    inst.symbol,
+                    stored_source,
+                    source,
+                )
+                full_rows, full_source = metal_rows(inst, None)
+                if full_rows:
+                    rows, source, start = full_rows, full_source, None
             total += upsert_price_rows(session, inst.id, rows, source=source)
             if start is None:
                 log.info(

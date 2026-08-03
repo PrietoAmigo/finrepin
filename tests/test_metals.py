@@ -5,8 +5,9 @@ from __future__ import annotations
 import datetime as dt
 
 import pandas as pd
+import requests
 
-from fintracker.ingest.metals import metal_rows, rows_from_stooq_csv
+from fintracker.ingest.metals import _is_retryable, metal_rows, rows_from_stooq_csv
 from fintracker.models import Instrument
 
 # A Stooq daily CSV: header, an out-of-order row to prove sorting, a row with
@@ -100,6 +101,17 @@ class TestMetalRows:
         )
         assert source == "yfinance"
 
+    def test_http_error_falls_back_without_a_traceback(self) -> None:
+        # Stooq answers some networks with 404 for symbols it serves fine in a
+        # browser; that is an expected outcome, not a crash.
+        def not_found(*args: object, **kwargs: object) -> str:
+            raise requests.HTTPError("404 Client Error: Not Found")
+
+        _, source = metal_rows(
+            _gold(), None, fetch_stooq=not_found, fetch_yahoo=lambda *a, **k: _yahoo_frame()
+        )
+        assert source == "yfinance"
+
     def test_no_source_yields_no_rows(self) -> None:
         def boom(*args: object, **kwargs: object) -> pd.DataFrame:
             raise RuntimeError("delisted")
@@ -109,3 +121,27 @@ class TestMetalRows:
         )
         assert rows == []
         assert source == ""
+
+
+def _http_error(status: int) -> requests.HTTPError:
+    response = requests.Response()
+    response.status_code = status
+    return requests.HTTPError(f"{status} error", response=response)
+
+
+class TestRetryPredicate:
+    def test_4xx_is_not_retried(self) -> None:
+        # A 404/403 is a settled answer: retrying it stalls the whole market
+        # ingest before the Yahoo fallback gets its turn.
+        assert not _is_retryable(_http_error(404))
+        assert not _is_retryable(_http_error(403))
+
+    def test_5xx_is_retried(self) -> None:
+        assert _is_retryable(_http_error(503))
+
+    def test_transport_errors_are_retried(self) -> None:
+        assert _is_retryable(requests.ConnectionError("reset by peer"))
+        assert _is_retryable(requests.Timeout("read timed out"))
+
+    def test_unrelated_exceptions_are_not_retried(self) -> None:
+        assert not _is_retryable(ValueError("nope"))
