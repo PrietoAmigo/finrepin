@@ -41,7 +41,6 @@ class Instrument(Base):
     # Per-source identifiers; null when a source doesn't cover the instrument.
     yahoo_symbol: Mapped[str | None] = mapped_column(String(32))
     coingecko_id: Mapped[str | None] = mapped_column(String(64))
-    stooq_symbol: Mapped[str | None] = mapped_column(String(24))
     fred_series: Mapped[str | None] = mapped_column(String(32))
     ecb_series: Mapped[str | None] = mapped_column(String(64))
     coinmetrics_metric: Mapped[str | None] = mapped_column(String(48))
