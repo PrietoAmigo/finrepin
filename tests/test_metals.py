@@ -56,7 +56,7 @@ class TestRowsFromStooqCsv:
 def _gold() -> Instrument:
     return Instrument(
         symbol="XAU",
-        name="Gold (spot, per troy ounce)",
+        name="Gold (per troy ounce)",
         kind="metal",
         currency="USD",
         stooq_symbol="xauusd",
