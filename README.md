@@ -34,10 +34,12 @@ thing runs under Docker Compose and schedules itself — no external cron.
 - **Precious metals** — daily gold and silver spot (USD per troy ounce) from
   **Stooq**'s free, key-less daily CSV (`xauusd`/`xagusd`), stored as
   `kind='metal'` instruments in the same `prices` table as everything else, with
-  the same full-history backfill and incremental follow-ups. If Stooq throttles a
-  run (it answers with a plain-text limit message, not an HTTP error), the ingest
+  the same full-history backfill and incremental follow-ups. If Stooq refuses a
+  run (a 404 on some networks, or its plain-text throttle message), the ingest
   falls back to Yahoo's continuous front-month futures (`GC=F`/`SI=F`) for that
-  run; `prices.source` records which source each row came from.
+  run; `prices.source` records which source each row came from, and a change of
+  source re-fetches the full history so the series never splices spot onto
+  futures.
 - **Weekly email** — HTML + plain-text report (current levels with weekly,
   monthly, and yearly moves, plus upcoming earnings) for the symbols listed
   in `REPORT_SYMBOLS` (all instruments when unset), grouped into colour-coded
@@ -469,12 +471,20 @@ alembic upgrade head
   `https://stooq.com/q/d/l/?s=<symbol>&i=d` — no API key, no registration, and
   decades of daily history for `xauusd`/`xagusd` (the closest free stand-in for
   the LBMA spot price). Incremental runs pass Stooq's `d1`/`d2` range params.
-  Stooq throttles heavy use by returning a plain-text "Exceeded the daily hits
-  limit" body with HTTP 200, so the parser treats any non-CSV body as "no rows"
-  and the ingest falls back to Yahoo's continuous front-month futures
-  (`GC=F`/`SI=F`), which track spot within roughly a percent. Both goldapi.io
-  and metals.dev were rejected as alternatives: they need an API key and cap the
-  free tier at ~100 requests/month with little or no history.
+  Stooq is picky about who asks: it answers the default `python-requests` agent
+  with a **404** for symbols it serves fine in a browser, so the client sends a
+  browser-like `User-Agent` and tries the `stooq.pl` mirror when `stooq.com`
+  refuses. It also throttles heavy use with a plain-text "Exceeded the daily
+  hits limit" body under HTTP 200. None of those are fatal: the parser treats
+  any non-CSV body as "no rows", a 4xx is never retried (retrying a settled
+  answer would just stall the market ingest), and the run falls back to Yahoo's
+  continuous front-month futures (`GC=F`/`SI=F`), which track spot within
+  roughly a percent. `prices.source` records which source each row came from,
+  and **when the answering source changes the whole history is re-fetched from
+  it**, so the stored series is all-spot or all-futures rather than a splice at
+  the switch date. Both goldapi.io and metals.dev were rejected as
+  alternatives: they need an API key and cap the free tier at ~100
+  requests/month with little or no history.
 - **Crypto:** daily history via Yahoo (`BTC-USD`, `ETH-USD` — CoinGecko's
   keyless API caps history at 365 days), latest spot via CoinGecko's free
   `simple/price` endpoint (no key).

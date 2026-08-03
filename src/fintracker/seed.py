@@ -76,7 +76,7 @@ def _metal(symbol: str, name: str, stooq_symbol: str, yahoo_symbol: str) -> dict
 
     `stooq_symbol` is the primary source (Stooq's free CSV spot quote);
     `yahoo_symbol` is the continuous front-month futures contract used as a
-    fallback when Stooq throttles a run.
+    fallback when Stooq refuses or throttles a run.
     """
     return {
         "symbol": symbol,
@@ -317,11 +317,12 @@ INSTRUMENTS: list[dict[str, Any]] = [
     # exactly.)
     _onchain("BTC-MCAP", "Bitcoin market cap", "CapMrktCurUSD"),
     _onchain("BTC-MVRV", "Bitcoin MVRV ratio", "CapMVRVCur"),
-    # Precious metals — spot USD per troy ounce from Stooq's free, key-less
+    # Precious metals — USD per troy ounce, spot from Stooq's free, key-less
     # daily CSV, with Yahoo's continuous front-month futures (GC=F/SI=F) as the
-    # fallback when Stooq throttles (see src/fintracker/ingest/metals.py).
-    _metal("XAU", "Gold (spot, per troy ounce)", "xauusd", "GC=F"),
-    _metal("XAG", "Silver (spot, per troy ounce)", "xagusd", "SI=F"),
+    # fallback when Stooq refuses a run (see src/fintracker/ingest/metals.py).
+    # The names stay source-agnostic because either source may be in play.
+    _metal("XAU", "Gold (per troy ounce)", "xauusd", "GC=F"),
+    _metal("XAG", "Silver (per troy ounce)", "xagusd", "SI=F"),
     # Forex.
     {
         "symbol": "EUR/USD",
