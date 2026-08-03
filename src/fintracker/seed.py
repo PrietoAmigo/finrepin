@@ -71,6 +71,23 @@ def _onchain(symbol: str, name: str, coinmetrics_metric: str) -> dict[str, Any]:
     }
 
 
+def _metal(symbol: str, name: str, stooq_symbol: str, yahoo_symbol: str) -> dict[str, Any]:
+    """Compact constructor for precious-metal rows (USD per troy ounce).
+
+    `stooq_symbol` is the primary source (Stooq's free CSV spot quote);
+    `yahoo_symbol` is the continuous front-month futures contract used as a
+    fallback when Stooq throttles a run.
+    """
+    return {
+        "symbol": symbol,
+        "name": name,
+        "kind": "metal",
+        "currency": "USD",
+        "stooq_symbol": stooq_symbol,
+        "yahoo_symbol": yahoo_symbol,
+    }
+
+
 INSTRUMENTS: list[dict[str, Any]] = [
     # Equities. `taxonomy` marks names with SEC XBRL coverage (us-gaap / ifrs-full);
     # leave it None for listings that don't file with the SEC.
@@ -300,6 +317,11 @@ INSTRUMENTS: list[dict[str, Any]] = [
     # exactly.)
     _onchain("BTC-MCAP", "Bitcoin market cap", "CapMrktCurUSD"),
     _onchain("BTC-MVRV", "Bitcoin MVRV ratio", "CapMVRVCur"),
+    # Precious metals — spot USD per troy ounce from Stooq's free, key-less
+    # daily CSV, with Yahoo's continuous front-month futures (GC=F/SI=F) as the
+    # fallback when Stooq throttles (see src/fintracker/ingest/metals.py).
+    _metal("XAU", "Gold (spot, per troy ounce)", "xauusd", "GC=F"),
+    _metal("XAG", "Silver (spot, per troy ounce)", "xagusd", "SI=F"),
     # Forex.
     {
         "symbol": "EUR/USD",

@@ -35,12 +35,13 @@ class Instrument(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     symbol: Mapped[str] = mapped_column(String(32), unique=True)
     name: Mapped[str] = mapped_column(String(128))
-    # equity | index | crypto | forex | rate | onchain
+    # equity | index | crypto | forex | rate | onchain | metal
     kind: Mapped[str] = mapped_column(String(16))
     currency: Mapped[str] = mapped_column(String(8))
     # Per-source identifiers; null when a source doesn't cover the instrument.
     yahoo_symbol: Mapped[str | None] = mapped_column(String(32))
     coingecko_id: Mapped[str | None] = mapped_column(String(64))
+    stooq_symbol: Mapped[str | None] = mapped_column(String(24))
     fred_series: Mapped[str | None] = mapped_column(String(32))
     ecb_series: Mapped[str | None] = mapped_column(String(64))
     coinmetrics_metric: Mapped[str | None] = mapped_column(String(48))

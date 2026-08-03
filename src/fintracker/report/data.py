@@ -25,6 +25,8 @@ class PriceRow:
     # A score row (e.g. the MVRV Z-Score) is unitless: its `level` and moves are
     # rendered as plain numbers/deltas, not a currency level and percentages.
     is_score: bool = False
+    # Suffix appended to the level for per-quantity prices ("/oz" for metals).
+    unit: str = ""
 
 
 @dataclass
@@ -43,7 +45,11 @@ class Report:
     earnings: list[EarningsRow] = field(default_factory=list)
 
 
-_KIND_ORDER = {"equity": 0, "crypto": 1, "forex": 2}
+_KIND_ORDER = {"equity": 0, "metal": 1, "crypto": 2, "forex": 3}
+
+# Level suffix per kind. Metals are quoted per troy ounce, so the level reads
+# "$3,350.20/oz" while its weekly/monthly/yearly moves stay plain percentages.
+_KIND_UNITS = {"metal": "/oz"}
 
 # Symbols intentionally left out of the weekly email. The crypto section focuses
 # on Bitcoin (its price and MVRV Z-Score); ETH stays tracked and on the
@@ -159,6 +165,7 @@ def _price_row(session: Session, inst: Instrument, lookback_days: int) -> PriceR
         week_pct=change_pct(list(prices), lookback_days),
         month_pct=change_pct(list(prices), 30),
         year_pct=change_pct(list(prices), 365),
+        unit=_KIND_UNITS.get(inst.kind, ""),
     )
 
 
