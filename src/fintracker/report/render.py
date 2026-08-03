@@ -18,18 +18,23 @@ _GRAY = "#5f6368"
 _ACCENT = "#1967d2"
 _ACCENT_BG = "#eef4fd"
 
-_KIND_HEADERS = (("equity", "Stocks"), ("crypto", "Crypto"), ("forex", "Forex"))
+_KIND_HEADERS = (
+    ("equity", "Stocks"),
+    ("metal", "Precious metals"),
+    ("crypto", "Crypto"),
+    ("forex", "Forex"),
+)
 
 
 def _sym(currency: str) -> str:
     return _CURRENCY_SYMBOLS.get(currency, f"{currency} ")
 
 
-def _fmt_level(value: float, currency: str, is_score: bool = False) -> str:
+def _fmt_level(value: float, currency: str, is_score: bool = False, unit: str = "") -> str:
     if is_score:  # unitless (e.g. MVRV Z-Score): no currency symbol
         return f"{value:,.2f}"
     digits = 4 if abs(value) < 10 else 2
-    return f"{_sym(currency)}{value:,.{digits}f}"
+    return f"{_sym(currency)}{value:,.{digits}f}{unit}"
 
 
 def _fmt_move(value: float | None, is_score: bool = False) -> tuple[str, str]:
@@ -51,7 +56,9 @@ def _html_price_row(row: PriceRow) -> str:
         f"<td style='padding:6px 8px'><b>{html.escape(row.symbol)}</b>"
         f"<div style='color:{_GRAY};font-size:12px'>{html.escape(row.name)}</div></td>"
         f"<td style='padding:6px 8px;text-align:right;white-space:nowrap'>"
-        f"{_fmt_level(row.level, row.currency, row.is_score)}</td>" + "".join(cells) + "</tr>"
+        f"{_fmt_level(row.level, row.currency, row.is_score, row.unit)}</td>"
+        + "".join(cells)
+        + "</tr>"
     )
 
 
@@ -140,8 +147,9 @@ def render_text(report: Report) -> str:
             week, _ = _fmt_move(row.week_pct, row.is_score)
             month, _ = _fmt_move(row.month_pct, row.is_score)
             year, _ = _fmt_move(row.year_pct, row.is_score)
+            level = _fmt_level(row.level, row.currency, row.is_score, row.unit)
             lines.append(
-                f"    {row.symbol:<12} {_fmt_level(row.level, row.currency, row.is_score):>14}  "
+                f"    {row.symbol:<12} {level:>17}  "
                 f"{report.lookback_days}d {week:>8}  1m {month:>8}  1y {year:>8}"
             )
 

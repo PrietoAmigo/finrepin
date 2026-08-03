@@ -31,10 +31,20 @@ thing runs under Docker Compose and schedules itself — no external cron.
 - **Earnings dates** — next upcoming earnings date per equity via yfinance,
   stored in `earnings_dates` with an `is_estimated` flag; names with no coverage
   are skipped.
+- **Precious metals** — daily gold and silver spot (USD per troy ounce) from
+  **Stooq**'s free, key-less daily CSV (`xauusd`/`xagusd`), stored as
+  `kind='metal'` instruments in the same `prices` table as everything else, with
+  the same full-history backfill and incremental follow-ups. If Stooq throttles a
+  run (it answers with a plain-text limit message, not an HTTP error), the ingest
+  falls back to Yahoo's continuous front-month futures (`GC=F`/`SI=F`) for that
+  run; `prices.source` records which source each row came from.
 - **Weekly email** — HTML + plain-text report (current levels with weekly,
   monthly, and yearly moves, plus upcoming earnings) for the symbols listed
   in `REPORT_SYMBOLS` (all instruments when unset), grouped into colour-coded
-  Stocks / Crypto / Forex sections. The Crypto section is Bitcoin-focused: the
+  Stocks / Precious metals / Crypto / Forex sections. The Precious metals
+  section shows gold (XAU) and silver (XAG) with the level quoted per troy ounce
+  (`$3,358.90/oz`) and the same 7-day / 1-month / 1-year percentage moves as the
+  other assets. The Crypto section is Bitcoin-focused: the
   BTC price and its MVRV Z-Score (shown as a unitless level with absolute
   moves), with ETH omitted from the email (still tracked on the dashboards).
   Sent via Gmail SMTP with STARTTLS; skips gracefully if email isn't configured.
@@ -423,7 +433,7 @@ Schedule that command from host cron if you want periodic backups.
 │   ├── scheduler.py            # APScheduler jobs
 │   ├── heartbeat.py / healthcheck.py
 │   ├── run.py                  # entrypoint
-│   ├── ingest/                 # prices, forex, crypto, market orchestrator,
+│   ├── ingest/                 # prices, forex, crypto, metals, market orchestrator,
 │   │                           #   fundamentals + sec_client, earnings
 │   ├── housing/                # Spain housing: region hierarchy + indicators,
 │   │                           #   INE + MIVAU ingest, data/regions_all.json
@@ -454,6 +464,17 @@ alembic upgrade head
 - **Prices/forex:** Yahoo via `yfinance` — the only free source that reliably
   covers the `.TO`, `.MC`, and `.V` tickers here. Full history is available
   (`period="max"`), which is what the initial backfill uses.
+- **Precious metals:** gold and silver spot in USD per troy ounce from
+  **Stooq**'s free download endpoint,
+  `https://stooq.com/q/d/l/?s=<symbol>&i=d` — no API key, no registration, and
+  decades of daily history for `xauusd`/`xagusd` (the closest free stand-in for
+  the LBMA spot price). Incremental runs pass Stooq's `d1`/`d2` range params.
+  Stooq throttles heavy use by returning a plain-text "Exceeded the daily hits
+  limit" body with HTTP 200, so the parser treats any non-CSV body as "no rows"
+  and the ingest falls back to Yahoo's continuous front-month futures
+  (`GC=F`/`SI=F`), which track spot within roughly a percent. Both goldapi.io
+  and metals.dev were rejected as alternatives: they need an API key and cap the
+  free tier at ~100 requests/month with little or no history.
 - **Crypto:** daily history via Yahoo (`BTC-USD`, `ETH-USD` — CoinGecko's
   keyless API caps history at 365 days), latest spot via CoinGecko's free
   `simple/price` endpoint (no key).

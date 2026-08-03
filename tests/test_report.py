@@ -88,6 +88,38 @@ def _report_with_score() -> Report:
     )
 
 
+def _report_with_metals() -> Report:
+    return Report(
+        generated_at=dt.date(2026, 7, 13),
+        lookback_days=7,
+        prices=[
+            PriceRow("XAU", "Gold (spot, per troy ounce)", "metal", "USD",
+                     3358.90, 1.2, -0.8, 27.4, unit="/oz"),
+            PriceRow("XAG", "Silver (spot, per troy ounce)", "metal", "USD",
+                     38.42, 2.5, 4.1, None, unit="/oz"),
+        ],
+    )
+
+
+class TestMetalRendering:
+    def test_html_has_a_precious_metals_section(self) -> None:
+        assert "Precious metals" in render_html(_report_with_metals())
+
+    def test_html_level_is_quoted_per_troy_ounce(self) -> None:
+        html = render_html(_report_with_metals())
+        assert "$3,358.90/oz" in html and "$38.42/oz" in html
+
+    def test_html_moves_stay_percentages(self) -> None:
+        html = render_html(_report_with_metals())
+        assert ">+1.20%<" in html and ">-0.80%<" in html
+        assert ">—<" in html  # silver has no year-old base yet
+
+    def test_text_section_and_levels(self) -> None:
+        text = render_text(_report_with_metals())
+        assert "=== PRECIOUS METALS ===" in text
+        assert "$3,358.90/oz" in text and "$38.42/oz" in text
+
+
 class TestScoreRendering:
     def test_html_score_level_has_no_currency_symbol(self) -> None:
         html = render_html(_report_with_score())
