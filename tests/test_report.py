@@ -93,9 +93,9 @@ def _report_with_metals() -> Report:
         generated_at=dt.date(2026, 7, 13),
         lookback_days=7,
         prices=[
-            PriceRow("XAU", "Gold (per troy ounce)", "metal", "USD",
+            PriceRow("XAU", "Gold (front-month futures)", "metal", "USD",
                      3358.90, 1.2, -0.8, 27.4, unit="/oz"),
-            PriceRow("XAG", "Silver (per troy ounce)", "metal", "USD",
+            PriceRow("XAG", "Silver (front-month futures)", "metal", "USD",
                      38.42, 2.5, 4.1, None, unit="/oz"),
         ],
     )

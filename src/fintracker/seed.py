@@ -71,19 +71,17 @@ def _onchain(symbol: str, name: str, coinmetrics_metric: str) -> dict[str, Any]:
     }
 
 
-def _metal(symbol: str, name: str, stooq_symbol: str, yahoo_symbol: str) -> dict[str, Any]:
+def _metal(symbol: str, name: str, yahoo_symbol: str) -> dict[str, Any]:
     """Compact constructor for precious-metal rows (USD per troy ounce).
 
-    `stooq_symbol` is the primary source (Stooq's free CSV spot quote);
-    `yahoo_symbol` is the continuous front-month futures contract used as a
-    fallback when Stooq refuses or throttles a run.
+    `yahoo_symbol` is the continuous front-month futures contract; see
+    src/fintracker/ingest/metals.py for why futures rather than spot.
     """
     return {
         "symbol": symbol,
         "name": name,
         "kind": "metal",
         "currency": "USD",
-        "stooq_symbol": stooq_symbol,
         "yahoo_symbol": yahoo_symbol,
     }
 
@@ -317,12 +315,13 @@ INSTRUMENTS: list[dict[str, Any]] = [
     # exactly.)
     _onchain("BTC-MCAP", "Bitcoin market cap", "CapMrktCurUSD"),
     _onchain("BTC-MVRV", "Bitcoin MVRV ratio", "CapMVRVCur"),
-    # Precious metals — USD per troy ounce, spot from Stooq's free, key-less
-    # daily CSV, with Yahoo's continuous front-month futures (GC=F/SI=F) as the
-    # fallback when Stooq refuses a run (see src/fintracker/ingest/metals.py).
-    # The names stay source-agnostic because either source may be in play.
-    _metal("XAU", "Gold (per troy ounce)", "xauusd", "GC=F"),
-    _metal("XAG", "Silver (per troy ounce)", "xagusd", "SI=F"),
+    # Precious metals — USD per troy ounce, from Yahoo's continuous front-month
+    # COMEX futures. No free spot feed survived the search (Stooq now serves a
+    # JavaScript challenge, the keyed APIs cap the free tier); the basis to spot
+    # is ~1% and stable, so the reported moves match. The names say futures
+    # rather than implying spot.
+    _metal("XAU", "Gold (front-month futures)", "GC=F"),
+    _metal("XAG", "Silver (front-month futures)", "SI=F"),
     # Forex.
     {
         "symbol": "EUR/USD",
