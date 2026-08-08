@@ -281,19 +281,23 @@ def ingest_instrument_yahoo_facts(session: Session, inst: Instrument) -> int:
 def ingest_yahoo_fundamentals() -> None:
     """Daily job: statements for every equity without SEC XBRL coverage."""
     with session_scope() as session:
-        instruments = (
-            session.execute(
-                select(Instrument).where(
-                    Instrument.kind == "equity",
-                    Instrument.taxonomy.is_(None),
-                    Instrument.yahoo_symbol.is_not(None),
-                )
+        instrument_ids = session.scalars(
+            select(Instrument.id).where(
+                Instrument.kind == "equity",
+                Instrument.taxonomy.is_(None),
+                Instrument.yahoo_symbol.is_not(None),
             )
-            .scalars()
-            .all()
-        )
-        for inst in instruments:
+        ).all()
+
+    # One transaction per instrument, as in the SEC path: a database error on
+    # one name must not abort the transaction carrying the others' facts.
+    for instrument_id in instrument_ids:
+        with session_scope() as session:
+            inst = session.get(Instrument, instrument_id)
+            if inst is None:
+                continue
             try:
                 ingest_instrument_yahoo_facts(session, inst)
             except Exception:
                 log.exception("Yahoo fundamentals ingest failed for %s", inst.symbol)
+                session.rollback()
