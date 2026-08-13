@@ -399,16 +399,20 @@ def ingest_fundamentals() -> None:
     company_tickers: dict[str, Any] | None = None
 
     with session_scope() as session:
-        instruments = (
-            session.execute(
-                select(Instrument).where(
-                    Instrument.kind == "equity", Instrument.taxonomy.is_not(None)
-                )
+        instrument_ids = session.scalars(
+            select(Instrument.id).where(
+                Instrument.kind == "equity", Instrument.taxonomy.is_not(None)
             )
-            .scalars()
-            .all()
-        )
-        for inst in instruments:
+        ).all()
+
+    # One transaction per instrument: a database error on one name would abort
+    # the surrounding transaction, so sharing a session would lose every other
+    # instrument's facts along with it.
+    for instrument_id in instrument_ids:
+        with session_scope() as session:
+            inst = session.get(Instrument, instrument_id)
+            if inst is None:
+                continue
             try:
                 if not inst.cik:
                     if company_tickers is None:
@@ -423,3 +427,4 @@ def ingest_fundamentals() -> None:
                 ingest_instrument_facts(session, client, inst)
             except Exception:
                 log.exception("Fundamentals ingest failed for %s", inst.symbol)
+                session.rollback()

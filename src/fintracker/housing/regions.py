@@ -176,13 +176,23 @@ def region_codes_for_name(name: str) -> list[str]:
     labelled "Comunidad de Madrid" / "Principado de Asturias", …) its sole
     province is added too, so those provinces aren't left empty. Municipalities
     are resolved by code, not here.
+
+    A province whose name also contains a community token — León (Castilla y
+    León) and Valencia (Comunitat Valenciana) — feeds only the province: the
+    community is a much larger territory with its own row in the sheet, and
+    letting the province claim it would overwrite that row's value.
     """
-    codes: list[str] = []
-    for level in ("prov", "ccaa"):  # the "ccaa" pass also resolves the nation
-        code = region_code_from_ine_name(name, level)
-        if code and code not in codes:
-            codes.append(code)
     sole = _sole_province_of_ccaa()
+    codes: list[str] = []
+    province = region_code_from_ine_name(name, "prov")
+    if province:
+        codes.append(province)
+    # The "ccaa" pass also resolves the nation.
+    community = region_code_from_ine_name(name, "ccaa")
+    if community and community not in codes and (
+        province is None or sole.get(community) == province
+    ):
+        codes.append(community)
     for code in list(codes):
         province = sole.get(code)
         if province and province not in codes:

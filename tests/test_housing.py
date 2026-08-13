@@ -110,6 +110,16 @@ def test_single_province_community_labels_feed_the_province() -> None:
     assert region_codes_for_name("Castilla y León") == ["ccaa-07"]
 
 
+def test_province_named_like_its_community_feeds_only_the_province() -> None:
+    # "León" and "Valencia" contain their community's token but are provinces of
+    # a multi-province community, which has its own row in the sheet — claiming
+    # it here would overwrite that row's value.
+    assert region_codes_for_name("León") == ["prov-24"]
+    assert region_codes_for_name("Castilla y León") == ["ccaa-07"]
+    assert region_codes_for_name("València/Valencia") == ["prov-46"]
+    assert region_codes_for_name("Comunitat Valenciana") == ["ccaa-10"]
+
+
 def test_registry_names_match_geojson() -> None:
     for level, fname in (("ccaa", "spain-ccaa.geojson"), ("prov", "spain-provinces.geojson")):
         geo = json.loads((REPO_ROOT / "grafana" / "geo" / fname).read_text("utf-8"))
