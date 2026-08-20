@@ -17,7 +17,7 @@ import os
 from collections.abc import Sequence
 
 import sqlalchemy as sa
-from alembic import op
+from alembic import context, op
 
 revision: str = "0021"
 down_revision: str | None = "0020"
@@ -35,6 +35,10 @@ def upgrade() -> None:
             server_default=sa.text("false"),
         ),
     )
+
+    # Data seed needs a live connection; skip it when generating offline SQL.
+    if context.is_offline_mode():
+        return
 
     raw = os.environ.get("REPORT_SYMBOLS", "").strip()
     symbols = [s.strip().upper() for s in raw.split(",") if s.strip()]
