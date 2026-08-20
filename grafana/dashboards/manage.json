@@ -1,0 +1,502 @@
+{
+  "uid": "fintracker-manage",
+  "title": "Manage",
+  "description": "Add tickers to the database and edit the weekly-email watchlist. The Business Forms panels write to Postgres; the app ingests queued tickers (minutely) and the weekly report reads the watchlist flag.",
+  "tags": [
+    "fintracker"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 10,
+      "type": "row",
+      "title": "Tickers",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "volkovlabs-form-panel",
+      "title": "Add ticker",
+      "description": "Queue a Yahoo-style symbol (e.g. NVDA, CSU.TO, RMS.PA). The app validates it against SEC EDGAR and Yahoo Finance and ingests its full price + fundamentals history within a minute or two — watch the status in Ticker requests.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 1
+      },
+      "targets": [],
+      "options": {
+        "initial": {
+          "method": "-",
+          "contentType": "application/json"
+        },
+        "update": {
+          "method": "datasource",
+          "datasource": "fintracker-postgres",
+          "confirm": false,
+          "contentType": "application/json",
+          "payloadMode": "custom",
+          "getPayload": "const payload = {};\ncontext.panel.elements.forEach((element) => {\n  payload[element.id] = element.value;\n});\nreturn payload;",
+          "payload": {
+            "editorMode": "code",
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "INSERT INTO ticker_requests (symbol)\nSELECT upper(trim('${payload.symbol}'))\nWHERE upper(trim('${payload.symbol}')) ~ '^[A-Z0-9][A-Z0-9.=-]{0,31}$'\n  AND NOT EXISTS (SELECT 1 FROM instruments i WHERE i.symbol = upper(trim('${payload.symbol}')))\nON CONFLICT (symbol) DO UPDATE SET status = 'pending', note = NULL, processed_at = NULL",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "parameters": [],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            }
+          },
+          "code": "if (context.panel.response && context.panel.response.state === 'Done') {\n  context.grafana.notifySuccess(['Add ticker', 'Queued — it will be ingested within a minute or two.']);\n  context.panel.patchFormValue({ symbol: '' });\n} else {\n  context.grafana.notifyError(['Add ticker', 'The update failed — see the app/Grafana logs.']);\n}"
+        },
+        "elements": [
+          {
+            "id": "symbol",
+            "title": "Ticker symbol",
+            "type": "string",
+            "value": "",
+            "section": "",
+            "width": 0,
+            "labelWidth": 14,
+            "options": [],
+            "tooltip": "Yahoo-style symbol, e.g. NVDA, CSU.TO, RMS.PA",
+            "uid": "manage-add-symbol"
+          }
+        ],
+        "submit": {
+          "text": "Add ticker",
+          "variant": "primary",
+          "icon": "plus"
+        },
+        "reset": {
+          "text": "Clear",
+          "variant": "secondary"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "table",
+      "title": "Ticker requests",
+      "description": "Recent add-ticker requests and their status (pending → done / not_found / error). Rows persist so re-adding is idempotent; the note explains each outcome.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 16,
+        "x": 8,
+        "y": 1
+      },
+      "options": {
+        "showHeader": true
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Status"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "pending": {
+                        "color": "yellow",
+                        "index": 0
+                      },
+                      "done": {
+                        "color": "green",
+                        "index": 1
+                      },
+                      "not_found": {
+                        "color": "red",
+                        "index": 2
+                      },
+                      "error": {
+                        "color": "red",
+                        "index": 3
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT r.symbol AS \"Ticker\", r.status AS \"Status\", coalesce(r.note, '') AS \"Note\", r.requested_at AS \"Requested\", r.processed_at AS \"Processed\" FROM ticker_requests r ORDER BY r.requested_at DESC LIMIT 15",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "row",
+      "title": "Watchlist",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      },
+      "panels": []
+    },
+    {
+      "id": 4,
+      "type": "table",
+      "title": "Current watchlist",
+      "description": "Instruments on the weekly-email watchlist. When this is empty the email falls back to REPORT_SYMBOLS, then to every tracked instrument.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 0,
+        "y": 10
+      },
+      "options": {
+        "showHeader": true
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT i.symbol AS \"Symbol\", i.name AS \"Name\", i.kind AS \"Kind\", i.currency AS \"Currency\" FROM instruments i WHERE i.in_watchlist ORDER BY i.symbol",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "volkovlabs-form-panel",
+      "title": "Add to watchlist",
+      "description": "Pick tracked instruments to add to the weekly-email watchlist.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 8,
+        "y": 10
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT symbol AS value, symbol AS label FROM instruments WHERE NOT in_watchlist ORDER BY symbol",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 1000
+          }
+        }
+      ],
+      "options": {
+        "initial": {
+          "method": "query",
+          "contentType": "application/json"
+        },
+        "update": {
+          "method": "datasource",
+          "datasource": "fintracker-postgres",
+          "confirm": false,
+          "contentType": "application/json",
+          "payloadMode": "custom",
+          "getPayload": "const payload = {};\ncontext.panel.elements.forEach((element) => {\n  payload[element.id] = element.value;\n});\nreturn payload;",
+          "payload": {
+            "editorMode": "code",
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "UPDATE instruments SET in_watchlist = true WHERE symbol = ANY(string_to_array('${payload.symbols}', ','))",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "parameters": [],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            }
+          },
+          "code": "if (context.panel.response && context.panel.response.state === 'Done') {\n  context.grafana.notifySuccess(['Watchlist', 'Added to the watchlist.']);\n  context.panel.patchFormValue({ symbols: [] });\n  context.panel.initialRequest();\n} else {\n  context.grafana.notifyError(['Watchlist', 'The update failed — see the app/Grafana logs.']);\n}"
+        },
+        "elements": [
+          {
+            "id": "symbols",
+            "title": "Instruments",
+            "type": "multiselect",
+            "optionsSource": "query",
+            "queryOptions": {
+              "source": "A",
+              "value": "value",
+              "label": "label"
+            },
+            "value": [],
+            "section": "",
+            "width": 0,
+            "labelWidth": 12,
+            "options": [],
+            "uid": "manage-wl-add"
+          }
+        ],
+        "submit": {
+          "text": "Add to watchlist",
+          "variant": "primary",
+          "icon": "plus"
+        },
+        "reset": {
+          "text": "Clear",
+          "variant": "secondary"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "volkovlabs-form-panel",
+      "title": "Remove from watchlist",
+      "description": "Pick instruments to drop from the weekly-email watchlist.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 16,
+        "y": 10
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT symbol AS value, symbol AS label FROM instruments WHERE in_watchlist ORDER BY symbol",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 1000
+          }
+        }
+      ],
+      "options": {
+        "initial": {
+          "method": "query",
+          "contentType": "application/json"
+        },
+        "update": {
+          "method": "datasource",
+          "datasource": "fintracker-postgres",
+          "confirm": false,
+          "contentType": "application/json",
+          "payloadMode": "custom",
+          "getPayload": "const payload = {};\ncontext.panel.elements.forEach((element) => {\n  payload[element.id] = element.value;\n});\nreturn payload;",
+          "payload": {
+            "editorMode": "code",
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "UPDATE instruments SET in_watchlist = false WHERE symbol = ANY(string_to_array('${payload.symbols}', ','))",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "parameters": [],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            }
+          },
+          "code": "if (context.panel.response && context.panel.response.state === 'Done') {\n  context.grafana.notifySuccess(['Watchlist', 'Removed from the watchlist.']);\n  context.panel.patchFormValue({ symbols: [] });\n  context.panel.initialRequest();\n} else {\n  context.grafana.notifyError(['Watchlist', 'The update failed — see the app/Grafana logs.']);\n}"
+        },
+        "elements": [
+          {
+            "id": "symbols",
+            "title": "Instruments",
+            "type": "multiselect",
+            "optionsSource": "query",
+            "queryOptions": {
+              "source": "A",
+              "value": "value",
+              "label": "label"
+            },
+            "value": [],
+            "section": "",
+            "width": 0,
+            "labelWidth": 12,
+            "options": [],
+            "uid": "manage-wl-remove"
+          }
+        ],
+        "submit": {
+          "text": "Remove from watchlist",
+          "variant": "primary",
+          "icon": "minus"
+        },
+        "reset": {
+          "text": "Clear",
+          "variant": "secondary"
+        }
+      }
+    }
+  ]
+}

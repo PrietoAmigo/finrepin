@@ -39,9 +39,10 @@ thing runs under Docker Compose and schedules itself — no external cron.
   futures sit ~1% above spot on a stable basis, so the moves the email reports
   match spot's.
 - **Weekly email** — HTML + plain-text report (current levels with weekly,
-  monthly, and yearly moves, plus upcoming earnings) for the symbols listed
-  in `REPORT_SYMBOLS` (all instruments when unset), grouped into colour-coded
-  Stocks / Precious metals / Crypto / Forex sections. The Precious metals
+  monthly, and yearly moves, plus upcoming earnings) for the symbols on the
+  **watchlist** (edited from the *Manage* dashboard; falls back to
+  `REPORT_SYMBOLS`, then to all instruments when the watchlist is empty),
+  grouped into colour-coded Stocks / Precious metals / Crypto / Forex sections. The Precious metals
   section shows gold (XAU) and silver (XAG) with the level quoted per troy ounce
   (`$3,358.90/oz`) and the same 7-day / 1-month / 1-year percentage moves as the
   other assets. The Crypto section is Bitcoin-focused: the
@@ -67,12 +68,20 @@ thing runs under Docker Compose and schedules itself — no external cron.
   through the metric selectors). Backed by SQL views (migrations 0002–0012)
   that derive TTM series from the SEC facts. Global and European
   market indexes are seeded as `kind='index'` instruments and ingested from
-  Yahoo like everything else. An *Add ticker* search box on the dashboard
-  queues any new symbol: the app validates it against SEC EDGAR and Yahoo
-  Finance and ingests its full price + fundamentals history within a minute
-  or two (unknown tickers are marked not found). Grafana boots straight into
-  Market Overview (no welcome/news home page), and the time picker offers
-  quick ranges up to *Last 15 years*.
+  Yahoo like everything else. New tickers are added from the *Manage* dashboard
+  (see below), which queues the symbol for the app to validate and ingest.
+  Grafana boots straight into Market Overview (no welcome/news home page), and
+  the time picker offers quick ranges up to *Last 15 years*.
+- **Manage dashboard (Grafana write-back)** — a *Manage* dashboard for the two
+  admin chores, using the **Business Forms** panel (`volkovlabs-form-panel`,
+  installed on startup via `GF_INSTALL_PLUGINS`) to write straight to Postgres:
+  an *Add ticker* form (queues a symbol into `ticker_requests`; the app ingests
+  its full price + fundamentals history within a minute or two, marking unknown
+  symbols not found), and *Add/Remove watchlist* multiselects that toggle the
+  `instruments.in_watchlist` flag the weekly email reads. Read-only *Ticker
+  requests* and *Current watchlist* tables show live state. The same actions are
+  scriptable without Grafana via `python -m fintracker.manage`
+  (`add-ticker …`, `watchlist show|set|add|remove …`).
 - **Currency switching** — the per-ticker dashboards have a *Currency* selector listing
   all currencies seen on tracked tickers (listing + reporting currencies).
   Money values — prices, revenue, debt, MCap, statement lines — are converted

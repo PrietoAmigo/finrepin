@@ -19,6 +19,7 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -47,6 +48,12 @@ class Instrument(Base):
     # SEC: resolved lazily from company_tickers.json, then persisted.
     cik: Mapped[str | None] = mapped_column(String(10))
     taxonomy: Mapped[str | None] = mapped_column(String(16))  # us-gaap | ifrs-full
+    # Whether this instrument is on the weekly-email watchlist, editable from the
+    # Manage dashboard. When no instrument is flagged, the report falls back to
+    # REPORT_SYMBOLS (then to every instrument) — see report.data.build_report.
+    in_watchlist: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
 
 
 class Price(Base):
