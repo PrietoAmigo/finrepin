@@ -76,8 +76,11 @@ thing runs under Docker Compose and schedules itself — no external cron.
   admin chores, using the **Business Forms** panel (`volkovlabs-form-panel`,
   installed on startup via `GF_INSTALL_PLUGINS`) to write straight to Postgres:
   an *Add ticker* form (queues a symbol into `ticker_requests`; the app ingests
-  its full price + fundamentals history within a minute or two, marking unknown
-  symbols not found), and *Add/Remove watchlist* multiselects that toggle the
+  its full history within a minute or two, marking unknown symbols not found —
+  **stocks** get price + SEC/Yahoo fundamentals, and **cryptocurrencies** like
+  `XMR`, detected via Yahoo's quoteType, register as `kind='crypto'` from the
+  `<SYM>-USD` Yahoo pair plus a CoinGecko id for the live spot, exactly like the
+  seeded BTC/ETH), and *Add/Remove watchlist* multiselects that toggle the
   `instruments.in_watchlist` flag the weekly email reads. Read-only *Ticker
   requests* and *Current watchlist* tables show live state. The same actions are
   scriptable without Grafana via `python -m fintracker.manage`
