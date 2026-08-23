@@ -60,9 +60,10 @@ services:
       # ("Latest from the blog") panel.
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/market-overview.json
       GF_NEWS_NEWS_FEED_ENABLED: "false"
-      # The Spain Housing dashboard's filled choropleth uses the Business Charts
-      # (Apache ECharts) panel; Grafana installs it from the catalog on startup.
-      GF_INSTALL_PLUGINS: volkovlabs-echarts-panel
+      # Catalog plugins installed on startup: the Business Charts (Apache ECharts)
+      # panel for the Spain Housing choropleth, and the Business Forms panel that
+      # powers the Manage dashboard's add-ticker / watchlist write-back forms.
+      GF_INSTALL_PLUGINS: volkovlabs-echarts-panel,volkovlabs-form-panel
       # Consumed by the provisioned datasource (grafana/provisioning/datasources).
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}

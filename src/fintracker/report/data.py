@@ -191,6 +191,20 @@ def _price_moves(
     return sorted(result, key=lambda r: (_KIND_ORDER.get(r.kind, 9), r.symbol))
 
 
+def _watchlist_symbols(session: Session) -> tuple[str, ...]:
+    """Symbols flagged onto the weekly-email watchlist (Manage dashboard)."""
+    rows = (
+        session.execute(
+            select(Instrument.symbol)
+            .where(Instrument.in_watchlist)
+            .order_by(Instrument.symbol)
+        )
+        .scalars()
+        .all()
+    )
+    return tuple(rows)
+
+
 def _upcoming_earnings(
     session: Session, today: dt.date, symbols: tuple[str, ...]
 ) -> list[EarningsRow]:
@@ -216,7 +230,13 @@ def build_report(session: Session, **overrides: Any) -> Report:
 
     settings = get_settings()
     lookback_days = int(overrides.get("lookback_days", settings.report_lookback_days))
-    symbols: tuple[str, ...] = tuple(overrides.get("symbols", settings.report_symbols))
+    # Watchlist precedence: an explicit override wins (tests / manual runs), then
+    # the DB watchlist (edited from the Manage dashboard), then the REPORT_SYMBOLS
+    # env seed, and finally an empty tuple meaning "every tracked instrument".
+    if "symbols" in overrides:
+        symbols: tuple[str, ...] = tuple(overrides["symbols"])
+    else:
+        symbols = _watchlist_symbols(session) or tuple(settings.report_symbols)
     today: dt.date = overrides.get("today", dt.date.today())
 
     return Report(
