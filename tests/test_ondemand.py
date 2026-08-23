@@ -1,8 +1,23 @@
-"""Unit tests for the pure on-demand ticker-request helpers."""
+"""Unit tests for the on-demand ticker-request helpers."""
 
 from __future__ import annotations
 
-from fintracker.ingest.ondemand import detect_taxonomy, normalize_symbol
+from collections.abc import Iterator
+
+import pandas as pd
+import pytest
+from sqlalchemy import create_engine, select
+from sqlalchemy.orm import Session
+
+from fintracker.ingest import ondemand
+from fintracker.ingest.ondemand import (
+    YahooMeta,
+    detect_crypto,
+    detect_taxonomy,
+    match_coingecko_id,
+    normalize_symbol,
+)
+from fintracker.models import Base, Instrument, TickerRequest
 
 
 class TestNormalizeSymbol:
@@ -40,3 +55,137 @@ class TestDetectTaxonomy:
         assert detect_taxonomy({"facts": {"dei": {"x": {}}}}) is None
         assert detect_taxonomy({}) is None
         assert detect_taxonomy({"facts": {"us-gaap": {}}}) is None
+
+
+_COINS = [
+    {"id": "monero", "symbol": "xmr", "name": "Monero"},
+    {"id": "bitcoin", "symbol": "btc", "name": "Bitcoin"},
+    {"id": "solana", "symbol": "sol", "name": "Solana"},
+    {"id": "wrapped-solana", "symbol": "sol", "name": "Wrapped Solana"},
+]
+
+
+class TestMatchCoingeckoId:
+    def test_unique_symbol(self) -> None:
+        assert match_coingecko_id("XMR", "Monero", _COINS) == "monero"
+
+    def test_no_match(self) -> None:
+        assert match_coingecko_id("ZZZ", "Nothing", _COINS) is None
+
+    def test_ambiguous_resolved_by_name(self) -> None:
+        assert match_coingecko_id("SOL", "Solana", _COINS) == "solana"
+        assert match_coingecko_id("SOL", "Wrapped Solana", _COINS) == "wrapped-solana"
+
+    def test_ambiguous_without_name_is_none(self) -> None:
+        assert match_coingecko_id("SOL", "Unknown Coin", _COINS) is None
+
+
+class TestPureCryptoHelpers:
+    def test_is_bare_symbol(self) -> None:
+        assert ondemand._is_bare_symbol("XMR")
+        assert not ondemand._is_bare_symbol("BTC-USD")
+        assert not ondemand._is_bare_symbol("CSU.TO")
+        assert not ondemand._is_bare_symbol("EURUSD=X")
+
+    def test_strip_usd(self) -> None:
+        assert ondemand._strip_usd("XMR-USD") == "XMR"
+        assert ondemand._strip_usd("XMR") == "XMR"
+
+    def test_clean_crypto_name(self) -> None:
+        assert ondemand._clean_crypto_name("Monero USD") == "Monero"
+        assert ondemand._clean_crypto_name("Bitcoin") == "Bitcoin"
+
+
+def _crypto_meta(name: str = "Monero USD") -> YahooMeta:
+    return YahooMeta(quote_type="CRYPTOCURRENCY", name=name, currency="USD")
+
+
+def _equity_meta() -> YahooMeta:
+    return YahooMeta(quote_type="EQUITY", name="NVIDIA Corporation", currency="USD")
+
+
+class TestDetectCrypto:
+    def test_bare_ticker_probes_usd_pair(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(ondemand, "_resolve_coingecko_id", lambda s, n: "monero")
+        monkeypatch.setattr(
+            ondemand, "_yahoo_meta", lambda sym: _crypto_meta() if sym == "XMR-USD" else None
+        )
+        spec = detect_crypto("XMR")
+        assert spec is not None
+        assert (spec.symbol, spec.yahoo_symbol, spec.name, spec.coingecko_id) == (
+            "XMR", "XMR-USD", "Monero", "monero",
+        )
+
+    def test_usd_pair_taken_as_is(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(ondemand, "_resolve_coingecko_id", lambda s, n: "bitcoin")
+        monkeypatch.setattr(
+            ondemand, "_yahoo_meta",
+            lambda sym: _crypto_meta("Bitcoin USD") if sym == "BTC-USD" else None,
+        )
+        spec = detect_crypto("BTC-USD")
+        assert spec is not None and spec.symbol == "BTC" and spec.yahoo_symbol == "BTC-USD"
+
+    def test_equity_is_not_crypto(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(ondemand, "_yahoo_meta", lambda sym: _equity_meta())
+        assert detect_crypto("NVDA") is None
+
+    def test_equity_ticker_not_probed_as_pair(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # A ticker Yahoo knows as an equity must not be misclassified via <SYM>-USD.
+        monkeypatch.setattr(
+            ondemand, "_yahoo_meta",
+            lambda sym: _equity_meta() if sym == "SOL" else _crypto_meta("Solana USD"),
+        )
+        assert detect_crypto("SOL") is None
+
+    def test_unknown_symbol_is_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(ondemand, "_yahoo_meta", lambda sym: None)
+        assert detect_crypto("ZZZZ") is None
+
+
+@pytest.fixture
+def session() -> Iterator[Session]:
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    with Session(engine) as s:
+        yield s
+
+
+def _history() -> pd.DataFrame:
+    idx = pd.to_datetime(["2026-08-19", "2026-08-20"])
+    return pd.DataFrame(
+        {"Open": [100.0, 110.0], "High": [101.0, 111.0], "Low": [99.0, 109.0],
+         "Close": [100.0, 110.0], "Volume": [10, 20]},
+        index=idx,
+    )
+
+
+class TestResolveCrypto:
+    def test_resolve_registers_crypto(
+        self, session: Session, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            ondemand, "_yahoo_meta", lambda sym: _crypto_meta() if sym == "XMR-USD" else None
+        )
+        monkeypatch.setattr(ondemand, "_resolve_coingecko_id", lambda s, n: "monero")
+        monkeypatch.setattr(ondemand, "fetch_daily_history", lambda ys, start=None: _history())
+        # upsert_price_rows uses the Postgres insert dialect, so stub it for SQLite.
+        captured: dict[str, object] = {}
+        monkeypatch.setattr(
+            ondemand, "upsert_price_rows",
+            lambda s, iid, rows, source: captured.update(rows=rows, source=source) or len(rows),
+        )
+
+        req = TickerRequest(symbol="XMR")
+        session.add(req)
+        session.flush()
+
+        status, note = ondemand._resolve(req, session)
+        assert status == "done"
+        assert "crypto" in note
+        inst = session.scalar(select(Instrument).where(Instrument.symbol == "XMR"))
+        assert inst is not None
+        assert (inst.kind, inst.yahoo_symbol, inst.coingecko_id, inst.currency) == (
+            "crypto", "XMR-USD", "monero", "USD",
+        )
+        assert captured["source"] == "yfinance"
+        assert len(captured["rows"]) == 2  # type: ignore[arg-type]

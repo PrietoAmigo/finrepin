@@ -37,7 +37,7 @@
       "id": 2,
       "type": "volkovlabs-form-panel",
       "title": "Add ticker",
-      "description": "Queue a Yahoo-style symbol (e.g. NVDA, CSU.TO, RMS.PA). The app validates it against SEC EDGAR and Yahoo Finance and ingests its full price + fundamentals history within a minute or two — watch the status in Ticker requests.",
+      "description": "Queue a stock or crypto by its Yahoo-style symbol (e.g. NVDA, CSU.TO, XMR). Stocks are validated against SEC EDGAR and Yahoo Finance and get full price + fundamentals history; cryptocurrencies register from the <SYM>-USD Yahoo pair plus CoinGecko spot. Ingested within a minute or two — watch the status in Ticker requests.",
       "datasource": {
         "type": "postgres",
         "uid": "fintracker-pg"
@@ -90,14 +90,14 @@
         "elements": [
           {
             "id": "symbol",
-            "title": "Ticker symbol",
+            "title": "Symbol",
             "type": "string",
             "value": "",
             "section": "",
             "width": 0,
             "labelWidth": 14,
             "options": [],
-            "tooltip": "Yahoo-style symbol, e.g. NVDA, CSU.TO, RMS.PA",
+            "tooltip": "Stock or crypto, e.g. NVDA, CSU.TO, RMS.PA, XMR",
             "uid": "manage-add-symbol"
           }
         ],
