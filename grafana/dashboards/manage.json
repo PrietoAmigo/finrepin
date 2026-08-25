@@ -60,12 +60,12 @@
           "confirm": false,
           "contentType": "application/json",
           "payloadMode": "custom",
-          "getPayload": "const payload = {};\ncontext.panel.elements.forEach((element) => {\n  payload[element.id] = element.value;\n});\nreturn payload;",
+          "getPayload": "const payload = {};\ncontext.panel.elements.forEach((element) => {\n  payload[element.id] = Array.isArray(element.value)\n    ? element.value.join(',')\n    : element.value;\n});\nreturn payload;",
           "payload": {
             "editorMode": "code",
             "format": "table",
             "rawQuery": true,
-            "rawSql": "INSERT INTO ticker_requests (symbol)\nSELECT upper(trim('${payload.symbol}'))\nWHERE upper(trim('${payload.symbol}')) ~ '^[A-Z0-9][A-Z0-9.=-]{0,31}$'\n  AND NOT EXISTS (SELECT 1 FROM instruments i WHERE i.symbol = upper(trim('${payload.symbol}')))\nON CONFLICT (symbol) DO UPDATE SET status = 'pending', note = NULL, processed_at = NULL",
+            "rawSql": "WITH candidate AS (\n  SELECT upper(trim('${payload.symbol}')) AS symbol\n)\nINSERT INTO ticker_requests (symbol)\nSELECT c.symbol\nFROM candidate c\nWHERE c.symbol ~ '^[A-Z0-9][A-Z0-9.=-]{0,31}$'\n  AND NOT EXISTS (SELECT 1 FROM instruments i WHERE i.symbol = c.symbol)\nON CONFLICT (symbol) DO UPDATE SET status = 'pending', note = NULL, processed_at = NULL",
             "refId": "A",
             "sql": {
               "columns": [
@@ -328,7 +328,7 @@
           "confirm": false,
           "contentType": "application/json",
           "payloadMode": "custom",
-          "getPayload": "const payload = {};\ncontext.panel.elements.forEach((element) => {\n  payload[element.id] = element.value;\n});\nreturn payload;",
+          "getPayload": "const payload = {};\ncontext.panel.elements.forEach((element) => {\n  payload[element.id] = Array.isArray(element.value)\n    ? element.value.join(',')\n    : element.value;\n});\nreturn payload;",
           "payload": {
             "editorMode": "code",
             "format": "table",
@@ -441,7 +441,7 @@
           "confirm": false,
           "contentType": "application/json",
           "payloadMode": "custom",
-          "getPayload": "const payload = {};\ncontext.panel.elements.forEach((element) => {\n  payload[element.id] = element.value;\n});\nreturn payload;",
+          "getPayload": "const payload = {};\ncontext.panel.elements.forEach((element) => {\n  payload[element.id] = Array.isArray(element.value)\n    ? element.value.join(',')\n    : element.value;\n});\nreturn payload;",
           "payload": {
             "editorMode": "code",
             "format": "table",
