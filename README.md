@@ -52,13 +52,14 @@ thing runs under Docker Compose and schedules itself — no external cron.
 - **Self-scheduling** — APScheduler in the `app` container, timezone-aware
   (daily market/earnings/SEC checks, weekly email).
 - **Grafana** — provisioned Postgres datasource + a *Market Overview*
-  dashboard (global and European index performance as % gain/loss of the
-  daily close, benchmark interest rates — the most relevant one per region,
-  from FRED — a BTC rainbow chart with the blockchaincenter.net color bands, a
-  combined BTC price (USD) & MVRV Z-Score panel (BTC price on a log axis with
-  the on-chain MVRV Z-Score on a second axis, its green/red bands marking the
-  historical under/overvaluation extremes; it stands in for the plain BTC/USD
-  close, whose line it already carries), and FX rates) and a *Ticker
+  dashboard (the CBOE Volatility Index (VIX) as a level on top, its latest
+  close read off the legend, global and European index performance as %
+  gain/loss of the daily close, benchmark interest rates — the most relevant
+  one per region, from FRED — a BTC rainbow chart with the blockchaincenter.net
+  color bands, a combined BTC price (USD) & MVRV Z-Score panel (BTC price on a
+  log axis with the on-chain MVRV Z-Score on a second axis, its green/red bands
+  marking the historical under/overvaluation extremes; it stands in for the
+  plain BTC/USD close, whose line it already carries), and FX rates) and a *Ticker
   Fundamentals* dashboard (pick one ticker; price candlesticks with a daily/
   weekly/monthly candle selector plus SMA-50 and SMA-200 overlay lines that
   share the candle axis and whose latest and mean values read off a table
@@ -67,9 +68,10 @@ thing runs under Docker Compose and schedules itself — no external cron.
   EV/EBITDA, EPS, gross margin, operating margin, Debt-to-Equity, and MCap
   through the metric selectors). Backed by SQL views (migrations 0002–0012)
   that derive TTM series from the SEC facts. Global and European
-  market indexes are seeded as `kind='index'` instruments and ingested from
-  Yahoo like everything else. New tickers are added from the *Manage* dashboard
-  (see below), which queues the symbol for the app to validate and ingest.
+  market indexes — and the VIX — are seeded as `kind='index'` instruments and
+  ingested from Yahoo like everything else. New tickers are added from the
+  *Manage* dashboard (see below), which queues the symbol for the app to
+  validate and ingest.
   Grafana boots straight into Market Overview (no welcome/news home page), and
   the time picker offers quick ranges up to *Last 15 years*.
 - **Manage dashboard (Grafana write-back)** — a *Manage* dashboard for the two
