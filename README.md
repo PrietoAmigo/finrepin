@@ -80,7 +80,8 @@ thing runs under Docker Compose and schedules itself — no external cron.
   **stocks** get price + SEC/Yahoo fundamentals, and **cryptocurrencies** like
   `XMR`, detected via Yahoo's quoteType, register as `kind='crypto'` from the
   `<SYM>-USD` Yahoo pair plus a CoinGecko id for the live spot, exactly like the
-  seeded BTC/ETH), and *Add/Remove watchlist* multiselects that toggle the
+  seeded BTC/ETH), and *Add/Remove watchlist* boxes (type comma-separated
+  tickers, case- and space-insensitive) that toggle the
   `instruments.in_watchlist` flag the weekly email reads. Read-only *Ticker
   requests* and *Current watchlist* tables show live state. The same actions are
   scriptable without Grafana via `python -m fintracker.manage`
