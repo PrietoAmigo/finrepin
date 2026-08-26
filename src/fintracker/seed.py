@@ -217,6 +217,12 @@ INSTRUMENTS: list[dict[str, Any]] = [
     _index("ASX200", "S&P/ASX 200 (Oceania)", "AUD", "^AXJO"),
     _index("BOVESPA", "Bovespa (South America)", "BRL", "^BVSP"),
     _index("EEM", "MSCI Emerging Markets (iShares ETF)", "USD", "EEM"),
+    # Volatility — the CBOE Volatility Index (VIX), the market's "fear gauge"
+    # (30-day implied volatility of S&P 500 options). Registered as an `index`
+    # so it backfills from Yahoo's ^VIX like the others, but it carries a level
+    # in points (not a currency price), so it rides on its own Market Overview
+    # panel and stays off the two rebased %-change panels' symbol allow-lists.
+    _index("VIX", "CBOE Volatility Index (VIX)", "USD", "^VIX"),
     # Benchmark interest rates — the most relevant rate per region, one each.
     # Predominantly 10-year government bond yields; Brazil (no OECD 10-year
     # series on FRED) uses its government T-bill rate, which tracks the SELIC
