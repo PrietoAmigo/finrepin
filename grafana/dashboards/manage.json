@@ -287,39 +287,10 @@
         "x": 8,
         "y": 10
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "fintracker-pg"
-          },
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT symbol AS value, symbol AS label FROM instruments WHERE NOT in_watchlist ORDER BY symbol",
-          "refId": "A",
-          "sql": {
-            "columns": [
-              {
-                "parameters": [],
-                "type": "function"
-              }
-            ],
-            "groupBy": [
-              {
-                "property": {
-                  "type": "string"
-                },
-                "type": "groupBy"
-              }
-            ],
-            "limit": 1000
-          }
-        }
-      ],
+      "targets": [],
       "options": {
         "initial": {
-          "method": "query",
+          "method": "-",
           "contentType": "application/json"
         },
         "update": {
@@ -333,7 +304,7 @@
             "editorMode": "code",
             "format": "table",
             "rawQuery": true,
-            "rawSql": "UPDATE instruments SET in_watchlist = true WHERE symbol = ANY(string_to_array('${payload.symbols}', ','))",
+            "rawSql": "UPDATE instruments SET in_watchlist = true WHERE upper(symbol) = ANY(string_to_array(replace(upper('${payload.symbols}'), ' ', ''), ','))",
             "refId": "A",
             "sql": {
               "columns": [
@@ -353,24 +324,19 @@
               "limit": 50
             }
           },
-          "code": "if (context.panel.response && context.panel.response.state === 'Done') {\n  context.grafana.notifySuccess(['Watchlist', 'Added to the watchlist.']);\n  context.panel.patchFormValue({ symbols: [] });\n  context.panel.initialRequest();\n} else {\n  context.grafana.notifyError(['Watchlist', 'The update failed — see the app/Grafana logs.']);\n}"
+          "code": "if (context.panel.response && context.panel.response.state === 'Done') {\n  context.grafana.notifySuccess(['Watchlist', 'Added. Refresh the dashboard to see the updated list.']);\n  context.panel.patchFormValue({ symbols: '' });\n} else {\n  context.grafana.notifyError(['Watchlist', 'Update failed — open Panel \\u2192 Inspect \\u2192 Query for the error.']);\n}"
         },
         "elements": [
           {
             "id": "symbols",
-            "title": "Instruments",
-            "type": "multiselect",
-            "optionsSource": "query",
-            "queryOptions": {
-              "source": "A",
-              "value": "value",
-              "label": "label"
-            },
-            "value": [],
+            "title": "Symbols",
+            "type": "string",
+            "value": "",
             "section": "",
             "width": 0,
             "labelWidth": 12,
             "options": [],
+            "tooltip": "Comma-separated tickers, e.g. AAPL,BN — case- and space-insensitive",
             "uid": "manage-wl-add"
           }
         ],
@@ -400,39 +366,10 @@
         "x": 16,
         "y": 10
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "fintracker-pg"
-          },
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT symbol AS value, symbol AS label FROM instruments WHERE in_watchlist ORDER BY symbol",
-          "refId": "A",
-          "sql": {
-            "columns": [
-              {
-                "parameters": [],
-                "type": "function"
-              }
-            ],
-            "groupBy": [
-              {
-                "property": {
-                  "type": "string"
-                },
-                "type": "groupBy"
-              }
-            ],
-            "limit": 1000
-          }
-        }
-      ],
+      "targets": [],
       "options": {
         "initial": {
-          "method": "query",
+          "method": "-",
           "contentType": "application/json"
         },
         "update": {
@@ -446,7 +383,7 @@
             "editorMode": "code",
             "format": "table",
             "rawQuery": true,
-            "rawSql": "UPDATE instruments SET in_watchlist = false WHERE symbol = ANY(string_to_array('${payload.symbols}', ','))",
+            "rawSql": "UPDATE instruments SET in_watchlist = false WHERE upper(symbol) = ANY(string_to_array(replace(upper('${payload.symbols}'), ' ', ''), ','))",
             "refId": "A",
             "sql": {
               "columns": [
@@ -466,24 +403,19 @@
               "limit": 50
             }
           },
-          "code": "if (context.panel.response && context.panel.response.state === 'Done') {\n  context.grafana.notifySuccess(['Watchlist', 'Removed from the watchlist.']);\n  context.panel.patchFormValue({ symbols: [] });\n  context.panel.initialRequest();\n} else {\n  context.grafana.notifyError(['Watchlist', 'The update failed — see the app/Grafana logs.']);\n}"
+          "code": "if (context.panel.response && context.panel.response.state === 'Done') {\n  context.grafana.notifySuccess(['Watchlist', 'Removed. Refresh the dashboard to see the updated list.']);\n  context.panel.patchFormValue({ symbols: '' });\n} else {\n  context.grafana.notifyError(['Watchlist', 'Update failed — open Panel \\u2192 Inspect \\u2192 Query for the error.']);\n}"
         },
         "elements": [
           {
             "id": "symbols",
-            "title": "Instruments",
-            "type": "multiselect",
-            "optionsSource": "query",
-            "queryOptions": {
-              "source": "A",
-              "value": "value",
-              "label": "label"
-            },
-            "value": [],
+            "title": "Symbols",
+            "type": "string",
+            "value": "",
             "section": "",
             "width": 0,
             "labelWidth": 12,
             "options": [],
+            "tooltip": "Comma-separated tickers, e.g. AAPL,BN — case- and space-insensitive",
             "uid": "manage-wl-remove"
           }
         ],
