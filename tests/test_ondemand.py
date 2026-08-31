@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from types import SimpleNamespace
 
 import pandas as pd
 import pytest
@@ -13,6 +14,7 @@ from fintracker.ingest import ondemand
 from fintracker.ingest.ondemand import (
     YahooMeta,
     detect_crypto,
+    detect_crypto_pair,
     detect_taxonomy,
     match_coingecko_id,
     normalize_symbol,
@@ -142,6 +144,35 @@ class TestDetectCrypto:
         assert detect_crypto("ZZZZ") is None
 
 
+class TestDetectCryptoPair:
+    """The `<SYM>-USD` probe on its own — the equity path's fallback."""
+
+    def test_accepts_a_coin_pair(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(ondemand, "_resolve_coingecko_id", lambda s, n: "monero")
+        monkeypatch.setattr(
+            ondemand, "_yahoo_meta", lambda sym: _crypto_meta() if sym == "XMR-USD" else None
+        )
+        spec = detect_crypto_pair("XMR")
+        assert spec is not None and spec.symbol == "XMR" and spec.yahoo_symbol == "XMR-USD"
+
+    def test_rejects_a_pair_yahoo_does_not_call_crypto(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(ondemand, "_yahoo_meta", lambda sym: _equity_meta())
+        assert detect_crypto_pair("NVDA") is None
+
+    def test_skips_symbols_that_are_not_bare_tickers(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # No probe for exchange-suffixed symbols — CSU.TO-USD is not a thing.
+        called: list[str] = []
+        monkeypatch.setattr(
+            ondemand, "_yahoo_meta", lambda sym: called.append(sym) or _crypto_meta()
+        )
+        assert detect_crypto_pair("CSU.TO") is None
+        assert called == []
+
+
 @pytest.fixture
 def session() -> Iterator[Session]:
     engine = create_engine("sqlite://")
@@ -189,3 +220,95 @@ class TestResolveCrypto:
         )
         assert captured["source"] == "yfinance"
         assert len(captured["rows"]) == 2  # type: ignore[arg-type]
+
+
+class TestResolveCryptoFallback:
+    """A bare coin ticker that Yahoo answers for as something else.
+
+    `detect_crypto` deliberately leaves such a symbol to the equity path so a
+    real listing always wins. When that path then finds nothing at all, the
+    request used to dead-end at `not_found` — the reason XMR could not be
+    added. `_resolve` now probes `<SYM>-USD` before giving up.
+    """
+
+    @staticmethod
+    def _meta_for(sym: str) -> YahooMeta | None:
+        # Yahoo answers for the bare ticker (some unrelated listing) *and* for
+        # the coin pair — the case the old code could not get past.
+        if sym == "XMR":
+            return _equity_meta()
+        if sym == "XMR-USD":
+            return _crypto_meta()
+        return None
+
+    @pytest.fixture(autouse=True)
+    def _no_sec(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # No SEC_USER_AGENT configured -> the EDGAR lookup is skipped entirely.
+        monkeypatch.setattr(ondemand, "get_settings", lambda: SimpleNamespace(sec_user_agent=""))
+
+    def test_registers_the_coin_when_the_equity_path_is_empty(
+        self, session: Session, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(ondemand, "_yahoo_meta", self._meta_for)
+        monkeypatch.setattr(ondemand, "_resolve_coingecko_id", lambda s, n: "monero")
+        # Nothing as an equity; the coin pair has history.
+        monkeypatch.setattr(
+            ondemand,
+            "fetch_daily_history",
+            lambda ys, start=None: _history() if ys == "XMR-USD" else pd.DataFrame(),
+        )
+        monkeypatch.setattr(
+            ondemand, "upsert_price_rows", lambda s, iid, rows, source: len(rows)
+        )
+
+        req = TickerRequest(symbol="XMR")
+        session.add(req)
+        session.flush()
+
+        status, note = ondemand._resolve(req, session)
+        assert status == "done"
+        assert "crypto" in note
+        inst = session.scalar(select(Instrument).where(Instrument.symbol == "XMR"))
+        assert inst is not None
+        assert (inst.kind, inst.yahoo_symbol, inst.coingecko_id) == (
+            "crypto", "XMR-USD", "monero",
+        )
+
+    def test_still_not_found_when_the_pair_is_not_a_coin_either(
+        self, session: Session, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(ondemand, "_yahoo_meta", lambda sym: None)
+        monkeypatch.setattr(ondemand, "fetch_daily_history", lambda ys, start=None: pd.DataFrame())
+
+        req = TickerRequest(symbol="ZZZZ")
+        session.add(req)
+        session.flush()
+
+        status, note = ondemand._resolve(req, session)
+        assert status == "not_found"
+        assert "unknown to Yahoo Finance" in note
+
+    def test_a_real_equity_still_wins_over_a_same_named_coin(
+        self, session: Session, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # SOL is an equity on Yahoo *and* has a SOL-USD coin pair. The equity
+        # has price history, so the fallback must never be reached.
+        monkeypatch.setattr(
+            ondemand,
+            "_yahoo_meta",
+            lambda sym: _equity_meta() if sym == "SOL" else _crypto_meta("Solana USD"),
+        )
+        monkeypatch.setattr(ondemand, "fetch_daily_history", lambda ys, start=None: _history())
+        monkeypatch.setattr(
+            ondemand, "upsert_price_rows", lambda s, iid, rows, source: len(rows)
+        )
+        monkeypatch.setattr(ondemand, "_fetch_currency", lambda sym: "USD")
+
+        req = TickerRequest(symbol="SOL")
+        session.add(req)
+        session.flush()
+
+        status, _ = ondemand._resolve(req, session)
+        assert status == "done"
+        inst = session.scalar(select(Instrument).where(Instrument.symbol == "SOL"))
+        assert inst is not None and inst.kind == "equity"

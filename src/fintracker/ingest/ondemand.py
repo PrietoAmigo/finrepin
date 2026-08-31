@@ -177,6 +177,22 @@ def _crypto_spec(base: str, yahoo_symbol: str, meta: YahooMeta) -> CryptoSpec:
     )
 
 
+def detect_crypto_pair(symbol: str) -> CryptoSpec | None:
+    """Probe `<SYM>-USD` and accept it only if Yahoo calls it a cryptocurrency.
+
+    Split out from `detect_crypto` so the equity path can fall back to it: a
+    bare coin ticker often collides with some unrelated listing, and Yahoo
+    answering for that listing must not be the end of the story.
+    """
+    if not _is_bare_symbol(symbol):
+        return None
+    pair = f"{symbol}-USD"
+    pair_meta = _yahoo_meta(pair)
+    if pair_meta is not None and pair_meta.quote_type == "CRYPTOCURRENCY":
+        return _crypto_spec(symbol, pair, pair_meta)
+    return None
+
+
 def detect_crypto(symbol: str) -> CryptoSpec | None:
     """Classify a requested symbol as a cryptocurrency via Yahoo's quoteType.
 
@@ -184,19 +200,15 @@ def detect_crypto(symbol: str) -> CryptoSpec | None:
     bare ticker Yahoo does not recognise at all (e.g. XMR) is retried as
     `<SYM>-USD`. Anything Yahoo knows as an equity/ETF/index/currency is left to
     the equity path, so only symbols Yahoo can't place as equities are probed as
-    coin pairs.
+    coin pairs here — but a symbol that then turns up nothing as an equity gets
+    the pair probe too, via `detect_crypto_pair` in `_resolve`.
     """
     meta = _yahoo_meta(symbol)
     if meta is not None:
         if meta.quote_type == "CRYPTOCURRENCY":
             return _crypto_spec(_strip_usd(symbol), symbol, meta)
-        return None  # Yahoo knows it as something else — not crypto.
-    if _is_bare_symbol(symbol):
-        pair = f"{symbol}-USD"
-        pair_meta = _yahoo_meta(pair)
-        if pair_meta is not None and pair_meta.quote_type == "CRYPTOCURRENCY":
-            return _crypto_spec(symbol, pair, pair_meta)
-    return None
+        return None  # Yahoo knows it as something else — try equity first.
+    return detect_crypto_pair(symbol)
 
 
 def _register_crypto(session: Session, spec: CryptoSpec) -> tuple[str, str]:
@@ -264,7 +276,17 @@ def _resolve(req: TickerRequest, session: Session) -> tuple[str, str | None]:
         sec_name = str(company_facts.get("entityName") or "") or None
 
     if not price_rows and cik is None:
-        return "not_found", "unknown to both Yahoo Finance and SEC EDGAR"
+        # Nothing as an equity. Yahoo may still have answered for the bare
+        # ticker earlier (a delisted listing, a fuzzy match) and vetoed the
+        # crypto probe in detect_crypto — so try `<SYM>-USD` before giving up.
+        # Equities keep precedence: this only runs once the equity path is
+        # already empty, so it can turn a `not_found` into a coin, never a
+        # real listing into one.
+        coin = detect_crypto_pair(symbol)
+        if coin is not None:
+            return _register_crypto(session, coin)
+        # Name what was actually tried, so a failed request says why.
+        return "not_found", f"unknown to Yahoo Finance ({symbol}, {symbol}-USD) and SEC EDGAR"
 
     inst = Instrument(
         symbol=symbol,
