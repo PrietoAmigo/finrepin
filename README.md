@@ -382,21 +382,14 @@ Three views build on each other:
 
 ### Panels
 
-- **Overview** — market value, cost basis, unrealized / realized / total P/L,
-  and return on cost, all in the display currency.
-- **Portfolio value vs cost basis** — daily mark-to-market against what the
-  holdings cost.
-- **Drawdown from all-time high** — how far below the peak the portfolio sits.
-  The peak is taken over the whole history, so zooming in never invents a new
-  high.
+- **Overview** — market value and **ROIC** (unrealized P/L as a percentage of
+  cost basis) in the display currency, above a **Portfolio value vs cost basis**
+  chart: daily mark-to-market against what the holdings cost.
+- **Positions** — one row per holding per account: symbol, portfolio weight,
+  daily change %, unrealized %, last price, average cost, quantity, market
+  value, and the asset-class / sector / region labels. Fully sold positions stay
+  listed while they carry realized P/L.
 - **Allocation** — donuts by asset class, sector, region, and currency.
-- **Positions** — one row per holding per account: quantity, average cost, last
-  price, cost basis, market value, unrealized P/L (absolute and %), realized
-  P/L, and portfolio weight. Fully sold positions stay listed while they carry
-  realized P/L.
-- **Movers** — over the dashboard's time range, each position's price change and
-  the P/L it actually contributed. Buying or selling inside the range moves no
-  bar by itself, so this reads as contribution rather than cash flow.
 - **Transaction ledger** — the raw trades every number is derived from, in the
   currency each settled in.
 
