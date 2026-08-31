@@ -74,7 +74,7 @@ thing runs under Docker Compose and schedules itself — no external cron.
   validate and ingest.
   Grafana boots straight into Market Overview (no welcome/news home page), and
   the time picker offers quick ranges up to *Last 15 years*.
-- **Manage dashboard (Grafana write-back)** — a *Manage* dashboard for the two
+- **Manage dashboard (Grafana write-back)** — a *Manage* dashboard for the
   admin chores, using the **Business Forms** panel (`volkovlabs-form-panel`,
   installed on startup via `GF_INSTALL_PLUGINS`) to write straight to Postgres:
   an *Add ticker* form (queues a symbol into `ticker_requests`; the app ingests
@@ -82,12 +82,15 @@ thing runs under Docker Compose and schedules itself — no external cron.
   **stocks** get price + SEC/Yahoo fundamentals, and **cryptocurrencies** like
   `XMR`, detected via Yahoo's quoteType, register as `kind='crypto'` from the
   `<SYM>-USD` Yahoo pair plus a CoinGecko id for the live spot, exactly like the
-  seeded BTC/ETH), and *Add/Remove watchlist* boxes (type comma-separated
+  seeded BTC/ETH), *Add/Remove watchlist* boxes (type comma-separated
   tickers, case- and space-insensitive) that toggle the
-  `instruments.in_watchlist` flag the weekly email reads. Read-only *Ticker
-  requests* and *Current watchlist* tables show live state. The same actions are
-  scriptable without Grafana via `python -m fintracker.manage`
-  (`add-ticker …`, `watchlist show|set|add|remove …`).
+  `instruments.in_watchlist` flag the weekly email reads, and a *Portfolio*
+  section (*Add account*, *Add holding*, *Reduce/close holding*) that feeds
+  the *Portfolio* dashboard described below. Read-only *Ticker requests*,
+  *Current watchlist*, *Accounts*, and *Open holdings* tables show live state.
+  The same actions are scriptable without Grafana via `python -m fintracker.manage`
+  (`add-ticker …`, `watchlist show|set|add|remove …`, `account add|list …`,
+  `holding add|reduce|list …`).
 - **Currency switching** — the per-ticker dashboards have a *Currency* selector listing
   all currencies seen on tracked tickers (listing + reporting currencies).
   Money values — prices, revenue, debt, MCap, statement lines — are converted
@@ -105,6 +108,40 @@ thing runs under Docker Compose and schedules itself — no external cron.
   investing / financing, ...) with uppercase header rows. Backed by
   statement views (migration 0006) that map the curated SEC XBRL tags onto
   statement lines.
+
+- **Portfolio / holdings (Grafana)** — a *Portfolio* dashboard turns the
+  tracker into a real personal-finance surface: add what you actually hold
+  (quantity, cost basis, account) and it shows portfolio value over time,
+  allocation by asset class / sector / currency / region, unrealized and
+  realized P/L per position and in total, cost basis vs. market, best/worst
+  movers, and drawdown from the all-time high. Holdings are lot-based
+  (`accounts` + `holdings`, migration 0022) — each lot is a quantity + total
+  cost acquired in an account on a date, with running `quantity_sold`/
+  `proceeds` so a lot can be sold in parts without losing its exact cost
+  basis; buying more of the same instrument adds another lot rather than
+  averaging it into an existing one, so realized P/L stays exact per
+  purchase. Everything the dashboard reads comes from a handful of plain SQL
+  views (`portfolio_positions`, `portfolio_value_daily`,
+  `portfolio_drawdown_daily`, `portfolio_realized_pl`, migration 0023) that
+  reuse the currency machinery already built for the rest of the app: prices
+  are forward-filled across non-trading days the same way `fx_usd_daily`
+  gap-fills FX (`prices_daily_filled`), and every dollar amount converts
+  through `fx_usd_daily` into the dashboard's `$display_currency` selector,
+  exactly like the ticker/statement dashboards. A lot contributes its full
+  quantity to the value-over-time chart from its acquisition date until it's
+  *fully* sold, then drops out — so closed positions still show their
+  historical contribution; a partial sale isn't separately date-stamped
+  per lot, so it doesn't shift the chart until the lot is fully closed (close
+  a lot out fully, rather than trickling partial sells, for an exact chart).
+  Sector and region (for the allocation panels) are best-effort, pulled from
+  Yahoo Finance when a ticker is registered; run
+  `python -m fintracker.manage enrich` to backfill them for tickers added
+  before this existed (crypto/metals/indexes/forex have neither). Add
+  accounts and holdings from the *Manage* dashboard's *Portfolio* section
+  (Business Forms panels, same write-back pattern as Add ticker/watchlist)
+  or scriptably via `python -m fintracker.manage account add …` /
+  `holding add SYMBOL ACCOUNT QUANTITY COST_BASIS CURRENCY ACQUIRED_AT` /
+  `holding reduce HOLDING_ID QUANTITY PROCEEDS SOLD_AT` / `holding list`.
 
 - **Spain housing (Grafana)** — a *Spain Housing* Grafana dashboard: a filled
   choropleth of Spain linked to time series, showing house **prices (€/m²)** and

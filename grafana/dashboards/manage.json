@@ -37,7 +37,7 @@
       "id": 2,
       "type": "volkovlabs-form-panel",
       "title": "Add ticker",
-      "description": "Queue a stock or crypto by its Yahoo-style symbol (e.g. NVDA, CSU.TO, XMR). Stocks are validated against SEC EDGAR and Yahoo Finance and get full price + fundamentals history; cryptocurrencies register from the <SYM>-USD Yahoo pair plus CoinGecko spot. Ingested within a minute or two — watch the status in Ticker requests.",
+      "description": "Queue a stock or crypto by its Yahoo-style symbol (e.g. NVDA, CSU.TO, XMR). Stocks are validated against SEC EDGAR and Yahoo Finance and get full price + fundamentals history; cryptocurrencies register from the <SYM>-USD Yahoo pair plus CoinGecko spot. Ingested within a minute or two \u2014 watch the status in Ticker requests.",
       "datasource": {
         "type": "postgres",
         "uid": "fintracker-pg"
@@ -85,7 +85,7 @@
               "limit": 50
             }
           },
-          "code": "if (context.panel.response && context.panel.response.state === 'Done') {\n  context.grafana.notifySuccess(['Add ticker', 'Queued — it will be ingested within a minute or two.']);\n  context.panel.patchFormValue({ symbol: '' });\n} else {\n  context.grafana.notifyError(['Add ticker', 'The update failed — see the app/Grafana logs.']);\n}"
+          "code": "if (context.panel.response && context.panel.response.state === 'Done') {\n  context.grafana.notifySuccess(['Add ticker', 'Queued \u2014 it will be ingested within a minute or two.']);\n  context.panel.patchFormValue({ symbol: '' });\n} else {\n  context.grafana.notifyError(['Add ticker', 'The update failed \u2014 see the app/Grafana logs.']);\n}"
         },
         "elements": [
           {
@@ -116,7 +116,7 @@
       "id": 3,
       "type": "table",
       "title": "Ticker requests",
-      "description": "Recent add-ticker requests and their status (pending → done / not_found / error). Rows persist so re-adding is idempotent; the note explains each outcome.",
+      "description": "Recent add-ticker requests and their status (pending \u2192 done / not_found / error). Rows persist so re-adding is idempotent; the note explains each outcome.",
       "datasource": {
         "type": "postgres",
         "uid": "fintracker-pg"
@@ -324,7 +324,7 @@
               "limit": 50
             }
           },
-          "code": "if (context.panel.response && context.panel.response.state === 'Done') {\n  context.grafana.notifySuccess(['Watchlist', 'Added. Refresh the dashboard to see the updated list.']);\n  context.panel.patchFormValue({ symbols: '' });\n} else {\n  context.grafana.notifyError(['Watchlist', 'Update failed — open Panel \\u2192 Inspect \\u2192 Query for the error.']);\n}"
+          "code": "if (context.panel.response && context.panel.response.state === 'Done') {\n  context.grafana.notifySuccess(['Watchlist', 'Added. Refresh the dashboard to see the updated list.']);\n  context.panel.patchFormValue({ symbols: '' });\n} else {\n  context.grafana.notifyError(['Watchlist', 'Update failed \u2014 open Panel \\u2192 Inspect \\u2192 Query for the error.']);\n}"
         },
         "elements": [
           {
@@ -336,7 +336,7 @@
             "width": 0,
             "labelWidth": 12,
             "options": [],
-            "tooltip": "Comma-separated tickers, e.g. AAPL,BN — case- and space-insensitive",
+            "tooltip": "Comma-separated tickers, e.g. AAPL,BN \u2014 case- and space-insensitive",
             "uid": "manage-wl-add"
           }
         ],
@@ -403,7 +403,7 @@
               "limit": 50
             }
           },
-          "code": "if (context.panel.response && context.panel.response.state === 'Done') {\n  context.grafana.notifySuccess(['Watchlist', 'Removed. Refresh the dashboard to see the updated list.']);\n  context.panel.patchFormValue({ symbols: '' });\n} else {\n  context.grafana.notifyError(['Watchlist', 'Update failed — open Panel \\u2192 Inspect \\u2192 Query for the error.']);\n}"
+          "code": "if (context.panel.response && context.panel.response.state === 'Done') {\n  context.grafana.notifySuccess(['Watchlist', 'Removed. Refresh the dashboard to see the updated list.']);\n  context.panel.patchFormValue({ symbols: '' });\n} else {\n  context.grafana.notifyError(['Watchlist', 'Update failed \u2014 open Panel \\u2192 Inspect \\u2192 Query for the error.']);\n}"
         },
         "elements": [
           {
@@ -415,7 +415,7 @@
             "width": 0,
             "labelWidth": 12,
             "options": [],
-            "tooltip": "Comma-separated tickers, e.g. AAPL,BN — case- and space-insensitive",
+            "tooltip": "Comma-separated tickers, e.g. AAPL,BN \u2014 case- and space-insensitive",
             "uid": "manage-wl-remove"
           }
         ],
@@ -429,6 +429,523 @@
           "variant": "secondary"
         }
       }
+    },
+    {
+      "id": 20,
+      "type": "row",
+      "title": "Portfolio",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 19
+      },
+      "panels": []
+    },
+    {
+      "id": 21,
+      "type": "volkovlabs-form-panel",
+      "title": "Add account",
+      "description": "Create a portfolio account/label (e.g. a broker or exchange) to book holdings under. Also created automatically the first time you add a holding for a new account name.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 0,
+        "y": 20
+      },
+      "targets": [],
+      "options": {
+        "initial": {
+          "method": "-",
+          "contentType": "application/json"
+        },
+        "update": {
+          "method": "datasource",
+          "datasource": "fintracker-postgres",
+          "confirm": false,
+          "contentType": "application/json",
+          "payloadMode": "custom",
+          "getPayload": "const payload = {};\ncontext.panel.elements.forEach((element) => {\n  payload[element.id] = Array.isArray(element.value)\n    ? element.value.join(',')\n    : element.value;\n});\nreturn payload;",
+          "payload": {
+            "editorMode": "code",
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "INSERT INTO accounts (name) VALUES (trim('${payload.name}')) ON CONFLICT (name) DO NOTHING",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "parameters": [],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            }
+          },
+          "code": "if (context.panel.response && context.panel.response.state === 'Done') {\n  context.grafana.notifySuccess(['Add account', 'Added.']);\n  context.panel.patchFormValue({ name: '' });\n} else {\n  context.grafana.notifyError(['Add account', 'The update failed \u2014 open Panel \u2192 Inspect \u2192 Query for the error.']);\n}"
+        },
+        "elements": [
+          {
+            "id": "name",
+            "title": "Account name",
+            "type": "string",
+            "value": "",
+            "section": "",
+            "width": 0,
+            "labelWidth": 12,
+            "options": [],
+            "tooltip": "e.g. IBKR, Coinbase",
+            "uid": "manage-name"
+          }
+        ],
+        "submit": {
+          "text": "Add account",
+          "variant": "primary",
+          "icon": "plus"
+        },
+        "reset": {
+          "text": "Clear",
+          "variant": "secondary"
+        }
+      }
+    },
+    {
+      "id": 22,
+      "type": "table",
+      "title": "Accounts",
+      "description": "Known accounts and how many open lots each has.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 6,
+        "y": 20
+      },
+      "options": {
+        "showHeader": true
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT a.name AS \"Account\", COUNT(h.id) AS \"Open lots\"\nFROM accounts a\nLEFT JOIN holdings h ON h.account_id = a.id AND h.quantity_sold < h.quantity\nGROUP BY a.name\nORDER BY a.name",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "type": "volkovlabs-form-panel",
+      "title": "Add holding",
+      "description": "Add a lot: quantity + total cost basis, acquired in an account on a date. The instrument must already be tracked (add it as a ticker above first). A new account name is created automatically. Ingested into the Portfolio dashboard immediately \u2014 no ingest delay.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 12,
+        "x": 12,
+        "y": 20
+      },
+      "targets": [],
+      "options": {
+        "initial": {
+          "method": "-",
+          "contentType": "application/json"
+        },
+        "update": {
+          "method": "datasource",
+          "datasource": "fintracker-postgres",
+          "confirm": false,
+          "contentType": "application/json",
+          "payloadMode": "custom",
+          "getPayload": "const payload = {};\ncontext.panel.elements.forEach((element) => {\n  payload[element.id] = Array.isArray(element.value)\n    ? element.value.join(',')\n    : element.value;\n});\nreturn payload;",
+          "payload": {
+            "editorMode": "code",
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "WITH acct AS (\n  INSERT INTO accounts (name)\n  VALUES (trim('${payload.account}'))\n  ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name\n  RETURNING id\n),\ninst AS (\n  SELECT id FROM instruments WHERE upper(symbol) = upper(trim('${payload.symbol}'))\n)\nINSERT INTO holdings (instrument_id, account_id, quantity, cost_basis, currency, acquired_at, note)\nSELECT inst.id, acct.id, '${payload.quantity}'::numeric, '${payload.cost_basis}'::numeric,\n       upper(trim('${payload.currency}')), '${payload.acquired_at}'::date,\n       NULLIF(trim('${payload.note}'), '')\nFROM inst, acct\nWHERE inst.id IS NOT NULL",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "parameters": [],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            }
+          },
+          "code": "if (context.panel.response && context.panel.response.state === 'Done') {\n  context.grafana.notifySuccess(['Add holding', 'Added \u2014 refresh the Portfolio dashboard to see it.']);\n  context.panel.patchFormValue({ symbol: '', account: '', quantity: '', cost_basis: '', currency: '', acquired_at: '', note: '' });\n} else {\n  context.grafana.notifyError(['Add holding', 'The update failed \u2014 open Panel \u2192 Inspect \u2192 Query for the error.']);\n}"
+        },
+        "elements": [
+          {
+            "id": "symbol",
+            "title": "Symbol",
+            "type": "string",
+            "value": "",
+            "section": "",
+            "width": 0,
+            "labelWidth": 14,
+            "options": [],
+            "tooltip": "Tracked ticker, e.g. NVDA, BTC",
+            "uid": "manage-symbol"
+          },
+          {
+            "id": "account",
+            "title": "Account",
+            "type": "string",
+            "value": "",
+            "section": "",
+            "width": 0,
+            "labelWidth": 14,
+            "options": [],
+            "tooltip": "e.g. IBKR, Coinbase \u2014 created if new",
+            "uid": "manage-account"
+          },
+          {
+            "id": "quantity",
+            "title": "Quantity",
+            "type": "string",
+            "value": "",
+            "section": "",
+            "width": 0,
+            "labelWidth": 14,
+            "options": [],
+            "tooltip": "Units acquired, e.g. 10 or 0.5",
+            "uid": "manage-quantity"
+          },
+          {
+            "id": "cost_basis",
+            "title": "Cost basis (total)",
+            "type": "string",
+            "value": "",
+            "section": "",
+            "width": 0,
+            "labelWidth": 14,
+            "options": [],
+            "tooltip": "Total amount paid for the whole lot, e.g. 1500.00",
+            "uid": "manage-cost_basis"
+          },
+          {
+            "id": "currency",
+            "title": "Currency",
+            "type": "string",
+            "value": "",
+            "section": "",
+            "width": 0,
+            "labelWidth": 14,
+            "options": [],
+            "tooltip": "3-letter code the cost basis is in, e.g. USD",
+            "uid": "manage-currency"
+          },
+          {
+            "id": "acquired_at",
+            "title": "Acquired on",
+            "type": "string",
+            "value": "",
+            "section": "",
+            "width": 0,
+            "labelWidth": 14,
+            "options": [],
+            "tooltip": "YYYY-MM-DD",
+            "uid": "manage-acquired_at"
+          },
+          {
+            "id": "note",
+            "title": "Note (optional)",
+            "type": "string",
+            "value": "",
+            "section": "",
+            "width": 0,
+            "labelWidth": 14,
+            "options": [],
+            "tooltip": "Free text, e.g. broker order id",
+            "uid": "manage-note"
+          }
+        ],
+        "submit": {
+          "text": "Add holding",
+          "variant": "primary",
+          "icon": "plus"
+        },
+        "reset": {
+          "text": "Clear",
+          "variant": "secondary"
+        }
+      }
+    },
+    {
+      "id": 24,
+      "type": "table",
+      "title": "Open holdings",
+      "description": "Every open (or partially sold) lot. Note the ID \u2014 it is what the Reduce/close form below needs.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 32
+      },
+      "options": {
+        "showHeader": true
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT h.id AS \"ID\", i.symbol AS \"Symbol\", a.name AS \"Account\",\n       (h.quantity - h.quantity_sold) AS \"Open qty\", h.quantity AS \"Lot qty\",\n       h.cost_basis AS \"Cost basis\", h.currency AS \"Currency\", h.acquired_at AS \"Acquired\",\n       coalesce(h.note, '') AS \"Note\"\nFROM holdings h\nJOIN instruments i ON i.id = h.instrument_id\nJOIN accounts a ON a.id = h.account_id\nWHERE h.quantity_sold < h.quantity\nORDER BY h.acquired_at DESC",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ]
+    },
+    {
+      "id": 25,
+      "type": "volkovlabs-form-panel",
+      "title": "Reduce / close holding",
+      "description": "Record a sale (partial or full) against an existing lot \u2014 look up its ID in Open holdings above. Selling the remaining quantity closes the lot.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 42
+      },
+      "targets": [],
+      "options": {
+        "initial": {
+          "method": "-",
+          "contentType": "application/json"
+        },
+        "update": {
+          "method": "datasource",
+          "datasource": "fintracker-postgres",
+          "confirm": false,
+          "contentType": "application/json",
+          "payloadMode": "custom",
+          "getPayload": "const payload = {};\ncontext.panel.elements.forEach((element) => {\n  payload[element.id] = Array.isArray(element.value)\n    ? element.value.join(',')\n    : element.value;\n});\nreturn payload;",
+          "payload": {
+            "editorMode": "code",
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "UPDATE holdings\nSET quantity_sold = quantity_sold + '${payload.quantity}'::numeric,\n    proceeds = proceeds + '${payload.proceeds}'::numeric,\n    last_sold_at = '${payload.sold_at}'::date\nWHERE id = '${payload.holding_id}'::int\n  AND (quantity_sold + '${payload.quantity}'::numeric) <= quantity",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "parameters": [],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            }
+          },
+          "code": "if (context.panel.response && context.panel.response.state === 'Done') {\n  context.grafana.notifySuccess(['Reduce / close holding', 'Recorded \u2014 refresh to see the updated open quantity.']);\n  context.panel.patchFormValue({ holding_id: '', quantity: '', proceeds: '', sold_at: '' });\n} else {\n  context.grafana.notifyError(['Reduce / close holding', 'The update failed \u2014 open Panel \u2192 Inspect \u2192 Query for the error.']);\n}"
+        },
+        "elements": [
+          {
+            "id": "holding_id",
+            "title": "Holding ID",
+            "type": "string",
+            "value": "",
+            "section": "",
+            "width": 0,
+            "labelWidth": 14,
+            "options": [],
+            "tooltip": "From the Open holdings table above",
+            "uid": "manage-holding_id"
+          },
+          {
+            "id": "quantity",
+            "title": "Quantity sold",
+            "type": "string",
+            "value": "",
+            "section": "",
+            "width": 0,
+            "labelWidth": 14,
+            "options": [],
+            "tooltip": "Must not exceed what's left open",
+            "uid": "manage-quantity"
+          },
+          {
+            "id": "proceeds",
+            "title": "Proceeds (total)",
+            "type": "string",
+            "value": "",
+            "section": "",
+            "width": 0,
+            "labelWidth": 14,
+            "options": [],
+            "tooltip": "Total amount received for this sale",
+            "uid": "manage-proceeds"
+          },
+          {
+            "id": "sold_at",
+            "title": "Sold on",
+            "type": "string",
+            "value": "",
+            "section": "",
+            "width": 0,
+            "labelWidth": 14,
+            "options": [],
+            "tooltip": "YYYY-MM-DD",
+            "uid": "manage-sold_at"
+          }
+        ],
+        "submit": {
+          "text": "Record sale",
+          "variant": "primary",
+          "icon": "minus"
+        },
+        "reset": {
+          "text": "Clear",
+          "variant": "secondary"
+        }
+      }
+    },
+    {
+      "id": 26,
+      "type": "table",
+      "title": "Realized P/L (recent sales)",
+      "description": "Sales recorded from the form above, most recent first, converted to USD.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 42
+      },
+      "options": {
+        "showHeader": true
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT r.symbol AS \"Symbol\", r.account_name AS \"Account\", r.quantity_sold AS \"Qty sold\",\n       r.last_sold_at AS \"Sold\", r.realized_pl_usd AS \"Realized P/L (USD)\"\nFROM portfolio_realized_pl r\nORDER BY r.last_sold_at DESC\nLIMIT 15",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ]
     }
   ]
 }

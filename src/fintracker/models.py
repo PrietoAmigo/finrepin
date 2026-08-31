@@ -54,6 +54,12 @@ class Instrument(Base):
     in_watchlist: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("false")
     )
+    # Best-effort classification for the portfolio dashboard's allocation
+    # panels (GICS-ish sector, and country/region of primary listing). Filled
+    # from yfinance `.info` at ticker registration; NULL for anything without
+    # coverage (crypto, metals, indexes, forex) or seeded before this existed.
+    sector: Mapped[str | None] = mapped_column(String(64))
+    region: Mapped[str | None] = mapped_column(String(64))
 
 
 class Price(Base):
@@ -232,3 +238,66 @@ class RegionObservation(Base):
     period: Mapped[dt.date] = mapped_column(Date)
     value: Mapped[Decimal] = mapped_column(Numeric(16, 4))
     source: Mapped[str] = mapped_column(String(16))
+
+
+class Account(Base):
+    """A brokerage/exchange/wallet holdings are booked under (e.g. "IBKR",
+    "Coinbase"). Purely a label to slice the portfolio by — no balance or
+    currency of its own."""
+
+    __tablename__ = "accounts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(64), unique=True)
+
+
+class Holding(Base):
+    """One tax lot: a quantity of an instrument acquired in an account at a
+    point in time, for a total cost. Selling reduces a lot rather than
+    creating a new row, so a lot's lifecycle is: open (quantity_sold = 0) ->
+    partially sold (0 < quantity_sold < quantity) -> closed (quantity_sold =
+    quantity, closed_at set). Buying more of the same instrument/account adds
+    another lot — lots are never merged, so cost basis and realized P/L stay
+    exact per purchase.
+
+    `quantity`/`cost_basis` are as originally acquired; the open portion
+    remaining is `quantity - quantity_sold`, and its share of `cost_basis` is
+    `cost_basis * (quantity - quantity_sold) / quantity`. `proceeds` accumulates
+    what the sold portion actually fetched, so realized P/L is
+    `proceeds - cost_basis * quantity_sold / quantity`. `last_sold_at` is the
+    date of the most recent sale against this lot (partial or full) — used to
+    value realized P/L in USD at the right day's FX rate, and, once the lot is
+    fully sold (`quantity_sold == quantity`), as the day the lot stops
+    contributing to the portfolio-value-over-time chart. A partial sale's exact
+    date is not otherwise reflected in that chart — it keeps showing the lot at
+    its pre-sale size until either fully closed or the chart's last day, which
+    is a known approximation (see migration 0023). See migration 0023 for the
+    SQL views that derive P/L, market value, and portfolio value over time from
+    this table.
+    """
+
+    __tablename__ = "holdings"
+    __table_args__ = (
+        Index("ix_holdings_instrument", "instrument_id"),
+        Index("ix_holdings_account", "account_id"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    instrument_id: Mapped[int] = mapped_column(
+        ForeignKey("instruments.id", ondelete="CASCADE"), index=True
+    )
+    account_id: Mapped[int] = mapped_column(
+        ForeignKey("accounts.id", ondelete="CASCADE"), index=True
+    )
+    quantity: Mapped[Decimal] = mapped_column(Numeric(30, 8))
+    cost_basis: Mapped[Decimal] = mapped_column(Numeric(20, 2))
+    currency: Mapped[str] = mapped_column(String(8))
+    acquired_at: Mapped[dt.date] = mapped_column(Date)
+    quantity_sold: Mapped[Decimal] = mapped_column(
+        Numeric(30, 8), nullable=False, server_default=text("0")
+    )
+    proceeds: Mapped[Decimal] = mapped_column(
+        Numeric(20, 2), nullable=False, server_default=text("0")
+    )
+    last_sold_at: Mapped[dt.date | None] = mapped_column(Date)
+    note: Mapped[str | None] = mapped_column(String(256))
