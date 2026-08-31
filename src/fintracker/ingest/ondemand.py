@@ -72,6 +72,26 @@ def _fetch_currency(yahoo_symbol: str) -> str | None:
     return str(currency).upper() if currency else None
 
 
+def _fetch_sector_region(yahoo_symbol: str) -> tuple[str | None, str | None]:
+    """Best-effort (sector, region) for the portfolio allocation panels.
+
+    Yahoo's `info` carries GICS-ish `sector` and the listing's `country` for
+    equities; both are absent for ETFs/indexes/crypto/etc., which is fine —
+    the allocation views simply group those under NULL.
+    """
+    import yfinance as yf
+
+    try:
+        info = yf.Ticker(yahoo_symbol).info
+    except Exception:
+        return None, None
+    if not info:
+        return None, None
+    sector = info.get("sector")
+    region = info.get("country")
+    return (str(sector) if sector else None, str(region) if region else None)
+
+
 COINGECKO_COINS_LIST = "https://api.coingecko.com/api/v3/coins/list"
 
 
@@ -266,11 +286,14 @@ def _resolve(req: TickerRequest, session: Session) -> tuple[str, str | None]:
     if not price_rows and cik is None:
         return "not_found", "unknown to both Yahoo Finance and SEC EDGAR"
 
+    sector, region = _fetch_sector_region(symbol) if price_rows else (None, None)
     inst = Instrument(
         symbol=symbol,
         name=sec_name or symbol,
         kind="equity",
         currency=_fetch_currency(symbol) or "USD",
+        sector=sector,
+        region=region,
         yahoo_symbol=symbol if price_rows else None,
         cik=cik,
         taxonomy=taxonomy,
@@ -292,6 +315,30 @@ def _resolve(req: TickerRequest, session: Session) -> tuple[str, str | None]:
     else:
         notes.append("no fundamentals")
     return "done", ", ".join(notes)
+
+
+def enrich_sector_region(session: Session) -> int:
+    """Best-effort backfill of sector/region for equities that predate those
+    columns (or were added before a Yahoo lookup succeeded). Returns how many
+    instruments were updated. Safe to re-run — only NULL/NULL rows are
+    touched, and a lookup failure just leaves them NULL for the next run."""
+    instruments = session.scalars(
+        select(Instrument).where(
+            Instrument.kind == "equity",
+            Instrument.yahoo_symbol.is_not(None),
+            Instrument.sector.is_(None),
+            Instrument.region.is_(None),
+        )
+    ).all()
+    updated = 0
+    for inst in instruments:
+        assert inst.yahoo_symbol is not None
+        sector, region = _fetch_sector_region(inst.yahoo_symbol)
+        if sector or region:
+            inst.sector = sector
+            inst.region = region
+            updated += 1
+    return updated
 
 
 def process_ticker_requests() -> None:

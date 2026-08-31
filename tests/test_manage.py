@@ -13,7 +13,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
 from fintracker import manage
-from fintracker.models import Base, Instrument, Price, TickerRequest
+from fintracker.models import Base, Holding, Instrument, Price, TickerRequest
 from fintracker.report.data import build_report
 
 
@@ -102,6 +102,112 @@ class TestEnqueueTicker:
         status, _ = manage.enqueue_ticker(session, "'; DROP TABLE instruments; --")
         assert status == "not_found"
         assert session.scalar(select(TickerRequest)) is None
+
+
+class TestAccounts:
+    def test_add_account_is_idempotent(self, session: Session) -> None:
+        first = manage.add_account(session, "IBKR")
+        second = manage.add_account(session, "IBKR")
+        assert first.id == second.id
+        assert manage.list_accounts(session) == ["IBKR"]
+
+    def test_list_accounts_sorted(self, session: Session) -> None:
+        manage.add_account(session, "Kraken")
+        manage.add_account(session, "Coinbase")
+        assert manage.list_accounts(session) == ["Coinbase", "Kraken"]
+
+
+class TestHoldings:
+    def test_add_holding_creates_lot_and_account(self, session: Session) -> None:
+        _equity(session, "NVDA")
+        status, note = manage.add_holding(
+            session, "nvda", "IBKR", Decimal("10"), Decimal("1500.00"), "usd",
+            dt.date(2026, 1, 15),
+        )
+        assert status == "added"
+        assert "NVDA" in note
+        holding = session.scalar(select(Holding))
+        assert holding is not None
+        assert holding.quantity == Decimal("10")
+        assert holding.currency == "USD"
+        assert manage.list_accounts(session) == ["IBKR"]
+
+    def test_add_holding_rejects_unknown_symbol(self, session: Session) -> None:
+        status, note = manage.add_holding(
+            session, "ZZZZ", "IBKR", Decimal("10"), Decimal("100"), "USD", dt.date(2026, 1, 1)
+        )
+        assert status == "error"
+        assert "not a tracked instrument" in note
+        assert session.scalar(select(Holding)) is None
+
+    def test_add_holding_rejects_bad_quantity(self, session: Session) -> None:
+        _equity(session, "NVDA")
+        status, _ = manage.add_holding(
+            session, "NVDA", "IBKR", Decimal("0"), Decimal("100"), "USD", dt.date(2026, 1, 1)
+        )
+        assert status == "error"
+
+    def test_reduce_holding_partial_then_full(self, session: Session) -> None:
+        _equity(session, "NVDA")
+        manage.add_holding(
+            session, "NVDA", "IBKR", Decimal("10"), Decimal("1000"), "USD", dt.date(2026, 1, 1)
+        )
+        holding = session.scalar(select(Holding))
+        assert holding is not None
+
+        status, _ = manage.reduce_holding(
+            session, holding.id, Decimal("4"), Decimal("500"), dt.date(2026, 6, 1)
+        )
+        assert status == "reduced"
+        assert holding.quantity_sold == Decimal("4")
+        assert holding.proceeds == Decimal("500")
+        assert holding.last_sold_at == dt.date(2026, 6, 1)
+
+        status, _ = manage.reduce_holding(
+            session, holding.id, Decimal("6"), Decimal("900"), dt.date(2026, 7, 1)
+        )
+        assert status == "closed"
+        assert holding.quantity_sold == Decimal("10")
+        assert holding.proceeds == Decimal("1400")
+
+    def test_reduce_holding_rejects_overselling(self, session: Session) -> None:
+        _equity(session, "NVDA")
+        manage.add_holding(
+            session, "NVDA", "IBKR", Decimal("10"), Decimal("1000"), "USD", dt.date(2026, 1, 1)
+        )
+        holding = session.scalar(select(Holding))
+        assert holding is not None
+        status, note = manage.reduce_holding(
+            session, holding.id, Decimal("11"), Decimal("100"), dt.date(2026, 6, 1)
+        )
+        assert status == "error"
+        assert "only" in note
+        assert holding.quantity_sold == Decimal("0")
+
+    def test_reduce_holding_rejects_unknown_id(self, session: Session) -> None:
+        status, note = manage.reduce_holding(
+            session, 999, Decimal("1"), Decimal("1"), dt.date(2026, 1, 1)
+        )
+        assert status == "error"
+        assert "no holding" in note
+
+    def test_list_holdings_open_only_by_default(self, session: Session) -> None:
+        _equity(session, "NVDA")
+        manage.add_holding(
+            session, "NVDA", "IBKR", Decimal("10"), Decimal("1000"), "USD", dt.date(2026, 1, 1)
+        )
+        holding = session.scalar(select(Holding))
+        assert holding is not None
+        manage.reduce_holding(
+            session, holding.id, Decimal("10"), Decimal("1200"), dt.date(2026, 6, 1)
+        )
+
+        assert manage.list_holdings(session, open_only=True) == []
+        rows = manage.list_holdings(session, open_only=False)
+        assert len(rows) == 1
+        _, symbol, account_name = rows[0]
+        assert symbol == "NVDA"
+        assert account_name == "IBKR"
 
 
 class TestReportWatchlistPrecedence:

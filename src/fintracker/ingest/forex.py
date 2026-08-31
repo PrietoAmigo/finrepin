@@ -1,10 +1,11 @@
 """Forex rates — same Yahoo daily-bar path as equities.
 
 Besides the seeded EUR/USD, `ensure_fx_instruments` keeps one '<CCY>/USD'
-pair registered for every currency that appears on an equity listing or a
-fundamentals fact, so the `fx_usd_daily` view (migration 0007) can convert
-dashboard values into any display currency. New pairs backfill their full
-history on the next price fetch, exactly like any other instrument.
+pair registered for every currency that appears on an equity listing, a
+fundamentals fact, or a portfolio holding's cost basis, so the `fx_usd_daily`
+view (migration 0007) can convert dashboard values into any display currency.
+New pairs backfill their full history on the next price fetch, exactly like
+any other instrument.
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from fintracker.db import session_scope
 from fintracker.ingest.prices import ingest_yahoo_prices
-from fintracker.models import Fundamental, Instrument
+from fintracker.models import Fundamental, Holding, Instrument
 
 log = logging.getLogger(__name__)
 
@@ -57,6 +58,7 @@ def ensure_fx_instruments() -> int:
             )
         )
         currencies |= set(session.scalars(select(Fundamental.unit).distinct()))
+        currencies |= set(session.scalars(select(Holding.currency).distinct()))
         existing = set(session.scalars(select(Instrument.symbol).where(Instrument.kind == "forex")))
         for row in fx_instrument_rows(currencies):
             if row["symbol"] in existing:
