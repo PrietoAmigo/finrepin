@@ -85,9 +85,12 @@ thing runs under Docker Compose and schedules itself — no external cron.
   seeded BTC/ETH), and *Add/Remove watchlist* boxes (type comma-separated
   tickers, case- and space-insensitive) that toggle the
   `instruments.in_watchlist` flag the weekly email reads. Read-only *Ticker
-  requests* and *Current watchlist* tables show live state. The same actions are
+  requests* and *Current watchlist* tables show live state. A *Portfolio* row
+  adds *Add account* and *Record transaction* forms that write the holdings
+  ledger the Portfolio dashboard reads. The same actions are
   scriptable without Grafana via `python -m fintracker.manage`
-  (`add-ticker …`, `watchlist show|set|add|remove …`).
+  (`add-ticker …`, `watchlist show|set|add|remove …`) and
+  `python -m fintracker.portfolio` (`account add …`, `buy`/`sell …`).
 - **Currency switching** — the per-ticker dashboards have a *Currency* selector listing
   all currencies seen on tracked tickers (listing + reporting currencies).
   Money values — prices, revenue, debt, MCap, statement lines — are converted
@@ -118,6 +121,18 @@ thing runs under Docker Compose and schedules itself — no external cron.
   choropleth is an Apache ECharts panel (the Business Charts plugin). See
   [Spain housing dashboard](#spain-housing-dashboard) below.
 
+- **Portfolio / holdings (Grafana)** — a *Portfolio* dashboard over your actual
+  holdings: total value and cost basis over time, drawdown from the all-time
+  high, allocation by **asset class / sector / region / currency**, a positions
+  table with average cost, unrealized and realized P/L per position, and
+  best/worst movers over the selected range. Holdings are **derived from a
+  transaction ledger** (`accounts` + `portfolio_transactions`), so correcting a
+  mistyped trade fixes every number at once. Trades are entered from the
+  *Manage* dashboard or with `python -m fintracker.portfolio`. Everything is
+  computed in USD and converted into the selected display currency through the
+  same `fx_usd_daily` view the fundamentals dashboards use. See
+  [Portfolio dashboard](#portfolio-dashboard) below.
+
 All core features are in. What remains is **M7/M8 polish**: richer
 dashboards and deeper observability.
 
@@ -133,8 +148,9 @@ in this repo is a static preview of the email design.
 
 ## Tests
 
-Pure parsing logic (SEC fact extraction, submissions filtering) is covered in
-`tests/` and runs without any network or database:
+Pure logic — SEC fact extraction, submissions filtering, the portfolio's
+average-cost walk — is covered in `tests/` and runs without any network (an
+in-memory SQLite DB stands in where a session is needed):
 
 ```bash
 uv sync --frozen --extra dev
@@ -291,6 +307,116 @@ labels **before** wiring it into a spec — it prints an operation's tables
 (`probe op 15`) or a table's series labels (`probe table 80270`) straight from
 the live API, and writes nothing.
 
+## Portfolio dashboard
+
+The *Portfolio* dashboard turns the tracked instruments into an actual
+personal-finance surface: what you hold, what it cost, what it is worth, and
+what it has made.
+
+### The ledger
+
+Holdings are never stored — they are **derived from a transaction ledger**:
+
+| Table | What it holds |
+| --- | --- |
+| `accounts` | Where holdings live: a broker account, an exchange, a wallet. Name, optional broker, base currency, note. |
+| `portfolio_transactions` | One buy or sell per row: account, instrument, trade date, side, quantity, price per unit, fees, trade currency, note. |
+
+Quantity, cost basis, and P/L fall out of those rows, so a mistyped trade is
+fixed by correcting (or deleting) one row rather than by reconciling a stored
+balance. The instrument must already be tracked before you can book a trade
+against it — add it from *Manage → Add ticker* first, so the position has a
+price history to be marked against.
+
+### Entering trades
+
+From Grafana, use the **Portfolio** row on the *Manage* dashboard: *Add
+account*, then *Record transaction* (account name, ticker, buy/sell, quantity,
+price, and optionally date, fees, currency, note). A field that doesn't parse
+inserts nothing rather than erroring — if a trade doesn't show up in *Recent
+transactions*, check the account name and ticker.
+
+The same operations are scriptable without Grafana:
+
+```bash
+docker compose exec app python -m fintracker.portfolio account add "IBKR" --broker "Interactive Brokers" --currency EUR
+docker compose exec app python -m fintracker.portfolio buy  IBKR AMZN 12   --price 178.40 --date 2026-02-03 --fees 1.20
+docker compose exec app python -m fintracker.portfolio sell IBKR AMZN 4    --price 214.10 --date 2026-07-19
+docker compose exec app python -m fintracker.portfolio buy  Kraken BTC 0.35 --price 61000 --currency USD
+docker compose exec app python -m fintracker.portfolio positions
+docker compose exec app python -m fintracker.portfolio transactions --limit 20
+```
+
+`--date` defaults to today, `--fees` to 0, and `--currency` to the instrument's
+listing currency. `positions` prints each holding in its own currency (a quick
+check — the dashboard is what converts and totals).
+
+### How the numbers are computed
+
+Cost basis and realized P/L use the **average-cost** method: a buy raises the
+average cost per unit (fees included), a sell books
+`proceeds − fees − units sold × average cost` as realized P/L and leaves the
+average untouched. (Spain's IRPF uses FIFO for capital gains — this is a
+portfolio tracker, not a tax return.)
+
+The arithmetic lives in two mirrored places: the `portfolio_txn_state` view
+(migration 0022), which walks the ledger with a recursive CTE and feeds every
+panel, and `fintracker.portfolio.walk_transactions`, which backs the CLI and is
+what the unit tests exercise.
+
+Everything is normalised to **USD** — each trade at its own trade-date FX rate,
+each price at its bar's rate, both through `fx_usd_daily` — and the dashboard
+converts USD into the selected display currency. A currency with no FX history
+yet falls back to unconverted rather than disappearing, the same way the
+fundamentals dashboards degrade.
+
+Three views build on each other:
+
+- `portfolio_txn_state` — the ledger walked in order, carrying running quantity,
+  cost basis, and realized P/L per (account, instrument).
+- `portfolio_position_daily` — that state forward-filled onto **every calendar
+  day** from the first trade to today and joined to the last known close, so
+  weekends and holidays don't punch holes in the value series.
+- `portfolio_positions` — today's slice, plus the labels the allocation panels
+  group by.
+
+### Panels
+
+- **Overview** — market value, cost basis, unrealized / realized / total P/L,
+  and return on cost, all in the display currency.
+- **Portfolio value vs cost basis** — daily mark-to-market against what the
+  holdings cost.
+- **Drawdown from all-time high** — how far below the peak the portfolio sits.
+  The peak is taken over the whole history, so zooming in never invents a new
+  high.
+- **Allocation** — donuts by asset class, sector, region, and currency.
+- **Positions** — one row per holding per account: quantity, average cost, last
+  price, cost basis, market value, unrealized P/L (absolute and %), realized
+  P/L, and portfolio weight. Fully sold positions stay listed while they carry
+  realized P/L.
+- **Movers** — over the dashboard's time range, each position's price change and
+  the P/L it actually contributed. Buying or selling inside the range moves no
+  bar by itself, so this reads as contribution rather than cash flow.
+- **Transaction ledger** — the raw trades every number is derived from, in the
+  currency each settled in.
+
+Filter with the **Account** (multi-select) and **Currency** selectors at the top.
+
+### Sector and region
+
+Asset class comes from the instrument's `kind` and currency from its listing
+currency, both already tracked. Sector and region are filled in by
+`fintracker.ingest.classify`, which runs as part of the daily market ingest:
+equities take Yahoo Finance's own sector and country (folded into a
+continent-scale region), while crypto, metals, and funds get a fixed bucket. It
+only touches rows that don't have them yet, so a hand-edited sector survives the
+next run, and a ticker added today shows as *Unclassified* until the next daily
+pass. Force one immediately with:
+
+```bash
+docker compose exec app python -m fintracker.ingest.classify
+```
+
 ## Configuration
 
 All configuration is environment-driven; see `.env.example` for the full list.
@@ -410,6 +536,9 @@ data):
 docker compose exec app python -m fintracker.housing.ingest_ine     # INE series only
 docker compose exec app python -m fintracker.housing.ingest_mivau   # €/m² prices (MIVAU) only
 docker compose exec app python -m fintracker.housing.seed           # regions + indicators
+
+# Portfolio allocation buckets (sector/region) for newly added tickers:
+docker compose exec app python -m fintracker.ingest.classify
 ```
 
 (On the server these run against the container the deploy timer manages; prefix
@@ -443,13 +572,15 @@ Schedule that command from host cron if you want periodic backups.
 │   ├── config.py               # env -> Settings
 │   ├── db.py                   # engine, session, wait-for-db
 │   ├── models.py               # SQLAlchemy schema
-│   ├── seed.py                 # instruments registry (edit to change holdings)
+│   ├── seed.py                 # instruments registry (edit to change what's tracked)
 │   ├── migrate.py              # Alembic upgrade at boot
 │   ├── scheduler.py            # APScheduler jobs
+│   ├── manage.py               # CLI: add tickers, edit the weekly-email watchlist
+│   ├── portfolio.py            # CLI: accounts, trades, positions (average-cost walk)
 │   ├── heartbeat.py / healthcheck.py
 │   ├── run.py                  # entrypoint
 │   ├── ingest/                 # prices, forex, crypto, metals, market orchestrator,
-│   │                           #   fundamentals + sec_client, earnings
+│   │                           #   fundamentals + sec_client, earnings, classify
 │   ├── housing/                # Spain housing: region hierarchy + indicators,
 │   │                           #   INE + MIVAU ingest, data/regions_all.json
 │   └── report/                 # weekly email: data (queries), render (HTML/text), email_report (SMTP)

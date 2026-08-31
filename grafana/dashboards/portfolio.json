@@ -1,0 +1,1534 @@
+{
+  "uid": "fintracker-portfolio",
+  "title": "Portfolio",
+  "description": "Holdings, allocation, and P/L, derived from the portfolio_transactions ledger by the portfolio_* views (migration 0022). Every figure is computed in USD and converted into the selected display currency through fx_usd_daily; cost basis follows the average-cost method.",
+  "tags": [
+    "fintracker"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5m",
+  "time": {
+    "from": "now-1y",
+    "to": "now"
+  },
+  "timepicker": {
+    "quick_ranges": [
+      {
+        "display": "Last 24 hours",
+        "from": "now-24h",
+        "to": "now"
+      },
+      {
+        "display": "Last 2 days",
+        "from": "now-2d",
+        "to": "now"
+      },
+      {
+        "display": "Last 7 days",
+        "from": "now-7d",
+        "to": "now"
+      },
+      {
+        "display": "Last 30 days",
+        "from": "now-30d",
+        "to": "now"
+      },
+      {
+        "display": "Last 90 days",
+        "from": "now-90d",
+        "to": "now"
+      },
+      {
+        "display": "Last 6 months",
+        "from": "now-6M",
+        "to": "now"
+      },
+      {
+        "display": "Last 1 year",
+        "from": "now-1y",
+        "to": "now"
+      },
+      {
+        "display": "Last 2 years",
+        "from": "now-2y",
+        "to": "now"
+      },
+      {
+        "display": "Last 5 years",
+        "from": "now-5y",
+        "to": "now"
+      },
+      {
+        "display": "Last 10 years",
+        "from": "now-10y",
+        "to": "now"
+      },
+      {
+        "display": "Last 15 years",
+        "from": "now-15y",
+        "to": "now"
+      },
+      {
+        "display": "Yesterday",
+        "from": "now-1d/d",
+        "to": "now-1d/d"
+      },
+      {
+        "display": "Previous week",
+        "from": "now-1w/w",
+        "to": "now-1w/w"
+      },
+      {
+        "display": "Previous month",
+        "from": "now-1M/M",
+        "to": "now-1M/M"
+      },
+      {
+        "display": "Previous year",
+        "from": "now-1y/y",
+        "to": "now-1y/y"
+      },
+      {
+        "display": "Today so far",
+        "from": "now/d",
+        "to": "now"
+      },
+      {
+        "display": "This week so far",
+        "from": "now/w",
+        "to": "now"
+      },
+      {
+        "display": "This month so far",
+        "from": "now/M",
+        "to": "now"
+      },
+      {
+        "display": "This year so far",
+        "from": "now/y",
+        "to": "now"
+      }
+    ]
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "account",
+        "label": "Account",
+        "type": "query",
+        "datasource": {
+          "type": "postgres",
+          "uid": "fintracker-pg"
+        },
+        "query": "SELECT name FROM accounts ORDER BY name",
+        "definition": "SELECT name FROM accounts ORDER BY name",
+        "refresh": 1,
+        "sort": 0,
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        }
+      },
+      {
+        "name": "display_currency",
+        "label": "Currency",
+        "type": "query",
+        "datasource": {
+          "type": "postgres",
+          "uid": "fintracker-pg"
+        },
+        "query": "SELECT 'USD' AS currency UNION SELECT split_part(symbol, '/', 1) FROM instruments WHERE kind = 'forex' AND symbol LIKE '%/USD' ORDER BY 1",
+        "definition": "SELECT 'USD' AS currency UNION SELECT split_part(symbol, '/', 1) FROM instruments WHERE kind = 'forex' AND symbol LIKE '%/USD' ORDER BY 1",
+        "refresh": 1,
+        "sort": 0,
+        "multi": false,
+        "includeAll": false,
+        "current": {
+          "selected": true,
+          "text": "EUR",
+          "value": "EUR"
+        }
+      }
+    ]
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 100,
+      "type": "row",
+      "title": "Overview",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Market value — $display_currency",
+      "description": "Every open position marked at its latest close, converted into the selected display currency.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH fx AS (SELECT COALESCE((SELECT usd_rate FROM fx_usd_daily WHERE currency = '$display_currency' AND date <= CURRENT_DATE ORDER BY date DESC LIMIT 1), 1) AS rate) SELECT sum(p.market_value) / fx.rate AS value FROM portfolio_positions p, fx WHERE p.account = ANY(string_to_array('${account:csv}', ',')) GROUP BY fx.rate"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Cost basis — $display_currency",
+      "description": "What the open positions cost, fees included, each trade converted at its own trade-date FX rate (average-cost method).",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH fx AS (SELECT COALESCE((SELECT usd_rate FROM fx_usd_daily WHERE currency = '$display_currency' AND date <= CURRENT_DATE ORDER BY date DESC LIMIT 1), 1) AS rate) SELECT sum(p.cost_basis) / fx.rate AS value FROM portfolio_positions p, fx WHERE p.account = ANY(string_to_array('${account:csv}', ',')) GROUP BY fx.rate"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Unrealized P/L — $display_currency",
+      "description": "Market value minus cost basis across the open positions — the gain still on paper.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH fx AS (SELECT COALESCE((SELECT usd_rate FROM fx_usd_daily WHERE currency = '$display_currency' AND date <= CURRENT_DATE ORDER BY date DESC LIMIT 1), 1) AS rate) SELECT sum(p.unrealized) / fx.rate AS value FROM portfolio_positions p, fx WHERE p.account = ANY(string_to_array('${account:csv}', ',')) GROUP BY fx.rate"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Realized P/L — $display_currency",
+      "description": "Booked on every sell as proceeds − fees − units sold × average cost, summed over the whole ledger (closed positions included).",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH fx AS (SELECT COALESCE((SELECT usd_rate FROM fx_usd_daily WHERE currency = '$display_currency' AND date <= CURRENT_DATE ORDER BY date DESC LIMIT 1), 1) AS rate) SELECT sum(p.realized) / fx.rate AS value FROM portfolio_positions p, fx WHERE p.account = ANY(string_to_array('${account:csv}', ',')) GROUP BY fx.rate"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Total P/L — $display_currency",
+      "description": "Unrealized plus realized: what the portfolio has made since the first trade.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH fx AS (SELECT COALESCE((SELECT usd_rate FROM fx_usd_daily WHERE currency = '$display_currency' AND date <= CURRENT_DATE ORDER BY date DESC LIMIT 1), 1) AS rate) SELECT sum(p.unrealized + p.realized) / fx.rate AS value FROM portfolio_positions p, fx WHERE p.account = ANY(string_to_array('${account:csv}', ',')) GROUP BY fx.rate"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Return on cost",
+      "description": "Unrealized P/L as a percentage of the cost basis of the open positions. Currency-independent, so the display currency doesn't move it.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH fx AS (SELECT COALESCE((SELECT usd_rate FROM fx_usd_daily WHERE currency = '$display_currency' AND date <= CURRENT_DATE ORDER BY date DESC LIMIT 1), 1) AS rate) SELECT 100.0 * sum(p.unrealized) / NULLIF(sum(p.cost_basis), 0) AS value FROM portfolio_positions p, fx WHERE p.account = ANY(string_to_array('${account:csv}', ',')) GROUP BY fx.rate"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Portfolio value vs cost basis — $display_currency",
+      "description": "Daily mark-to-market of every position held that day against what it cost. Both lines carry across weekends and holidays (the last close and the last ledger state are held forward), so the series has one point per calendar day.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 16,
+        "x": 0,
+        "y": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "spanNulls": true,
+            "showPoints": "never"
+          },
+          "unit": "short",
+          "decimals": 2
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Cost basis"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "text"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    8,
+                    6
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH totals AS ( SELECT d.date, sum(d.market_value) AS market_value, sum(d.cost_basis) AS cost_basis FROM portfolio_position_daily d JOIN accounts a ON a.id = d.account_id WHERE a.name = ANY(string_to_array('${account:csv}', ',')) GROUP BY d.date ) SELECT t.date::timestamptz AS \"time\", m.metric, (CASE WHEN m.metric = 'Market value' THEN t.market_value ELSE t.cost_basis END) / COALESCE(NULLIF(fx.usd_rate, 0), 1) AS value FROM totals t CROSS JOIN (VALUES ('Market value'), ('Cost basis')) AS m(metric) LEFT JOIN fx_usd_daily fx ON fx.currency = '$display_currency' AND fx.date = t.date WHERE $__timeFilter(t.date) ORDER BY 1, 2"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Drawdown from all-time high",
+      "description": "How far the portfolio sits below its highest value ever reached (0% = at a new high). The peak is taken over the whole history, not just the visible range, so zooming in never invents a new high.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 8,
+        "x": 16,
+        "y": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 25,
+            "spanNulls": true,
+            "showPoints": "never",
+            "gradientMode": "opacity"
+          },
+          "unit": "percent",
+          "decimals": 2,
+          "max": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "red"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH totals AS ( SELECT d.date, sum(d.market_value) AS market_value FROM portfolio_position_daily d JOIN accounts a ON a.id = d.account_id WHERE a.name = ANY(string_to_array('${account:csv}', ',')) GROUP BY d.date ), peaks AS ( SELECT date, market_value, max(market_value) OVER (ORDER BY date) AS ath FROM totals ) SELECT date::timestamptz AS \"time\", 'Drawdown' AS metric, CASE WHEN ath > 0 THEN 100.0 * (market_value / ath - 1) END AS value FROM peaks WHERE $__timeFilter(date) ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 101,
+      "type": "row",
+      "title": "Allocation",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 15
+      },
+      "panels": []
+    },
+    {
+      "id": 9,
+      "type": "piechart",
+      "title": "Allocation by asset class",
+      "description": "Market value of the open positions split by instrument kind — equities, crypto, precious metals, funds.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 6,
+        "x": 0,
+        "y": 16
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 2,
+          "custom": {
+            "hideFrom": {}
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": true,
+          "calcs": [],
+          "fields": ""
+        },
+        "pieType": "donut",
+        "displayLabels": [
+          "percent"
+        ],
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": [
+            "value",
+            "percent"
+          ]
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH fx AS (SELECT COALESCE((SELECT usd_rate FROM fx_usd_daily WHERE currency = '$display_currency' AND date <= CURRENT_DATE ORDER BY date DESC LIMIT 1), 1) AS rate) SELECT p.asset_class AS \"Asset class\", sum(p.market_value) / fx.rate AS value FROM portfolio_positions p, fx WHERE p.account = ANY(string_to_array('${account:csv}', ',')) AND p.quantity > 0 GROUP BY p.asset_class, fx.rate ORDER BY 2 DESC"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "piechart",
+      "title": "Allocation by sector",
+      "description": "Yahoo Finance's sector for equities; crypto and metals carry their own bucket. Names not yet classified show as Unclassified — the daily ingest fills them in.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 6,
+        "x": 6,
+        "y": 16
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 2,
+          "custom": {
+            "hideFrom": {}
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": true,
+          "calcs": [],
+          "fields": ""
+        },
+        "pieType": "donut",
+        "displayLabels": [
+          "percent"
+        ],
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": [
+            "value",
+            "percent"
+          ]
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH fx AS (SELECT COALESCE((SELECT usd_rate FROM fx_usd_daily WHERE currency = '$display_currency' AND date <= CURRENT_DATE ORDER BY date DESC LIMIT 1), 1) AS rate) SELECT p.sector AS \"Sector\", sum(p.market_value) / fx.rate AS value FROM portfolio_positions p, fx WHERE p.account = ANY(string_to_array('${account:csv}', ',')) AND p.quantity > 0 GROUP BY p.sector, fx.rate ORDER BY 2 DESC"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "piechart",
+      "title": "Allocation by region",
+      "description": "Continent-scale region of the issuer (from Yahoo's country), not of the exchange. Crypto and metals are Global.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 6,
+        "x": 12,
+        "y": 16
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 2,
+          "custom": {
+            "hideFrom": {}
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": true,
+          "calcs": [],
+          "fields": ""
+        },
+        "pieType": "donut",
+        "displayLabels": [
+          "percent"
+        ],
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": [
+            "value",
+            "percent"
+          ]
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH fx AS (SELECT COALESCE((SELECT usd_rate FROM fx_usd_daily WHERE currency = '$display_currency' AND date <= CURRENT_DATE ORDER BY date DESC LIMIT 1), 1) AS rate) SELECT p.region AS \"Region\", sum(p.market_value) / fx.rate AS value FROM portfolio_positions p, fx WHERE p.account = ANY(string_to_array('${account:csv}', ',')) AND p.quantity > 0 GROUP BY p.region, fx.rate ORDER BY 2 DESC"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "piechart",
+      "title": "Allocation by currency",
+      "description": "The currency each holding is quoted in — the FX exposure behind the converted totals above.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 6,
+        "x": 18,
+        "y": 16
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 2,
+          "custom": {
+            "hideFrom": {}
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": true,
+          "calcs": [],
+          "fields": ""
+        },
+        "pieType": "donut",
+        "displayLabels": [
+          "percent"
+        ],
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": [
+            "value",
+            "percent"
+          ]
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH fx AS (SELECT COALESCE((SELECT usd_rate FROM fx_usd_daily WHERE currency = '$display_currency' AND date <= CURRENT_DATE ORDER BY date DESC LIMIT 1), 1) AS rate) SELECT p.currency AS \"Currency\", sum(p.market_value) / fx.rate AS value FROM portfolio_positions p, fx WHERE p.account = ANY(string_to_array('${account:csv}', ',')) AND p.quantity > 0 GROUP BY p.currency, fx.rate ORDER BY 2 DESC"
+        }
+      ]
+    },
+    {
+      "id": 102,
+      "type": "row",
+      "title": "Positions & P/L",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 25
+      },
+      "panels": []
+    },
+    {
+      "id": 13,
+      "type": "table",
+      "title": "Positions — $display_currency",
+      "description": "One row per holding per account, priced at its latest close. Cost basis and average cost follow the average-cost method: a buy raises the average (fees included), a sell books realized P/L and leaves the average alone. Fully sold positions stay listed while they carry realized P/L.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 24,
+        "x": 0,
+        "y": 26
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Quantity"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 4
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Avg cost"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Last price"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Cost basis"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Market value"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Unrealized"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 0
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Realized"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 0
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Unrealized %"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 0
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Weight %"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "gradient"
+                }
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 100
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH fx AS (SELECT COALESCE((SELECT usd_rate FROM fx_usd_daily WHERE currency = '$display_currency' AND date <= CURRENT_DATE ORDER BY date DESC LIMIT 1), 1) AS rate), held AS ( SELECT * FROM portfolio_positions WHERE account = ANY(string_to_array('${account:csv}', ',')) ), total AS (SELECT sum(market_value) AS value FROM held WHERE quantity > 0) SELECT p.symbol AS \"Symbol\", p.instrument AS \"Name\", p.account AS \"Account\", p.asset_class AS \"Asset class\", p.sector AS \"Sector\", p.region AS \"Region\", p.quantity AS \"Quantity\", p.avg_cost / fx.rate AS \"Avg cost\", p.price_usd / fx.rate AS \"Last price\", p.cost_basis / fx.rate AS \"Cost basis\", p.market_value / fx.rate AS \"Market value\", p.unrealized / fx.rate AS \"Unrealized\", p.unrealized_pct AS \"Unrealized %\", p.realized / fx.rate AS \"Realized\", 100.0 * p.market_value / NULLIF(total.value, 0) AS \"Weight %\" FROM held p, fx, total WHERE p.quantity <> 0 OR p.realized <> 0 ORDER BY p.market_value DESC NULLS LAST"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "bargauge",
+      "title": "Movers — price change over the selected range",
+      "description": "Per currently-held instrument: how far its price moved between the first and last day of the dashboard's time range, in the instrument's own terms (position size doesn't enter into it).",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 37
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": true,
+          "calcs": [],
+          "fields": ""
+        },
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "valueMode": "color",
+        "showUnfilled": true,
+        "minVizWidth": 8,
+        "minVizHeight": 16,
+        "namePlacement": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH fx AS (SELECT COALESCE((SELECT usd_rate FROM fx_usd_daily WHERE currency = '$display_currency' AND date <= CURRENT_DATE ORDER BY date DESC LIMIT 1), 1) AS rate), window_days AS ( SELECT d.account_id, d.instrument_id, min(d.date) AS first_day, max(d.date) AS last_day FROM portfolio_position_daily d JOIN accounts a ON a.id = d.account_id WHERE a.name = ANY(string_to_array('${account:csv}', ',')) AND $__timeFilter(d.date) GROUP BY 1, 2 ), edges AS ( SELECT w.instrument_id, o.price_usd AS open_price, c.price_usd AS close_price, c.quantity, o.unrealized + o.realized AS open_pl, c.unrealized + c.realized AS close_pl FROM window_days w JOIN portfolio_position_daily o ON o.account_id = w.account_id AND o.instrument_id = w.instrument_id AND o.date = w.first_day JOIN portfolio_position_daily c ON c.account_id = w.account_id AND c.instrument_id = w.instrument_id AND c.date = w.last_day ) SELECT i.symbol AS \"Symbol\", 100.0 * (max(e.close_price) / NULLIF(max(e.open_price), 0) - 1) AS value FROM edges e JOIN instruments i ON i.id = e.instrument_id WHERE e.quantity <> 0 GROUP BY i.symbol ORDER BY 2 DESC"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "type": "bargauge",
+      "title": "Movers — P/L over the selected range — $display_currency",
+      "description": "What each position actually made or lost over the range: the change in its unrealized plus realized P/L. Buying or selling inside the range moves no bar by itself — only prices do — so this reads as contribution, not cash flow.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 37
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": true,
+          "calcs": [],
+          "fields": ""
+        },
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "valueMode": "color",
+        "showUnfilled": true,
+        "minVizWidth": 8,
+        "minVizHeight": 16,
+        "namePlacement": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH fx AS (SELECT COALESCE((SELECT usd_rate FROM fx_usd_daily WHERE currency = '$display_currency' AND date <= CURRENT_DATE ORDER BY date DESC LIMIT 1), 1) AS rate), window_days AS ( SELECT d.account_id, d.instrument_id, min(d.date) AS first_day, max(d.date) AS last_day FROM portfolio_position_daily d JOIN accounts a ON a.id = d.account_id WHERE a.name = ANY(string_to_array('${account:csv}', ',')) AND $__timeFilter(d.date) GROUP BY 1, 2 ), edges AS ( SELECT w.instrument_id, o.price_usd AS open_price, c.price_usd AS close_price, c.quantity, o.unrealized + o.realized AS open_pl, c.unrealized + c.realized AS close_pl FROM window_days w JOIN portfolio_position_daily o ON o.account_id = w.account_id AND o.instrument_id = w.instrument_id AND o.date = w.first_day JOIN portfolio_position_daily c ON c.account_id = w.account_id AND c.instrument_id = w.instrument_id AND c.date = w.last_day ) SELECT i.symbol AS \"Symbol\", sum(e.close_pl - e.open_pl) / max(fx.rate) AS value FROM edges e JOIN instruments i ON i.id = e.instrument_id, fx GROUP BY i.symbol HAVING sum(e.close_pl - e.open_pl) <> 0 ORDER BY 2 DESC"
+        }
+      ]
+    },
+    {
+      "id": 103,
+      "type": "row",
+      "title": "Ledger",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 46
+      },
+      "panels": []
+    },
+    {
+      "id": 16,
+      "type": "table",
+      "title": "Transaction ledger (as entered)",
+      "description": "The raw buys and sells every number on this dashboard is derived from, in the currency each trade settled in — not converted. Record trades from the Manage dashboard or with `python -m fintracker.portfolio`.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 47
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Side"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "buy": {
+                        "color": "green",
+                        "index": 0
+                      },
+                      "sell": {
+                        "color": "red",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Quantity"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 4
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Price"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Fees"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Cash flow"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 0
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT t.trade_date AS \"Date\", a.name AS \"Account\", i.symbol AS \"Symbol\", t.side AS \"Side\", t.quantity AS \"Quantity\", t.price AS \"Price\", t.fees AS \"Fees\", t.currency AS \"Currency\", (CASE WHEN t.side = 'buy' THEN -1 ELSE 1 END) * (t.quantity * t.price) - t.fees AS \"Cash flow\", COALESCE(t.note, '') AS \"Note\" FROM portfolio_transactions t JOIN accounts a ON a.id = t.account_id JOIN instruments i ON i.id = t.instrument_id WHERE a.name = ANY(string_to_array('${account:csv}', ',')) ORDER BY t.trade_date DESC, t.id DESC LIMIT 100"
+        }
+      ]
+    }
+  ]
+}

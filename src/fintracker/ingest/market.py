@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 
+from fintracker.ingest.classify import classify_instruments
 from fintracker.ingest.coinmetrics import ingest_onchain_metrics
 from fintracker.ingest.crypto import ingest_crypto_history, ingest_crypto_prices
 from fintracker.ingest.ecb import ingest_ecb_rates
@@ -32,6 +33,10 @@ def ingest_market_data() -> None:
         ("crypto-history", ingest_crypto_history),
         ("crypto-spot", ingest_crypto_prices),
         ("onchain-metrics", ingest_onchain_metrics),
+        # Sector/region buckets for the portfolio allocation panels; only
+        # touches instruments that don't have them yet, so it is nearly free
+        # once every tracked name has been classified once.
+        ("classification", classify_instruments),
     ):
         try:
             totals[name] = ingestor()

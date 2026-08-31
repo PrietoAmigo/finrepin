@@ -1,13 +1,13 @@
 {
   "uid": "fintracker-manage",
   "title": "Manage",
-  "description": "Add tickers to the database and edit the weekly-email watchlist. The Business Forms panels write to Postgres; the app ingests queued tickers (minutely) and the weekly report reads the watchlist flag.",
+  "description": "Add tickers, edit the weekly-email watchlist, and keep the portfolio ledger (accounts and trades). The Business Forms panels write to Postgres; the app ingests queued tickers (minutely), the weekly report reads the watchlist flag, and the Portfolio dashboard derives holdings and P/L from the ledger.",
   "tags": [
     "fintracker"
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "10s",
   "time": {
     "from": "now-6h",
@@ -60,7 +60,7 @@
           "confirm": false,
           "contentType": "application/json",
           "payloadMode": "custom",
-          "getPayload": "const payload = {};\ncontext.panel.elements.forEach((element) => {\n  payload[element.id] = Array.isArray(element.value)\n    ? element.value.join(',')\n    : element.value;\n});\nreturn payload;",
+          "getPayload": "const escape = (v) => String(v).replace(/'/g, \"''\");\nconst payload = {};\ncontext.panel.elements.forEach((element) => {\n  payload[element.id] = Array.isArray(element.value)\n    ? element.value.map(escape).join(',')\n    : escape(element.value);\n});\nreturn payload;",
           "payload": {
             "editorMode": "code",
             "format": "table",
@@ -299,7 +299,7 @@
           "confirm": false,
           "contentType": "application/json",
           "payloadMode": "custom",
-          "getPayload": "const payload = {};\ncontext.panel.elements.forEach((element) => {\n  payload[element.id] = Array.isArray(element.value)\n    ? element.value.join(',')\n    : element.value;\n});\nreturn payload;",
+          "getPayload": "const escape = (v) => String(v).replace(/'/g, \"''\");\nconst payload = {};\ncontext.panel.elements.forEach((element) => {\n  payload[element.id] = Array.isArray(element.value)\n    ? element.value.map(escape).join(',')\n    : escape(element.value);\n});\nreturn payload;",
           "payload": {
             "editorMode": "code",
             "format": "table",
@@ -378,7 +378,7 @@
           "confirm": false,
           "contentType": "application/json",
           "payloadMode": "custom",
-          "getPayload": "const payload = {};\ncontext.panel.elements.forEach((element) => {\n  payload[element.id] = Array.isArray(element.value)\n    ? element.value.join(',')\n    : element.value;\n});\nreturn payload;",
+          "getPayload": "const escape = (v) => String(v).replace(/'/g, \"''\");\nconst payload = {};\ncontext.panel.elements.forEach((element) => {\n  payload[element.id] = Array.isArray(element.value)\n    ? element.value.map(escape).join(',')\n    : escape(element.value);\n});\nreturn payload;",
           "payload": {
             "editorMode": "code",
             "format": "table",
@@ -429,6 +429,459 @@
           "variant": "secondary"
         }
       }
+    },
+    {
+      "id": 12,
+      "type": "row",
+      "title": "Portfolio",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 19
+      },
+      "panels": []
+    },
+    {
+      "id": 7,
+      "type": "volkovlabs-form-panel",
+      "title": "Add account",
+      "description": "Register a broker account, exchange, or wallet to book trades against. Submitting an existing name updates its details instead of duplicating it.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 7,
+        "x": 0,
+        "y": 20
+      },
+      "targets": [],
+      "options": {
+        "initial": {
+          "method": "-",
+          "contentType": "application/json"
+        },
+        "update": {
+          "method": "datasource",
+          "datasource": "fintracker-postgres",
+          "confirm": false,
+          "contentType": "application/json",
+          "payloadMode": "custom",
+          "getPayload": "const escape = (v) => String(v).replace(/'/g, \"''\");\nconst payload = {};\ncontext.panel.elements.forEach((element) => {\n  payload[element.id] = Array.isArray(element.value)\n    ? element.value.map(escape).join(',')\n    : escape(element.value);\n});\nreturn payload;",
+          "payload": {
+            "editorMode": "code",
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "INSERT INTO accounts (name, broker, currency, note)\nSELECT c.name, NULLIF(c.broker, ''), c.currency, NULLIF(c.note, '')\nFROM (SELECT trim('${payload.name}') AS name,\n             trim('${payload.broker}') AS broker,\n             COALESCE(NULLIF(upper(trim('${payload.currency}')), ''), 'EUR') AS currency,\n             trim('${payload.note}') AS note) c\nWHERE c.name <> '' AND c.currency ~ '^[A-Z]{3}$'\nON CONFLICT (name) DO UPDATE\nSET broker = EXCLUDED.broker, currency = EXCLUDED.currency, note = EXCLUDED.note",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "parameters": [],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            }
+          },
+          "code": "if (context.panel.response && context.panel.response.state === 'Done') {\n  context.grafana.notifySuccess(['Account', 'Saved. Refresh to see it in the Accounts table.']);\n  context.panel.patchFormValue({ name: \"\", broker: \"\", note: \"\" });\n} else {\n  context.grafana.notifyError(['Account', 'Update failed \\u2014 open Panel \\u2192 Inspect \\u2192 Query for the error.']);\n}"
+        },
+        "elements": [
+          {
+            "id": "name",
+            "title": "Name",
+            "type": "string",
+            "value": "",
+            "section": "",
+            "width": 0,
+            "labelWidth": 12,
+            "options": [],
+            "tooltip": "e.g. IBKR, Kraken, Coinbase",
+            "uid": "manage-acct-name"
+          },
+          {
+            "id": "broker",
+            "title": "Broker",
+            "type": "string",
+            "value": "",
+            "section": "",
+            "width": 0,
+            "labelWidth": 12,
+            "options": [],
+            "tooltip": "Optional, free text",
+            "uid": "manage-acct-broker"
+          },
+          {
+            "id": "currency",
+            "title": "Currency",
+            "type": "string",
+            "value": "EUR",
+            "section": "",
+            "width": 0,
+            "labelWidth": 12,
+            "options": [],
+            "tooltip": "Base currency, three letters (default EUR)",
+            "uid": "manage-acct-ccy"
+          },
+          {
+            "id": "note",
+            "title": "Note",
+            "type": "string",
+            "value": "",
+            "section": "",
+            "width": 0,
+            "labelWidth": 12,
+            "options": [],
+            "tooltip": "Optional",
+            "uid": "manage-acct-note"
+          }
+        ],
+        "submit": {
+          "text": "Add account",
+          "variant": "primary",
+          "icon": "plus"
+        },
+        "reset": {
+          "text": "Clear",
+          "variant": "secondary"
+        }
+      }
+    },
+    {
+      "id": 8,
+      "type": "volkovlabs-form-panel",
+      "title": "Record transaction",
+      "description": "Append one buy or sell to the portfolio ledger. The account must exist and the symbol must already be tracked (add it above first). Quantity and price are positive numbers in the trade currency, which defaults to the instrument's listing currency; the date defaults to today. Holdings, cost basis, and P/L on the Portfolio dashboard are derived from these rows.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 10,
+        "x": 7,
+        "y": 20
+      },
+      "targets": [],
+      "options": {
+        "initial": {
+          "method": "-",
+          "contentType": "application/json"
+        },
+        "update": {
+          "method": "datasource",
+          "datasource": "fintracker-postgres",
+          "confirm": false,
+          "contentType": "application/json",
+          "payloadMode": "custom",
+          "getPayload": "const escape = (v) => String(v).replace(/'/g, \"''\");\nconst payload = {};\ncontext.panel.elements.forEach((element) => {\n  payload[element.id] = Array.isArray(element.value)\n    ? element.value.map(escape).join(',')\n    : escape(element.value);\n});\nreturn payload;",
+          "payload": {
+            "editorMode": "code",
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "INSERT INTO portfolio_transactions\n    (account_id, instrument_id, trade_date, side, quantity, price, fees, currency, note)\nSELECT a.id, i.id, COALESCE(f.trade_date, CURRENT_DATE),\n       f.side, f.quantity, f.price, COALESCE(f.fees, 0),\n       COALESCE(f.currency, i.currency),\n       NULLIF(trim('${payload.note}'), '')\nFROM (SELECT lower(trim('${payload.side}')) AS side,\n             substring(trim('${payload.quantity}') from '^[0-9]+(?:\\.[0-9]+)?$')::numeric AS quantity,\n             substring(trim('${payload.price}') from '^[0-9]+(?:\\.[0-9]+)?$')::numeric AS price,\n             substring(trim('${payload.fees}') from '^[0-9]+(?:\\.[0-9]+)?$')::numeric AS fees,\n             substring(upper(trim('${payload.currency}')) from '^[A-Z]{3}$') AS currency,\n             to_date(substring(trim('${payload.trade_date}') from '^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])$'),\n                     'YYYY-MM-DD') AS trade_date) f\nJOIN accounts a ON a.name = trim('${payload.account}')\nJOIN instruments i ON i.symbol = upper(trim('${payload.symbol}'))\nWHERE f.side IN ('buy', 'sell')\n  AND f.quantity > 0 AND f.price IS NOT NULL\n  -- Blank is fine (it means \"default\"); typed-but-unparseable is not, so the\n  -- row is dropped rather than quietly booked with today's date or no fees.\n  AND (trim('${payload.fees}') = '' OR f.fees IS NOT NULL)\n  AND (trim('${payload.currency}') = '' OR f.currency IS NOT NULL)\n  AND (trim('${payload.trade_date}') = '' OR f.trade_date IS NOT NULL)",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "parameters": [],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            }
+          },
+          "code": "if (context.panel.response && context.panel.response.state === 'Done') {\n  context.grafana.notifySuccess(['Transaction', 'Recorded. Refresh to see it below, or open the Portfolio dashboard.']);\n  context.panel.patchFormValue({ quantity: \"\", price: \"\", fees: \"\", note: \"\" });\n} else {\n  context.grafana.notifyError(['Transaction', 'Update failed \\u2014 open Panel \\u2192 Inspect \\u2192 Query for the error.']);\n}"
+        },
+        "elements": [
+          {
+            "id": "account",
+            "title": "Account",
+            "type": "string",
+            "value": "",
+            "section": "",
+            "width": 0,
+            "labelWidth": 12,
+            "options": [],
+            "tooltip": "Exactly as named above",
+            "uid": "manage-trade-account"
+          },
+          {
+            "id": "symbol",
+            "title": "Symbol",
+            "type": "string",
+            "value": "",
+            "section": "",
+            "width": 0,
+            "labelWidth": 12,
+            "options": [],
+            "tooltip": "A tracked ticker, e.g. AMZN",
+            "uid": "manage-trade-symbol"
+          },
+          {
+            "id": "side",
+            "title": "Side",
+            "type": "radio",
+            "value": "buy",
+            "section": "",
+            "width": 0,
+            "labelWidth": 12,
+            "options": [
+              {
+                "id": "buy",
+                "label": "Buy",
+                "value": "buy"
+              },
+              {
+                "id": "sell",
+                "label": "Sell",
+                "value": "sell"
+              }
+            ],
+            "tooltip": "",
+            "uid": "manage-trade-side"
+          },
+          {
+            "id": "quantity",
+            "title": "Quantity",
+            "type": "string",
+            "value": "",
+            "section": "",
+            "width": 0,
+            "labelWidth": 12,
+            "options": [],
+            "tooltip": "Units, e.g. 12 or 0.35",
+            "uid": "manage-trade-qty"
+          },
+          {
+            "id": "price",
+            "title": "Price / unit",
+            "type": "string",
+            "value": "",
+            "section": "",
+            "width": 0,
+            "labelWidth": 12,
+            "options": [],
+            "tooltip": "In the trade currency",
+            "uid": "manage-trade-price"
+          },
+          {
+            "id": "fees",
+            "title": "Fees",
+            "type": "string",
+            "value": "",
+            "section": "",
+            "width": 0,
+            "labelWidth": 12,
+            "options": [],
+            "tooltip": "Commissions and taxes (optional)",
+            "uid": "manage-trade-fees"
+          },
+          {
+            "id": "trade_date",
+            "title": "Trade date",
+            "type": "string",
+            "value": "",
+            "section": "",
+            "width": 0,
+            "labelWidth": 12,
+            "options": [],
+            "tooltip": "YYYY-MM-DD (optional, defaults to today)",
+            "uid": "manage-trade-date"
+          },
+          {
+            "id": "currency",
+            "title": "Currency",
+            "type": "string",
+            "value": "",
+            "section": "",
+            "width": 0,
+            "labelWidth": 12,
+            "options": [],
+            "tooltip": "Optional — defaults to the instrument's listing currency",
+            "uid": "manage-trade-ccy"
+          },
+          {
+            "id": "note",
+            "title": "Note",
+            "type": "string",
+            "value": "",
+            "section": "",
+            "width": 0,
+            "labelWidth": 12,
+            "options": [],
+            "tooltip": "Optional",
+            "uid": "manage-trade-note"
+          }
+        ],
+        "submit": {
+          "text": "Record trade",
+          "variant": "primary",
+          "icon": "plus"
+        },
+        "reset": {
+          "text": "Clear",
+          "variant": "secondary"
+        }
+      }
+    },
+    {
+      "id": 9,
+      "type": "table",
+      "title": "Accounts",
+      "description": "Accounts trades can be booked against, and how many the ledger holds for each.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 7,
+        "x": 17,
+        "y": 20
+      },
+      "options": {
+        "showHeader": true
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT a.name AS \"Account\", a.currency AS \"Ccy\", COALESCE(a.broker, '') AS \"Broker\", (SELECT count(*) FROM portfolio_transactions t WHERE t.account_id = a.id) AS \"Trades\" FROM accounts a ORDER BY a.name",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "table",
+      "title": "Recent transactions",
+      "description": "The last 15 ledger entries, in the currency each trade settled in. Nothing appeared? The form silently inserts no row when the account or symbol is unknown or a number doesn't parse.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 30
+      },
+      "options": {
+        "showHeader": true
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Side"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "buy": {
+                        "color": "green",
+                        "index": 0
+                      },
+                      "sell": {
+                        "color": "red",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT t.trade_date AS \"Date\", a.name AS \"Account\", i.symbol AS \"Symbol\", t.side AS \"Side\", t.quantity AS \"Quantity\", t.price AS \"Price\", t.fees AS \"Fees\", t.currency AS \"Ccy\", COALESCE(t.note, '') AS \"Note\" FROM portfolio_transactions t JOIN accounts a ON a.id = t.account_id JOIN instruments i ON i.id = t.instrument_id ORDER BY t.trade_date DESC, t.id DESC LIMIT 15",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ]
     }
   ]
 }

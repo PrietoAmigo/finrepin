@@ -11,6 +11,7 @@ from decimal import Decimal
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
@@ -48,6 +49,11 @@ class Instrument(Base):
     # SEC: resolved lazily from company_tickers.json, then persisted.
     cik: Mapped[str | None] = mapped_column(String(10))
     taxonomy: Mapped[str | None] = mapped_column(String(16))  # us-gaap | ifrs-full
+    # Portfolio allocation buckets, filled by ingest.classify from Yahoo's
+    # sector/country (equities) or from the instrument kind (crypto, metals).
+    # NULL until classified; the dashboards show those as "Unclassified".
+    sector: Mapped[str | None] = mapped_column(String(64))
+    region: Mapped[str | None] = mapped_column(String(32))
     # Whether this instrument is on the weekly-email watchlist, editable from the
     # Manage dashboard. When no instrument is flagged, the report falls back to
     # REPORT_SYMBOLS (then to every instrument) — see report.data.build_report.
@@ -208,6 +214,65 @@ class Indicator(Base):
     # price | income | demographic | housing | area
     category: Mapped[str] = mapped_column(String(24))
     higher_is: Mapped[str] = mapped_column(String(8), default="neutral")
+
+
+class Account(Base):
+    """A place holdings live: a broker account, an exchange, a wallet.
+
+    ``currency`` is the account's base currency — informational here (every
+    portfolio view normalises to USD and the dashboard converts from there),
+    but it is the default trade currency when a transaction doesn't name one.
+    """
+
+    __tablename__ = "accounts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(64), unique=True)
+    broker: Mapped[str | None] = mapped_column(String(64))
+    currency: Mapped[str] = mapped_column(String(8), server_default="EUR")
+    note: Mapped[str | None] = mapped_column(String(256))
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class PortfolioTransaction(Base):
+    """One buy or sell of one instrument in one account — the whole portfolio
+    ledger. Holdings, cost basis, and realized P/L are *derived* from these
+    rows (average-cost method) by the portfolio views in migration 0022 and,
+    for the CLI, by ``portfolio.walk_transactions``.
+
+    ``quantity`` and ``price`` are always positive; ``side`` carries the sign.
+    ``currency`` is the currency the trade settled in (``price`` and ``fees``
+    are quoted in it), converted to USD at the trade date's FX rate.
+    """
+
+    __tablename__ = "portfolio_transactions"
+    __table_args__ = (
+        CheckConstraint("side IN ('buy', 'sell')", name="ck_portfolio_txn_side"),
+        CheckConstraint("quantity > 0", name="ck_portfolio_txn_quantity"),
+        Index("ix_portfolio_txn_position", "account_id", "instrument_id", "trade_date"),
+        Index("ix_portfolio_txn_date", "trade_date"),
+    )
+
+    # A single-user trade ledger stays small, so a plain int key is plenty.
+    id: Mapped[int] = mapped_column(primary_key=True)
+    account_id: Mapped[int] = mapped_column(
+        ForeignKey("accounts.id", ondelete="CASCADE"), index=True
+    )
+    instrument_id: Mapped[int] = mapped_column(
+        ForeignKey("instruments.id", ondelete="CASCADE"), index=True
+    )
+    trade_date: Mapped[dt.date] = mapped_column(Date)
+    side: Mapped[str] = mapped_column(String(8))  # buy | sell
+    quantity: Mapped[Decimal] = mapped_column(Numeric(30, 10))
+    price: Mapped[Decimal] = mapped_column(Numeric(30, 10))
+    fees: Mapped[Decimal] = mapped_column(Numeric(20, 6), server_default=text("0"))
+    currency: Mapped[str] = mapped_column(String(8))
+    note: Mapped[str | None] = mapped_column(String(256))
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class RegionObservation(Base):
