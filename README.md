@@ -392,14 +392,15 @@ The **IRR** is the rate that discounts a window's cash flows to zero (Excel's
 XIRR, 365-day years). `portfolio_cash_flows_in(ccy, from, to)` lists them per
 account: the holdings' value at the close of the day before the window as if
 bought then, every buy (out) and sell (in) inside it, fees included, and the
-value at its end as if sold then. `xirr(amounts, dates)` solves for the rate,
-mirrored in Python by `fintracker.portfolio.xirr`.
+value at its end as if sold then. `xirr(amounts, dates)` solves for the annual
+rate (mirrored in Python by `fintracker.portfolio.xirr`), which the stat
+compounds back over the time the money was invested in the window.
 
 ### Panels
 
-- **Overview** — market value and **IRR** over the selected time range, both
-  annualized and over the period (the annualized figure extrapolates, so a short
-  range reads large), above a **Portfolio value vs cost basis** chart: daily
+- **Overview** — market value and **IRR over the period**: the money-weighted
+  return over the selected time range, not annualized (what the money invested
+  earned during the range), above a **Portfolio value vs cost basis** chart: daily
   mark-to-market against what the holdings cost. The cost basis only steps on
   trade days — up by what a buy paid, down by a sell's share at average cost.
 - **Positions** — one row per holding per account: symbol, portfolio weight,

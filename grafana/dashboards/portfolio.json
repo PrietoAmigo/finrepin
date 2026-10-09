@@ -239,15 +239,15 @@
     {
       "id": 6,
       "type": "stat",
-      "title": "IRR",
-      "description": "Internal rate of return (money-weighted) over the selected time range, in the display currency. Cash flows: the holdings' value at the close of the day before the range, as if bought then; every buy (out) and sell (in) inside the range at its trade-date FX rate, fees included; and the value at the end of the range, as if sold then. Annualized is Excel's XIRR (365-day years) — over a range shorter than a year it extrapolates, so a small move reads large. Over the period is the same rate compounded over the time the money was actually invested in the range: what it earned, not annualized.",
+      "title": "IRR over the period",
+      "description": "Money-weighted return (IRR) over the selected time range, in the display currency, not annualized: what the money invested earned during the range. Cash flows: the holdings' value at the close of the day before the range, as if bought then; every buy (out) and sell (in) inside the range at its trade-date FX rate, fees included; and the value at the end of the range, as if sold then. The rate is solved like Excel's XIRR and compounded over the time the money was actually invested in the range.",
       "datasource": {
         "type": "postgres",
         "uid": "fintracker-pg"
       },
       "gridPos": {
         "h": 4,
-        "w": 6,
+        "w": 4,
         "x": 4,
         "y": 1
       },
@@ -282,7 +282,7 @@
         "colorMode": "value",
         "graphMode": "none",
         "justifyMode": "auto",
-        "textMode": "value_and_name",
+        "textMode": "auto",
         "orientation": "auto"
       },
       "targets": [
@@ -295,7 +295,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH flows AS ( SELECT f.date, f.amount FROM portfolio_cash_flows_in('$display_currency', $__timeFrom()::date, $__timeTo()::date) f JOIN accounts a ON a.id = f.account_id WHERE a.name = ANY(string_to_array('${account:csv}', ',')) ), irr AS ( SELECT xirr(array_agg(amount), array_agg(date)) AS rate, (max(date) FILTER (WHERE amount <> 0) - min(date) FILTER (WHERE amount <> 0)) / 365.0 AS years FROM flows ) SELECT 100.0 * rate AS \"Annualized\", 100.0 * (power(1 + rate, years) - 1) AS \"Over the period\" FROM irr"
+          "rawSql": "WITH flows AS ( SELECT f.date, f.amount FROM portfolio_cash_flows_in('$display_currency', $__timeFrom()::date, $__timeTo()::date) f JOIN accounts a ON a.id = f.account_id WHERE a.name = ANY(string_to_array('${account:csv}', ',')) ), irr AS ( SELECT xirr(array_agg(amount), array_agg(date)) AS rate, (max(date) FILTER (WHERE amount <> 0) - min(date) FILTER (WHERE amount <> 0)) / 365.0 AS years FROM flows ) SELECT 100.0 * (power(1 + rate, years) - 1) AS value FROM irr"
         }
       ]
     },
