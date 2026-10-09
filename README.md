@@ -392,16 +392,29 @@ The **IRR** is the rate that discounts a window's cash flows to zero (Excel's
 XIRR, 365-day years). `portfolio_cash_flows_in(ccy, from, to)` lists them per
 account: the holdings' value at the close of the day before the window as if
 bought then, every buy (out) and sell (in) inside it, fees included, and the
-value at its end as if sold then. `xirr(amounts, dates)` solves for the rate,
-mirrored in Python by `fintracker.portfolio.xirr`.
+value at its end as if sold then. `xirr(amounts, dates)` solves for the annual
+rate (mirrored in Python by `fintracker.portfolio.xirr`), which the stat
+compounds back over the time the money was invested in the window.
+
+The **benchmark** line comes from `portfolio_benchmark_daily_in(ccy, symbol)`:
+a shadow position in one fund that received exactly the portfolio's cash flows.
+Each buy's outlay (fees included) buys fund units at that day's close, and each
+sell's proceeds sell them, all in the display currency at trade-date FX. With
+the same cash in and out, portfolio value minus benchmark value is how far ahead
+of (or behind) the fund the holdings are. The default fund is the iShares Core
+MSCI World UCITS ETF (Acc) on Xetra, seeded as `MSCIWORLD`. It is accumulating,
+so dividends are already in its price.
 
 ### Panels
 
-- **Overview** — market value and **IRR** over the selected time range, both
-  annualized and over the period (the annualized figure extrapolates, so a short
-  range reads large), above a **Portfolio value vs cost basis** chart: daily
-  mark-to-market against what the holdings cost. The cost basis only steps on
-  trade days — up by what a buy paid, down by a sell's share at average cost.
+- **Overview** — market value and **IRR over the period**: the money-weighted
+  return over the selected time range, not annualized (what the money invested
+  earned during the range), above a **Portfolio value vs cost basis vs
+  benchmark value** chart: daily mark-to-market against what the holdings cost.
+  The cost basis only steps on trade days — up by what a buy paid, down by a
+  sell's share at average cost.
+  The benchmark line is what the same money would be worth had it gone into
+  the fund picked in the **Benchmark** selector (MSCI World by default).
 - **Positions** — one row per holding per account: symbol, portfolio weight,
   daily change %, unrealized %, last price, average cost, quantity, market
   value, and the asset-class / sector / region labels. Fully sold positions stay
@@ -410,7 +423,9 @@ mirrored in Python by `fintracker.portfolio.xirr`.
 - **Transaction ledger** — the raw trades every number is derived from, in the
   currency each settled in.
 
-Filter with the **Account** (multi-select) and **Currency** selectors at the top.
+Filter with the **Account** (multi-select) and **Currency** selectors at the top;
+**Benchmark** picks the fund for the benchmark line from any tracked index or
+equity.
 
 ### Sector and region
 

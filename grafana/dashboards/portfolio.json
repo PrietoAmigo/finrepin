@@ -157,6 +157,27 @@
           "text": "EUR",
           "value": "EUR"
         }
+      },
+      {
+        "name": "benchmark",
+        "label": "Benchmark",
+        "description": "The fund the Benchmark value line puts your money into instead.",
+        "type": "query",
+        "datasource": {
+          "type": "postgres",
+          "uid": "fintracker-pg"
+        },
+        "query": "SELECT name AS __text, symbol AS __value FROM instruments WHERE kind IN ('index', 'equity') AND symbol <> 'VIX' ORDER BY name",
+        "definition": "SELECT name AS __text, symbol AS __value FROM instruments WHERE kind IN ('index', 'equity') AND symbol <> 'VIX' ORDER BY name",
+        "refresh": 1,
+        "sort": 0,
+        "multi": false,
+        "includeAll": false,
+        "current": {
+          "selected": true,
+          "text": "MSCI World (iShares Core ETF, Acc)",
+          "value": "MSCIWORLD"
+        }
       }
     ]
   },
@@ -239,15 +260,15 @@
     {
       "id": 6,
       "type": "stat",
-      "title": "IRR",
-      "description": "Internal rate of return (money-weighted) over the selected time range, in the display currency. Cash flows: the holdings' value at the close of the day before the range, as if bought then; every buy (out) and sell (in) inside the range at its trade-date FX rate, fees included; and the value at the end of the range, as if sold then. Annualized is Excel's XIRR (365-day years) — over a range shorter than a year it extrapolates, so a small move reads large. Over the period is the same rate compounded over the time the money was actually invested in the range: what it earned, not annualized.",
+      "title": "IRR over the period",
+      "description": "Money-weighted return (IRR) over the selected time range, in the display currency, not annualized: what the money invested earned during the range. Cash flows: the holdings' value at the close of the day before the range, as if bought then; every buy (out) and sell (in) inside the range at its trade-date FX rate, fees included; and the value at the end of the range, as if sold then. The rate is solved like Excel's XIRR and compounded over the time the money was actually invested in the range.",
       "datasource": {
         "type": "postgres",
         "uid": "fintracker-pg"
       },
       "gridPos": {
         "h": 4,
-        "w": 6,
+        "w": 4,
         "x": 4,
         "y": 1
       },
@@ -282,7 +303,7 @@
         "colorMode": "value",
         "graphMode": "none",
         "justifyMode": "auto",
-        "textMode": "value_and_name",
+        "textMode": "auto",
         "orientation": "auto"
       },
       "targets": [
@@ -295,15 +316,15 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH flows AS ( SELECT f.date, f.amount FROM portfolio_cash_flows_in('$display_currency', $__timeFrom()::date, $__timeTo()::date) f JOIN accounts a ON a.id = f.account_id WHERE a.name = ANY(string_to_array('${account:csv}', ',')) ), irr AS ( SELECT xirr(array_agg(amount), array_agg(date)) AS rate, (max(date) FILTER (WHERE amount <> 0) - min(date) FILTER (WHERE amount <> 0)) / 365.0 AS years FROM flows ) SELECT 100.0 * rate AS \"Annualized\", 100.0 * (power(1 + rate, years) - 1) AS \"Over the period\" FROM irr"
+          "rawSql": "WITH flows AS ( SELECT f.date, f.amount FROM portfolio_cash_flows_in('$display_currency', $__timeFrom()::date, $__timeTo()::date) f JOIN accounts a ON a.id = f.account_id WHERE a.name = ANY(string_to_array('${account:csv}', ',')) ), irr AS ( SELECT xirr(array_agg(amount), array_agg(date)) AS rate, (max(date) FILTER (WHERE amount <> 0) - min(date) FILTER (WHERE amount <> 0)) / 365.0 AS years FROM flows ) SELECT 100.0 * (power(1 + rate, years) - 1) AS value FROM irr"
         }
       ]
     },
     {
       "id": 7,
       "type": "timeseries",
-      "title": "Portfolio value vs cost basis — $display_currency",
-      "description": "Daily mark-to-market of every position held that day against what it cost, in the display currency. The cost basis only moves on trade days: a buy adds what was paid (fees included) and a sell removes the sold units' share at the average cost; it never moves with prices or exchange rates, because every trade is converted at its own trade-date FX rate. The gap between the lines is unrealized P/L, currency effects included. Both lines carry across weekends and holidays (the last close and the last ledger state are held forward), so the series has one point per calendar day.",
+      "title": "Portfolio value vs cost basis vs benchmark value — $display_currency",
+      "description": "Daily mark-to-market of every position held that day against what it cost, in the display currency. The cost basis only moves on trade days: a buy adds what was paid (fees included) and a sell removes the sold units' share at the average cost; it never moves with prices or exchange rates, because every trade is converted at its own trade-date FX rate. The gap between market value and cost basis is unrealized P/L, currency effects included. Benchmark value is what the same money would be worth had it gone into the fund picked in the Benchmark selector (MSCI World by default) instead: each buy's outlay buys fund units at that day's close, each sell's proceeds sell them. With the same cash in and out, the gap between market value and benchmark value is how far ahead of or behind the fund the holdings are. If sells took out more than the fund would have held, the benchmark line drops below zero. All lines carry across weekends and holidays (the last close and the last ledger state are held forward), so the series has one point per calendar day.",
       "datasource": {
         "type": "postgres",
         "uid": "fintracker-pg"
@@ -354,6 +375,40 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Market value"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Benchmark value"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#e2622d"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
           }
         ]
       },
@@ -380,7 +435,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "WITH totals AS ( SELECT d.date, sum(d.market_value) AS market_value, sum(d.cost_basis) AS cost_basis FROM portfolio_position_daily_in('$display_currency') d JOIN accounts a ON a.id = d.account_id WHERE a.name = ANY(string_to_array('${account:csv}', ',')) AND $__timeFilter(d.date) GROUP BY d.date ) SELECT t.date::timestamptz AS \"time\", m.metric, CASE WHEN m.metric = 'Market value' THEN t.market_value ELSE t.cost_basis END AS value FROM totals t CROSS JOIN (VALUES ('Market value'), ('Cost basis')) AS m(metric) ORDER BY 1, 2"
+          "rawSql": "WITH held AS ( SELECT id FROM accounts WHERE name = ANY(string_to_array('${account:csv}', ',')) ), pos AS ( SELECT d.date, sum(d.market_value) AS market_value, sum(d.cost_basis) AS cost_basis FROM portfolio_position_daily_in('$display_currency') d WHERE d.account_id IN (SELECT id FROM held) AND $__timeFilter(d.date) GROUP BY d.date ), bench AS ( SELECT b.date, sum(b.value) AS value FROM portfolio_benchmark_daily_in('$display_currency', '$benchmark') b WHERE b.account_id IN (SELECT id FROM held) AND $__timeFilter(b.date) GROUP BY b.date ) SELECT p.date::timestamptz AS \"time\", m.metric, CASE m.metric WHEN 'Market value' THEN p.market_value WHEN 'Cost basis' THEN p.cost_basis ELSE b.value END AS value FROM pos p LEFT JOIN bench b ON b.date = p.date CROSS JOIN (VALUES ('Market value'), ('Cost basis'), ('Benchmark value')) AS m(metric) ORDER BY 1, 2"
         }
       ]
     },
