@@ -217,6 +217,10 @@ INSTRUMENTS: list[dict[str, Any]] = [
     _index("ASX200", "S&P/ASX 200 (Oceania)", "AUD", "^AXJO"),
     _index("BOVESPA", "Bovespa (South America)", "BRL", "^BVSP"),
     _index("EEM", "MSCI Emerging Markets (iShares ETF)", "USD", "EEM"),
+    # The Portfolio dashboard's default benchmark: iShares Core MSCI World UCITS
+    # ETF (Acc) on Xetra, in EUR. Accumulating, so its close already carries the
+    # reinvested dividends a "what if I'd bought the fund instead" line needs.
+    _index("MSCIWORLD", "MSCI World (iShares Core ETF, Acc)", "EUR", "EUNL.DE"),
     # Volatility — the CBOE Volatility Index (VIX), the market's "fear gauge"
     # (30-day implied volatility of S&P 500 options). Registered as an `index`
     # so it backfills from Yahoo's ^VIX like the others, but it carries a level
