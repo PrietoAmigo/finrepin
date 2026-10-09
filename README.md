@@ -129,9 +129,10 @@ thing runs under Docker Compose and schedules itself — no external cron.
   transaction ledger** (`accounts` + `portfolio_transactions`), so correcting a
   mistyped trade fixes every number at once. Trades are entered from the
   *Manage* dashboard or with `python -m fintracker.portfolio`. Everything is
-  computed in USD and converted into the selected display currency through the
-  same `fx_usd_daily` view the fundamentals dashboards use. See
-  [Portfolio dashboard](#portfolio-dashboard) below.
+  computed in the selected display currency — each trade at its own trade-date
+  rate — through the same `fx_usd_daily` view the fundamentals dashboards use,
+  and an **IRR** stat reports the money-weighted return over the selected time
+  range. See [Portfolio dashboard](#portfolio-dashboard) below.
 
 All core features are in. What remains is **M7/M8 polish**: richer
 dashboards and deeper observability.
@@ -359,32 +360,48 @@ average cost per unit (fees included), a sell books
 average untouched. (Spain's IRPF uses FIFO for capital gains — this is a
 portfolio tracker, not a tax return.)
 
-The arithmetic lives in two mirrored places: the `portfolio_txn_state` view
-(migration 0022), which walks the ledger with a recursive CTE and feeds every
-panel, and `fintracker.portfolio.walk_transactions`, which backs the CLI and is
-what the unit tests exercise.
+The arithmetic lives in two mirrored places: the `portfolio_txn_state_in`
+function (migrations 0022–0023), which walks the ledger with a recursive CTE and
+feeds every panel, and `fintracker.portfolio.walk_transactions`, which backs the
+CLI and is what the unit tests exercise.
 
-Everything is normalised to **USD** — each trade at its own trade-date FX rate,
-each price at its bar's rate, both through `fx_usd_daily` — and the dashboard
-converts USD into the selected display currency. A currency with no FX history
-yet falls back to unconverted rather than disappearing, the same way the
-fundamentals dashboards degrade.
+Everything is computed **in the display currency** chosen at the top of the
+dashboard: each trade is converted at its own trade-date FX rate and each price
+at its bar's rate, both through `fx_usd_daily`. That matters for the cost
+basis: what a holding cost in EUR was fixed on the day it was bought, so it
+doesn't drift with today's exchange rate, and unrealized P/L includes the
+currency move since purchase. A currency with no FX history yet falls back to
+unconverted rather than disappearing, the same way the fundamentals dashboards
+degrade.
 
-Three views build on each other:
+Three set-returning functions build on each other, each taking the reporting
+currency (`'EUR'`, `'USD'`, …):
 
-- `portfolio_txn_state` — the ledger walked in order, carrying running quantity,
-  cost basis, and realized P/L per (account, instrument).
-- `portfolio_position_daily` — that state forward-filled onto **every calendar
-  day** from the first trade to today and joined to the last known close, so
-  weekends and holidays don't punch holes in the value series.
-- `portfolio_positions` — today's slice, plus the labels the allocation panels
-  group by.
+- `portfolio_txn_state_in(ccy)` — the ledger walked in order, carrying running
+  quantity, cost basis, and realized P/L per (account, instrument).
+- `portfolio_position_daily_in(ccy)` — that state forward-filled onto **every
+  calendar day** from the first trade to today and joined to the last known
+  close, so weekends and holidays don't punch holes in the value series.
+- `portfolio_positions_in(ccy)` — today's slice, plus the labels the allocation
+  panels group by.
+
+The views `portfolio_txn_state`, `portfolio_position_daily`, and
+`portfolio_positions` are the same three in USD, for ad-hoc SQL.
+
+The **IRR** is the rate that discounts a window's cash flows to zero (Excel's
+XIRR, 365-day years). `portfolio_cash_flows_in(ccy, from, to)` lists them per
+account: the holdings' value at the close of the day before the window as if
+bought then, every buy (out) and sell (in) inside it, fees included, and the
+value at its end as if sold then. `xirr(amounts, dates)` solves for the rate,
+mirrored in Python by `fintracker.portfolio.xirr`.
 
 ### Panels
 
-- **Overview** — market value and **ROIC** (unrealized P/L as a percentage of
-  cost basis) in the display currency, above a **Portfolio value vs cost basis**
-  chart: daily mark-to-market against what the holdings cost.
+- **Overview** — market value and **IRR** over the selected time range, both
+  annualized and over the period (the annualized figure extrapolates, so a short
+  range reads large), above a **Portfolio value vs cost basis** chart: daily
+  mark-to-market against what the holdings cost. The cost basis only steps on
+  trade days — up by what a buy paid, down by a sell's share at average cost.
 - **Positions** — one row per holding per account: symbol, portfolio weight,
   daily change %, unrealized %, last price, average cost, quantity, market
   value, and the asset-class / sector / region labels. Fully sold positions stay
