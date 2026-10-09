@@ -396,25 +396,31 @@ value at its end as if sold then. `xirr(amounts, dates)` solves for the annual
 rate (mirrored in Python by `fintracker.portfolio.xirr`), which the stat
 compounds back over the time the money was invested in the window.
 
-The **benchmark** line comes from `portfolio_benchmark_daily_in(ccy, symbol)`:
-a shadow position in one fund that received exactly the portfolio's cash flows.
-Each buy's outlay (fees included) buys fund units at that day's close, and each
-sell's proceeds sell them, all in the display currency at trade-date FX. With
-the same cash in and out, portfolio value minus benchmark value is how far ahead
-of (or behind) the fund the holdings are. The default fund is the iShares Core
+The **benchmark** line comes from
+`portfolio_benchmark_daily_in(ccy, symbol, start_date)`: a shadow position in
+one fund. On `start_date` each account's holdings, at that day's close, buy fund
+units at the fund's close; after it, each buy's outlay (fees included) buys
+units and each sell's proceeds sell them, all in the display currency at
+trade-date FX. The chart passes the first day of the selected range, so the
+benchmark starts at the portfolio's value and, with the same cash in and out,
+the gap at the end is how far ahead of (or behind) the fund the holdings got
+over the range. Without a start date the shadow takes every trade since the
+first as a cash flow. The default fund is the iShares Core
 MSCI World UCITS ETF (Acc) on Xetra, seeded as `MSCIWORLD`. It is accumulating,
 so dividends are already in its price.
 
 ### Panels
 
-- **Overview** — market value and **IRR over the period**: the money-weighted
-  return over the selected time range, not annualized (what the money invested
-  earned during the range), above a **Portfolio value vs cost basis vs
-  benchmark value** chart: daily mark-to-market against what the holdings cost.
-  The cost basis only steps on trade days — up by what a buy paid, down by a
-  sell's share at average cost.
-  The benchmark line is what the same money would be worth had it gone into
-  the fund picked in the **Benchmark** selector (MSCI World by default).
+- **Overview** — market value, **IRR** (the money-weighted return over the
+  selected time range, not annualized: what the money invested earned during
+  the range), and **Benchmark IRR** (the same cash flows, closing on what they
+  would be worth in the benchmark fund), above a **Portfolio value vs cost
+  basis vs benchmark value** chart: daily mark-to-market against what the
+  holdings cost. The cost basis only steps on trade days — up by what a buy
+  paid, down by a sell's share at average cost. The benchmark line starts at
+  the portfolio's value on the range's first day and shows what that money,
+  plus the same buys and sells, would be worth in the fund picked in the
+  **Benchmark** selector (MSCI World by default).
 - **Positions** — one row per holding per account: symbol, portfolio weight,
   daily change %, unrealized %, last price, average cost, quantity, market
   value, and the asset-class / sector / region labels. Fully sold positions stay
