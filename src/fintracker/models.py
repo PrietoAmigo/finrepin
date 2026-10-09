@@ -219,9 +219,9 @@ class Indicator(Base):
 class Account(Base):
     """A place holdings live: a broker account, an exchange, a wallet.
 
-    ``currency`` is the account's base currency — informational here (every
-    portfolio view normalises to USD and the dashboard converts from there),
-    but it is the default trade currency when a transaction doesn't name one.
+    ``currency`` is the account's base currency — informational here (the
+    dashboard reports in whichever display currency is selected), but it is
+    the default trade currency when a transaction doesn't name one.
     """
 
     __tablename__ = "accounts"
@@ -239,12 +239,13 @@ class Account(Base):
 class PortfolioTransaction(Base):
     """One buy or sell of one instrument in one account — the whole portfolio
     ledger. Holdings, cost basis, and realized P/L are *derived* from these
-    rows (average-cost method) by the portfolio views in migration 0022 and,
-    for the CLI, by ``portfolio.walk_transactions``.
+    rows (average-cost method) by the portfolio functions in migrations
+    0022–0023 and, for the CLI, by ``portfolio.walk_transactions``.
 
     ``quantity`` and ``price`` are always positive; ``side`` carries the sign.
     ``currency`` is the currency the trade settled in (``price`` and ``fees``
-    are quoted in it), converted to USD at the trade date's FX rate.
+    are quoted in it), converted into the reporting currency at the trade
+    date's FX rate.
     """
 
     __tablename__ = "portfolio_transactions"

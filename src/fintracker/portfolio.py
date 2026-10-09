@@ -3,9 +3,10 @@
 The database stores *transactions*, not holdings — quantity, cost basis, and
 realized P/L are derived from the ledger, so correcting a mistyped trade fixes
 every number at once. The Grafana *Portfolio* dashboard derives them in SQL
-(the ``portfolio_*`` views from migration 0022); ``walk_transactions`` below is
-the same walk in Python, which keeps this CLI usable without Grafana and gives
-the arithmetic a home the unit tests can reach.
+(the ``portfolio_*_in`` functions from migrations 0022–0023, in the display
+currency); ``walk_transactions`` below is the same walk in Python, which keeps
+this CLI usable without Grafana and gives the arithmetic a home the unit tests
+can reach.
 
 Both use the **average-cost** method: a buy raises the average cost per unit
 (fees included), a sell books ``proceeds − fees − units × average cost`` as
@@ -29,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import math
 import sys
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
@@ -73,7 +75,7 @@ class PositionState:
 def walk_transactions(trades: Iterable[Trade]) -> list[PositionState]:
     """Apply ``trades`` in order, returning the state after each one.
 
-    Mirrors the ``portfolio_txn_state`` view. An over-sell (selling more units
+    Mirrors the ``portfolio_txn_state_in`` SQL function. An over-sell (selling more units
     than are held — a data-entry slip) realises the full proceeds, drops the
     basis to zero, and leaves the quantity negative so the mistake is visible
     rather than silently absorbed.
@@ -92,6 +94,44 @@ def walk_transactions(trades: Iterable[Trade]) -> list[PositionState]:
             cost = max(quantity, ZERO) * avg
         states.append(PositionState(quantity=quantity, cost_basis=cost, realized=realized))
     return states
+
+
+def xirr(flows: Iterable[tuple[dt.date, float]]) -> float | None:
+    """Annualised internal rate of return of dated cash flows (Excel's XIRR).
+
+    Mirrors the ``xirr`` SQL function (migration 0023) behind the dashboard's
+    IRR stat: cash out is negative, years are 365 days counted from the first
+    non-zero flow. Bisects on the continuous rate ``ln(1 + r)`` inside a
+    bracket scaled to the flows' span, so ``exp`` stays finite. ``None`` when
+    there is no span or the flows never change sign.
+    """
+    points = [(day, amount) for day, amount in flows if amount]
+    if not points:
+        return None
+    start = min(day for day, _ in points)
+    years = (max(day for day, _ in points) - start).days / 365
+    if years == 0:
+        return None
+
+    def npv(rate: float) -> float:
+        return sum(a * math.exp(-rate * (day - start).days / 365) for day, a in points)
+
+    lo, hi = -30 / years, 30 / years
+    f_lo = npv(lo)
+    if f_lo * npv(hi) >= 0:
+        return None
+    for _ in range(100):
+        mid = (lo + hi) / 2
+        f_mid = npv(mid)
+        if f_mid == 0:
+            break
+        if (f_mid > 0) == (f_lo > 0):
+            lo, f_lo = mid, f_mid
+        else:
+            hi = mid
+    if mid > 700:
+        return None
+    return math.exp(mid) - 1
 
 
 def parse_date(raw: str | None) -> dt.date:

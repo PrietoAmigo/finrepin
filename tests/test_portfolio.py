@@ -1,5 +1,6 @@
 """Unit tests for the portfolio ledger: the average-cost walk (which the
-`portfolio_txn_state` view mirrors in SQL), transaction validation, and the
+`portfolio_txn_state_in` SQL function mirrors), the XIRR solver (mirroring
+the `xirr` SQL function), transaction validation, and the
 sector/region classifier. Runs against an in-memory SQLite DB, no network."""
 
 from __future__ import annotations
@@ -119,7 +120,7 @@ class TestAverageCostWalk:
         assert states[-1].realized == Decimal("800")
 
     def test_selling_a_fractional_holding_whole_lands_on_exact_zero(self) -> None:
-        # Decimal here and `numeric` in the portfolio_txn_state view both have to
+        # Decimal here and `numeric` in the portfolio_txn_state_in walk both have to
         # land on a hard zero: a residue of 1e-17 would leave a closed position
         # showing up everywhere `quantity <> 0` is tested.
         states = portfolio.walk_transactions(
@@ -134,6 +135,53 @@ class TestAverageCostWalk:
             [_trade("buy", "1", "10"), _trade("buy", "1", "20"), _trade("sell", "1", "30")]
         )
         assert [s.quantity for s in states] == [Decimal("1"), Decimal("2"), Decimal("1")]
+
+
+class TestXirr:
+    def test_matches_excels_documented_example(self) -> None:
+        flows = [
+            (dt.date(2008, 1, 1), -10000.0),
+            (dt.date(2008, 3, 1), 2750.0),
+            (dt.date(2008, 10, 30), 4250.0),
+            (dt.date(2009, 2, 15), 3250.0),
+            (dt.date(2009, 4, 1), 2750.0),
+        ]
+        # Excel prints 0.373362535, itself only converged to ~1e-8.
+        assert portfolio.xirr(flows) == pytest.approx(0.373362535, abs=1e-8)
+
+    def test_one_year_gain_is_the_plain_return(self) -> None:
+        flows = [(dt.date(2025, 1, 1), -1000.0), (dt.date(2026, 1, 1), 1100.0)]
+        assert portfolio.xirr(flows) == pytest.approx(0.10)
+
+    def test_a_loss_is_negative(self) -> None:
+        flows = [(dt.date(2025, 1, 1), -1000.0), (dt.date(2026, 1, 1), 500.0)]
+        assert portfolio.xirr(flows) == pytest.approx(-0.50)
+
+    def test_order_and_zero_flows_do_not_matter(self) -> None:
+        flows = [
+            (dt.date(2026, 1, 1), 1100.0),
+            (dt.date(2025, 6, 1), 0.0),
+            (dt.date(2025, 1, 1), -1000.0),
+        ]
+        assert portfolio.xirr(flows) == pytest.approx(0.10)
+
+    def test_short_window_is_annualised_without_overflowing(self) -> None:
+        # +5% in 30 days compounds to ~81% a year; the period figure is 5%.
+        flows = [(dt.date(2026, 9, 1), -1000.0), (dt.date(2026, 10, 1), 1050.0)]
+        rate = portfolio.xirr(flows)
+        assert rate == pytest.approx(1.05 ** (365 / 30) - 1)
+        assert rate is not None and (1 + rate) ** (30 / 365) - 1 == pytest.approx(0.05)
+
+    def test_no_sign_change_has_no_rate(self) -> None:
+        flows = [(dt.date(2025, 1, 1), -1000.0), (dt.date(2026, 1, 1), -50.0)]
+        assert portfolio.xirr(flows) is None
+
+    def test_flows_on_a_single_day_have_no_rate(self) -> None:
+        flows = [(dt.date(2025, 1, 1), -1000.0), (dt.date(2025, 1, 1), 1100.0)]
+        assert portfolio.xirr(flows) is None
+
+    def test_no_flows_have_no_rate(self) -> None:
+        assert portfolio.xirr([]) is None
 
 
 class TestRecordTransaction:

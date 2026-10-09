@@ -1,7 +1,7 @@
 {
   "uid": "fintracker-portfolio",
   "title": "Portfolio",
-  "description": "Holdings, allocation, and P/L, derived from the portfolio_transactions ledger by the portfolio_* views (migration 0022). Every figure is computed in USD and converted into the selected display currency through fx_usd_daily; cost basis follows the average-cost method.",
+  "description": "Holdings, allocation, and P/L, derived from the portfolio_transactions ledger by the portfolio_*_in(currency) functions (migrations 0022–0023). Every figure is computed in the selected display currency: trades convert at their trade-date FX rate, prices at each bar's rate. Cost basis follows the average-cost method.",
   "tags": [
     "fintracker"
   ],
@@ -232,22 +232,22 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH fx AS (SELECT COALESCE((SELECT usd_rate FROM fx_usd_daily WHERE currency = '$display_currency' AND date <= CURRENT_DATE ORDER BY date DESC LIMIT 1), 1) AS rate) SELECT sum(p.market_value) / fx.rate AS value FROM portfolio_positions p, fx WHERE p.account = ANY(string_to_array('${account:csv}', ',')) GROUP BY fx.rate"
+          "rawSql": "SELECT sum(p.market_value) AS value FROM portfolio_positions_in('$display_currency') p WHERE p.account = ANY(string_to_array('${account:csv}', ','))"
         }
       ]
     },
     {
       "id": 6,
       "type": "stat",
-      "title": "ROIC",
-      "description": "Unrealized P/L as a percentage of the cost basis of the open positions. Currency-independent, so the display currency doesn't move it.",
+      "title": "IRR",
+      "description": "Internal rate of return (money-weighted) over the selected time range, in the display currency. Cash flows: the holdings' value at the close of the day before the range, as if bought then; every buy (out) and sell (in) inside the range at its trade-date FX rate, fees included; and the value at the end of the range, as if sold then. Annualized is Excel's XIRR (365-day years) — over a range shorter than a year it extrapolates, so a small move reads large. Over the period is the same rate compounded over the time the money was actually invested in the range: what it earned, not annualized.",
       "datasource": {
         "type": "postgres",
         "uid": "fintracker-pg"
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
+        "w": 6,
         "x": 4,
         "y": 1
       },
@@ -282,7 +282,7 @@
         "colorMode": "value",
         "graphMode": "none",
         "justifyMode": "auto",
-        "textMode": "auto",
+        "textMode": "value_and_name",
         "orientation": "auto"
       },
       "targets": [
@@ -295,7 +295,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH fx AS (SELECT COALESCE((SELECT usd_rate FROM fx_usd_daily WHERE currency = '$display_currency' AND date <= CURRENT_DATE ORDER BY date DESC LIMIT 1), 1) AS rate) SELECT 100.0 * sum(p.unrealized) / NULLIF(sum(p.cost_basis), 0) AS value FROM portfolio_positions p, fx WHERE p.account = ANY(string_to_array('${account:csv}', ',')) GROUP BY fx.rate"
+          "rawSql": "WITH flows AS ( SELECT f.date, f.amount FROM portfolio_cash_flows_in('$display_currency', $__timeFrom()::date, $__timeTo()::date) f JOIN accounts a ON a.id = f.account_id WHERE a.name = ANY(string_to_array('${account:csv}', ',')) ), irr AS ( SELECT xirr(array_agg(amount), array_agg(date)) AS rate, (max(date) FILTER (WHERE amount <> 0) - min(date) FILTER (WHERE amount <> 0)) / 365.0 AS years FROM flows ) SELECT 100.0 * rate AS \"Annualized\", 100.0 * (power(1 + rate, years) - 1) AS \"Over the period\" FROM irr"
         }
       ]
     },
@@ -303,7 +303,7 @@
       "id": 7,
       "type": "timeseries",
       "title": "Portfolio value vs cost basis — $display_currency",
-      "description": "Daily mark-to-market of every position held that day against what it cost. Both lines carry across weekends and holidays (the last close and the last ledger state are held forward), so the series has one point per calendar day.",
+      "description": "Daily mark-to-market of every position held that day against what it cost, in the display currency. The cost basis only moves on trade days: a buy adds what was paid (fees included) and a sell removes the sold units' share at the average cost; it never moves with prices or exchange rates, because every trade is converted at its own trade-date FX rate. The gap between the lines is unrealized P/L, currency effects included. Both lines carry across weekends and holidays (the last close and the last ledger state are held forward), so the series has one point per calendar day.",
       "datasource": {
         "type": "postgres",
         "uid": "fintracker-pg"
@@ -380,7 +380,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "WITH totals AS ( SELECT d.date, sum(d.market_value) AS market_value, sum(d.cost_basis) AS cost_basis FROM portfolio_position_daily d JOIN accounts a ON a.id = d.account_id WHERE a.name = ANY(string_to_array('${account:csv}', ',')) GROUP BY d.date ) SELECT t.date::timestamptz AS \"time\", m.metric, (CASE WHEN m.metric = 'Market value' THEN t.market_value ELSE t.cost_basis END) / COALESCE(NULLIF(fx.usd_rate, 0), 1) AS value FROM totals t CROSS JOIN (VALUES ('Market value'), ('Cost basis')) AS m(metric) LEFT JOIN fx_usd_daily fx ON fx.currency = '$display_currency' AND fx.date = t.date WHERE $__timeFilter(t.date) ORDER BY 1, 2"
+          "rawSql": "WITH totals AS ( SELECT d.date, sum(d.market_value) AS market_value, sum(d.cost_basis) AS cost_basis FROM portfolio_position_daily_in('$display_currency') d JOIN accounts a ON a.id = d.account_id WHERE a.name = ANY(string_to_array('${account:csv}', ',')) AND $__timeFilter(d.date) GROUP BY d.date ) SELECT t.date::timestamptz AS \"time\", m.metric, CASE WHEN m.metric = 'Market value' THEN t.market_value ELSE t.cost_basis END AS value FROM totals t CROSS JOIN (VALUES ('Market value'), ('Cost basis')) AS m(metric) ORDER BY 1, 2"
         }
       ]
     },
@@ -401,7 +401,7 @@
       "id": 13,
       "type": "table",
       "title": "Positions — $display_currency",
-      "description": "One row per holding per account, priced at its latest close. Cost basis and average cost follow the average-cost method: a buy raises the average (fees included), a sell books realized P/L and leaves the average alone. Fully sold positions stay listed while they carry realized P/L.",
+      "description": "One row per holding per account, priced at its latest close, in the display currency. Cost basis and average cost follow the average-cost method: a buy raises the average (fees included), a sell books realized P/L and leaves the average alone. Average cost is converted at each trade's own FX rate, so Unrealized % includes the currency move since purchase. Fully sold positions stay listed while they carry realized P/L.",
       "datasource": {
         "type": "postgres",
         "uid": "fintracker-pg"
@@ -608,7 +608,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH fx AS (SELECT COALESCE((SELECT usd_rate FROM fx_usd_daily WHERE currency = '$display_currency' AND date <= CURRENT_DATE ORDER BY date DESC LIMIT 1), 1) AS rate), held AS ( SELECT * FROM portfolio_positions WHERE account = ANY(string_to_array('${account:csv}', ',')) ), total AS (SELECT sum(market_value) AS value FROM held WHERE quantity > 0), day_chg AS ( SELECT instrument_id, 100.0 * (close_now / NULLIF(close_prev, 0) - 1) AS change_pct FROM ( SELECT p.instrument_id, p.close::float8 AS close_now, lag(p.close::float8) OVER (PARTITION BY p.instrument_id ORDER BY p.date) AS close_prev, row_number() OVER (PARTITION BY p.instrument_id ORDER BY p.date DESC) AS rn FROM prices p ) s WHERE s.rn = 1 ) SELECT p.symbol AS \"Symbol\", 100.0 * p.market_value / NULLIF(total.value, 0) AS \"Weight %\", dc.change_pct AS \"Daily change %\", p.unrealized_pct AS \"Unrealized %\", p.price_usd / fx.rate AS \"Last price\", p.avg_cost / fx.rate AS \"Avg cost\", p.quantity AS \"Quantity\", p.market_value / fx.rate AS \"Market value\", p.asset_class AS \"Asset class\", p.sector AS \"Sector\", p.region AS \"Region\" FROM held p LEFT JOIN day_chg dc ON dc.instrument_id = p.instrument_id, fx, total WHERE p.quantity <> 0 OR p.realized <> 0 ORDER BY p.market_value DESC NULLS LAST"
+          "rawSql": "WITH held AS ( SELECT * FROM portfolio_positions_in('$display_currency') WHERE account = ANY(string_to_array('${account:csv}', ',')) ), total AS (SELECT sum(market_value) AS value FROM held WHERE quantity > 0), day_chg AS ( SELECT instrument_id, 100.0 * (close_now / NULLIF(close_prev, 0) - 1) AS change_pct FROM ( SELECT p.instrument_id, p.close::float8 AS close_now, lag(p.close::float8) OVER (PARTITION BY p.instrument_id ORDER BY p.date) AS close_prev, row_number() OVER (PARTITION BY p.instrument_id ORDER BY p.date DESC) AS rn FROM prices p ) s WHERE s.rn = 1 ) SELECT p.symbol AS \"Symbol\", 100.0 * p.market_value / NULLIF(total.value, 0) AS \"Weight %\", dc.change_pct AS \"Daily change %\", p.unrealized_pct AS \"Unrealized %\", p.price AS \"Last price\", p.avg_cost AS \"Avg cost\", p.quantity AS \"Quantity\", p.market_value AS \"Market value\", p.asset_class AS \"Asset class\", p.sector AS \"Sector\", p.region AS \"Region\" FROM held p LEFT JOIN day_chg dc ON dc.instrument_id = p.instrument_id, total WHERE p.quantity <> 0 OR p.realized <> 0 ORDER BY p.market_value DESC NULLS LAST"
         }
       ]
     },
@@ -683,7 +683,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH fx AS (SELECT COALESCE((SELECT usd_rate FROM fx_usd_daily WHERE currency = '$display_currency' AND date <= CURRENT_DATE ORDER BY date DESC LIMIT 1), 1) AS rate) SELECT p.asset_class AS \"Asset class\", sum(p.market_value) / fx.rate AS value FROM portfolio_positions p, fx WHERE p.account = ANY(string_to_array('${account:csv}', ',')) AND p.quantity > 0 GROUP BY p.asset_class, fx.rate ORDER BY 2 DESC"
+          "rawSql": "SELECT p.asset_class AS \"Asset class\", sum(p.market_value) AS value FROM portfolio_positions_in('$display_currency') p WHERE p.account = ANY(string_to_array('${account:csv}', ',')) AND p.quantity > 0 GROUP BY p.asset_class ORDER BY 2 DESC"
         }
       ]
     },
@@ -745,7 +745,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH fx AS (SELECT COALESCE((SELECT usd_rate FROM fx_usd_daily WHERE currency = '$display_currency' AND date <= CURRENT_DATE ORDER BY date DESC LIMIT 1), 1) AS rate) SELECT p.sector AS \"Sector\", sum(p.market_value) / fx.rate AS value FROM portfolio_positions p, fx WHERE p.account = ANY(string_to_array('${account:csv}', ',')) AND p.quantity > 0 GROUP BY p.sector, fx.rate ORDER BY 2 DESC"
+          "rawSql": "SELECT p.sector AS \"Sector\", sum(p.market_value) AS value FROM portfolio_positions_in('$display_currency') p WHERE p.account = ANY(string_to_array('${account:csv}', ',')) AND p.quantity > 0 GROUP BY p.sector ORDER BY 2 DESC"
         }
       ]
     },
@@ -807,7 +807,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH fx AS (SELECT COALESCE((SELECT usd_rate FROM fx_usd_daily WHERE currency = '$display_currency' AND date <= CURRENT_DATE ORDER BY date DESC LIMIT 1), 1) AS rate) SELECT p.region AS \"Region\", sum(p.market_value) / fx.rate AS value FROM portfolio_positions p, fx WHERE p.account = ANY(string_to_array('${account:csv}', ',')) AND p.quantity > 0 GROUP BY p.region, fx.rate ORDER BY 2 DESC"
+          "rawSql": "SELECT p.region AS \"Region\", sum(p.market_value) AS value FROM portfolio_positions_in('$display_currency') p WHERE p.account = ANY(string_to_array('${account:csv}', ',')) AND p.quantity > 0 GROUP BY p.region ORDER BY 2 DESC"
         }
       ]
     },
@@ -869,7 +869,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH fx AS (SELECT COALESCE((SELECT usd_rate FROM fx_usd_daily WHERE currency = '$display_currency' AND date <= CURRENT_DATE ORDER BY date DESC LIMIT 1), 1) AS rate) SELECT p.currency AS \"Currency\", sum(p.market_value) / fx.rate AS value FROM portfolio_positions p, fx WHERE p.account = ANY(string_to_array('${account:csv}', ',')) AND p.quantity > 0 GROUP BY p.currency, fx.rate ORDER BY 2 DESC"
+          "rawSql": "SELECT p.currency AS \"Currency\", sum(p.market_value) AS value FROM portfolio_positions_in('$display_currency') p WHERE p.account = ANY(string_to_array('${account:csv}', ',')) AND p.quantity > 0 GROUP BY p.currency ORDER BY 2 DESC"
         }
       ]
     },
