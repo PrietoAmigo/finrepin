@@ -71,10 +71,8 @@ thing runs under Docker Compose and schedules itself — no external cron.
   Fundamentals* dashboard (pick one ticker; price candlesticks with a daily/
   weekly/monthly candle selector plus SMA-50 and SMA-200 overlay lines that
   share the candle axis and whose latest and mean values read off a table
-  legend, a dual-axis panel to compare any two metrics, and 10-year P/E, P/FCF,
-  revenue, earnings, total debt, and shares outstanding — plus Price, P/B,
-  EV/EBITDA, EPS, gross margin, operating margin, Debt-to-Equity, and MCap
-  through the metric selectors). Backed by SQL views (migrations 0002–0012)
+  legend, and 10-year P/E, P/FCF, revenue, earnings, gross and operating
+  margin, total debt, and shares outstanding). Backed by SQL views (migrations 0002–0012)
   that derive TTM series from the SEC facts. Global and European
   market indexes — and the VIX — are seeded as `kind='index'` instruments and
   ingested from Yahoo like everything else. New tickers are added from the
@@ -149,9 +147,10 @@ thing runs under Docker Compose and schedules itself — no external cron.
   and metals you're watching but don't hold: one table with each name's latest
   price, 1-day / 1-week / 1-month / YTD / 1-year moves, distance from its
   200-day average and 52-week high, where it sits in its 52-week range, P/E,
-  market cap, and next earnings date; best and worst month tiles; a relative
-  performance chart; and a price chart with 50- and 200-day averages for any one
-  name. See [Watchlist dashboard](#watchlist-dashboard) below.
+  market cap, and next earnings date; best and worst month tiles; a price chart
+  with 50- and 200-day averages for any one name, right below the table; and a
+  52-week-high ranking and upcoming earnings. See
+  [Watchlist dashboard](#watchlist-dashboard) below.
 
 All core features are in. What remains is **M7/M8 polish**: richer
 dashboards and deeper observability.
@@ -489,14 +488,12 @@ dashboard (the *Edit the watchlist* link at the top right) or with
   market cap in USD from the fundamentals views, and the next earnings date
   (`(est.)` when Yahoo only gives a window). Click a symbol to chart it in the
   Detail row, or to open it on *Ticker Fundamentals*.
-- **Performance** — every watched name rebased to 0% at the start of the
-  selected time range, so different price levels and currencies compare
-  directly; the legend ranks them by return over the range.
+- **Detail** — right below the table: the daily close of the name picked in
+  the *Detail* selector (or clicked in the table), with its 50- and 200-day
+  moving averages.
 - **How far below the 52-week high** and **Upcoming earnings** — the drawdown
   ranking, and each watched company's next report with a countdown in days
   (orange within a week).
-- **Detail** — the daily close of the name picked in the *Detail* selector, with
-  its 50- and 200-day moving averages.
 
 ## Configuration
 

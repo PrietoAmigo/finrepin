@@ -1,7 +1,7 @@
 {
   "uid": "fintracker-watchlist",
   "title": "Watchlist",
-  "description": "Stocks, crypto, and metals you're watching but don't hold: latest price and period moves, trend and 52-week context, valuation, upcoming earnings, relative performance, and a per-instrument price chart with moving averages. Edit the list on the Manage dashboard.",
+  "description": "Stocks, crypto, and metals you're watching but don't hold: latest price and period moves, trend and 52-week context, valuation, a per-instrument price chart with moving averages, and upcoming earnings. Edit the list on the Manage dashboard.",
   "tags": [
     "fintracker"
   ],
@@ -946,9 +946,9 @@
       ]
     },
     {
-      "id": 101,
+      "id": 102,
       "type": "row",
-      "title": "Performance",
+      "title": "Detail — $symbol",
       "collapsed": false,
       "gridPos": {
         "h": 1,
@@ -959,10 +959,10 @@
       "panels": []
     },
     {
-      "id": 6,
+      "id": 9,
       "type": "timeseries",
-      "title": "Performance — % change since the start of the range",
-      "description": "Each watched instrument's daily close rebased to its first close in the selected time range, in its own currency, so names in different currencies and price levels compare directly.",
+      "title": "$symbol — daily close with 50- and 200-day averages",
+      "description": "Pick the instrument with the Detail selector at the top, or click a symbol in the Watchlist table. The averages are over the last 50 and 200 closes and start once that much history exists.",
       "datasource": {
         "type": "postgres",
         "uid": "fintracker-pg"
@@ -976,28 +976,94 @@
       "fieldConfig": {
         "defaults": {
           "custom": {
-            "lineWidth": 2,
+            "lineWidth": 1,
             "fillOpacity": 0,
             "spanNulls": true
           },
-          "unit": "percent",
-          "decimals": 1
+          "unit": "short",
+          "decimals": 2
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Close"
+            },
+            "properties": [
+              {
+                "id": "custom.lineWidth",
+                "value": 2
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "50-day avg"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "200-day avg"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "purple"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    6
+                  ]
+                }
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "legend": {
-          "displayMode": "table",
-          "placement": "right",
-          "calcs": [
-            "lastNotNull"
-          ],
-          "sortBy": "Last *",
-          "sortDesc": true
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
         },
         "tooltip": {
           "mode": "multi",
-          "sort": "desc"
+          "sort": "none"
         }
       },
       "targets": [
@@ -1010,9 +1076,22 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT p.date::timestamptz AS \"time\", i.symbol AS metric, 100.0 * (p.close::float8 / first_value(p.close::float8) OVER (PARTITION BY p.instrument_id ORDER BY p.date) - 1) AS value FROM prices p JOIN instruments i ON i.id = p.instrument_id WHERE i.in_watchlist AND p.close > 0 AND $__timeFilter(p.date) ORDER BY 1"
+          "rawSql": "SELECT s.time, s.\"Close\", s.\"50-day avg\", s.\"200-day avg\" FROM ( SELECT p.date, p.date::timestamptz AS \"time\", p.close::float8 AS \"Close\", CASE WHEN row_number() OVER w >= 50 THEN avg(p.close::float8) OVER (w ROWS BETWEEN 49 PRECEDING AND CURRENT ROW) END AS \"50-day avg\", CASE WHEN row_number() OVER w >= 200 THEN avg(p.close::float8) OVER (w ROWS BETWEEN 199 PRECEDING AND CURRENT ROW) END AS \"200-day avg\" FROM prices p JOIN instruments i ON i.id = p.instrument_id WHERE i.symbol = '$symbol' AND p.close > 0 WINDOW w AS (ORDER BY p.date) ) s WHERE $__timeFilter(s.date) ORDER BY 1"
         }
       ]
+    },
+    {
+      "id": 101,
+      "type": "row",
+      "title": "52-week highs & earnings",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 27
+      },
+      "panels": []
     },
     {
       "id": 7,
@@ -1027,7 +1106,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 27
+        "y": 28
       },
       "fieldConfig": {
         "defaults": {
@@ -1098,7 +1177,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 27
+        "y": 28
       },
       "fieldConfig": {
         "defaults": {
@@ -1211,141 +1290,6 @@
           "format": "table",
           "rawQuery": true,
           "rawSql": "SELECT to_char(ed.earnings_date, 'YYYY-MM-DD') AS \"Date\", ed.earnings_date - CURRENT_DATE AS \"In (days)\", i.symbol AS \"Symbol\", i.name AS \"Name\", CASE WHEN ed.is_estimated THEN 'Estimated' ELSE 'Confirmed' END AS \"Status\" FROM earnings_dates ed JOIN instruments i ON i.id = ed.instrument_id WHERE i.in_watchlist AND ed.earnings_date >= CURRENT_DATE ORDER BY ed.earnings_date, i.symbol"
-        }
-      ]
-    },
-    {
-      "id": 102,
-      "type": "row",
-      "title": "Detail — $symbol",
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 36
-      },
-      "panels": []
-    },
-    {
-      "id": 9,
-      "type": "timeseries",
-      "title": "$symbol — daily close with 50- and 200-day averages",
-      "description": "Pick the instrument with the Detail selector at the top, or click a symbol in the Watchlist table. The averages are over the last 50 and 200 closes and start once that much history exists.",
-      "datasource": {
-        "type": "postgres",
-        "uid": "fintracker-pg"
-      },
-      "gridPos": {
-        "h": 10,
-        "w": 24,
-        "x": 0,
-        "y": 37
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "lineWidth": 1,
-            "fillOpacity": 0,
-            "spanNulls": true
-          },
-          "unit": "short",
-          "decimals": 2
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Close"
-            },
-            "properties": [
-              {
-                "id": "custom.lineWidth",
-                "value": 2
-              },
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "blue"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "50-day avg"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "orange"
-                }
-              },
-              {
-                "id": "custom.lineStyle",
-                "value": {
-                  "fill": "dash",
-                  "dash": [
-                    6,
-                    4
-                  ]
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "200-day avg"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "purple"
-                }
-              },
-              {
-                "id": "custom.lineStyle",
-                "value": {
-                  "fill": "dash",
-                  "dash": [
-                    10,
-                    6
-                  ]
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "postgres",
-            "uid": "fintracker-pg"
-          },
-          "editorMode": "code",
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT s.time, s.\"Close\", s.\"50-day avg\", s.\"200-day avg\" FROM ( SELECT p.date, p.date::timestamptz AS \"time\", p.close::float8 AS \"Close\", CASE WHEN row_number() OVER w >= 50 THEN avg(p.close::float8) OVER (w ROWS BETWEEN 49 PRECEDING AND CURRENT ROW) END AS \"50-day avg\", CASE WHEN row_number() OVER w >= 200 THEN avg(p.close::float8) OVER (w ROWS BETWEEN 199 PRECEDING AND CURRENT ROW) END AS \"200-day avg\" FROM prices p JOIN instruments i ON i.id = p.instrument_id WHERE i.symbol = '$symbol' AND p.close > 0 WINDOW w AS (ORDER BY p.date) ) s WHERE $__timeFilter(s.date) ORDER BY 1"
         }
       ]
     }
