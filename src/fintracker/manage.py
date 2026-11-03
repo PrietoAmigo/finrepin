@@ -10,8 +10,11 @@ panels, but in plain Python so it is unit-testable and usable without Grafana:
     python -m fintracker.manage watchlist remove ETH
 
 The watchlist is the ``instruments.in_watchlist`` flag the weekly report reads
-(see ``report.data.build_report``); adding a ticker enqueues a ``ticker_requests``
-row that the minutely scheduler job validates and ingests.
+(see ``report.data.build_report``). It is for instruments you *don't* hold:
+holdings are always in the email under Holdings, so adding one here is skipped
+(migration 0026 enforces the same rule in the database). Adding a ticker
+enqueues a ``ticker_requests`` row that the minutely scheduler job validates
+and ingests.
 """
 
 from __future__ import annotations
@@ -25,6 +28,7 @@ from sqlalchemy.orm import Session
 
 from fintracker.db import session_scope
 from fintracker.models import Instrument, TickerRequest
+from fintracker.portfolio import held_symbols
 
 
 def _clean(symbols: Iterable[str]) -> list[str]:
@@ -58,25 +62,45 @@ def _split_known(session: Session, symbols: Iterable[str]) -> tuple[list[str], l
     return matched, unknown
 
 
-def set_watchlist(session: Session, symbols: Iterable[str]) -> tuple[list[str], list[str]]:
-    """Replace the whole watchlist with ``symbols``. Returns (applied, unknown)."""
+def _split_watchable(
+    session: Session, symbols: Iterable[str]
+) -> tuple[list[str], list[str], list[str]]:
+    """(watchable, unknown, held): holdings can't go on the watchlist."""
     matched, unknown = _split_known(session, symbols)
+    held = held_symbols(session)
+    return (
+        [s for s in matched if s not in held],
+        unknown,
+        [s for s in matched if s in held],
+    )
+
+
+def set_watchlist(
+    session: Session, symbols: Iterable[str]
+) -> tuple[list[str], list[str], list[str]]:
+    """Replace the whole watchlist with ``symbols``. Returns (applied, unknown, held)."""
+    applied, unknown, held = _split_watchable(session, symbols)
     session.execute(update(Instrument).values(in_watchlist=False))
-    if matched:
+    if applied:
         session.execute(
-            update(Instrument).where(Instrument.symbol.in_(matched)).values(in_watchlist=True)
+            update(Instrument).where(Instrument.symbol.in_(applied)).values(in_watchlist=True)
         )
-    return matched, unknown
+    return applied, unknown, held
 
 
-def add_to_watchlist(session: Session, symbols: Iterable[str]) -> tuple[list[str], list[str]]:
-    """Flag ``symbols`` onto the watchlist, leaving the rest alone."""
-    matched, unknown = _split_known(session, symbols)
-    if matched:
+def add_to_watchlist(
+    session: Session, symbols: Iterable[str]
+) -> tuple[list[str], list[str], list[str]]:
+    """Flag ``symbols`` onto the watchlist, leaving the rest alone.
+
+    Returns (applied, unknown, held); held symbols are skipped.
+    """
+    applied, unknown, held = _split_watchable(session, symbols)
+    if applied:
         session.execute(
-            update(Instrument).where(Instrument.symbol.in_(matched)).values(in_watchlist=True)
+            update(Instrument).where(Instrument.symbol.in_(applied)).values(in_watchlist=True)
         )
-    return matched, unknown
+    return applied, unknown, held
 
 
 def remove_from_watchlist(
@@ -120,14 +144,24 @@ def _print_watchlist(session: Session) -> None:
     if symbols:
         print("Watchlist ({}): {}".format(len(symbols), ", ".join(symbols)))
     else:
-        print("Watchlist is empty — the weekly email covers every tracked instrument.")
+        print(
+            "Watchlist is empty — the weekly email's Watchlist section falls back to "
+            "REPORT_SYMBOLS, or every tracked instrument you don't hold."
+        )
 
 
-def _report(applied: list[str], unknown: list[str], verb: str) -> None:
+def _report(
+    applied: list[str], unknown: list[str], held: list[str] | None = None, *, verb: str
+) -> None:
     if applied:
         print(f"{verb}: {', '.join(applied)}")
     if unknown:
         print(f"Skipped (not tracked): {', '.join(unknown)}", file=sys.stderr)
+    if held:
+        print(
+            f"Skipped (you hold them, so they're under Holdings): {', '.join(held)}",
+            file=sys.stderr,
+        )
 
 
 def main(argv: list[str] | None = None) -> int:

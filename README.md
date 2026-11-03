@@ -39,15 +39,23 @@ thing runs under Docker Compose and schedules itself — no external cron.
   futures sit ~1% above spot on a stable basis, so the moves the email reports
   match spot's.
 - **Weekly email** — HTML + plain-text report (current levels with weekly,
-  monthly, and yearly moves, plus upcoming earnings) for the symbols on the
-  **watchlist** (edited from the *Manage* dashboard; falls back to
-  `REPORT_SYMBOLS`, then to all instruments when the watchlist is empty),
-  grouped into colour-coded Stocks / Precious metals / Crypto / Forex sections. The Precious metals
-  section shows gold (XAU) and silver (XAG) with the level quoted per troy ounce
-  (`$3,358.90/oz`) and the same 7-day / 1-month / 1-year percentage moves as the
-  other assets. The Crypto section is Bitcoin-focused: the
-  BTC price and its MVRV Z-Score (shown as a unitless level with absolute
-  moves), with ETH omitted from the email (still tracked on the dashboards).
+  monthly, and yearly moves, plus upcoming earnings) in two sections, each
+  grouped into colour-coded Stocks / Indexes & funds / Precious metals / Crypto /
+  Forex blocks:
+  - **Holdings** — everything you hold (an open position in any account of the
+    portfolio ledger), always included.
+  - **Watchlist** — what you watch but don't hold (edited from the *Manage*
+    dashboard). While the watchlist is empty this section falls back to
+    `REPORT_SYMBOLS`, then to every tracked stock, metal, crypto, and FX pair
+    you don't hold, and says so.
+
+  *Upcoming earnings* lists the next report for both, each tagged *holding* or
+  *watchlist*. Gold (XAU) and silver (XAG) are quoted per troy ounce
+  (`$3,358.90/oz`) with the same 7-day / 1-month / 1-year percentage moves as
+  the other assets. The BTC MVRV Z-Score (a unitless level with absolute moves)
+  rides along with BTC in whichever section BTC is in. The fallback list leaves
+  ETH out to keep its crypto block Bitcoin-focused; ETH still shows when you
+  hold it or watch it.
   Sent via Gmail SMTP with STARTTLS; skips gracefully if email isn't configured.
 - **Self-scheduling** — APScheduler in the `app` container, timezone-aware
   (daily market/earnings/SEC checks, weekly email).
@@ -84,7 +92,10 @@ thing runs under Docker Compose and schedules itself — no external cron.
   `<SYM>-USD` Yahoo pair plus a CoinGecko id for the live spot, exactly like the
   seeded BTC/ETH), and *Add/Remove watchlist* boxes (type comma-separated
   tickers, case- and space-insensitive) that toggle the
-  `instruments.in_watchlist` flag the weekly email reads. Read-only *Ticker
+  `instruments.in_watchlist` flag the weekly email reads. The watchlist is only
+  for things you don't hold: adding a holding is skipped, and a buy takes the
+  symbol off the list (enforced in the database by migration 0026, so the forms,
+  the CLI, and ad-hoc SQL agree). Read-only *Ticker
   requests* and *Current watchlist* tables show live state. A *Portfolio* row
   adds *Add account* and *Record transaction* forms that write the holdings
   ledger the Portfolio dashboard reads. The same actions are
@@ -133,6 +144,14 @@ thing runs under Docker Compose and schedules itself — no external cron.
   rate — through the same `fx_usd_daily` view the fundamentals dashboards use,
   and an **IRR** stat reports the money-weighted return over the selected time
   range. See [Portfolio dashboard](#portfolio-dashboard) below.
+
+- **Watchlist (Grafana)** — a *Watchlist* dashboard over the stocks, crypto,
+  and metals you're watching but don't hold: one table with each name's latest
+  price, 1-day / 1-week / 1-month / YTD / 1-year moves, distance from its
+  200-day average and 52-week high, where it sits in its 52-week range, P/E,
+  market cap, and next earnings date; best and worst month tiles; a relative
+  performance chart; and a price chart with 50- and 200-day averages for any one
+  name. See [Watchlist dashboard](#watchlist-dashboard) below.
 
 All core features are in. What remains is **M7/M8 polish**: richer
 dashboards and deeper observability.
@@ -450,6 +469,35 @@ pass. Force one immediately with:
 docker compose exec app python -m fintracker.ingest.classify
 ```
 
+## Watchlist dashboard
+
+The *Watchlist* dashboard is for instruments you're watching but don't own
+yet. Holdings can't be on the watchlist: they live on the *Portfolio*
+dashboard and in the email's Holdings section. Edit the list from the *Manage*
+dashboard (the *Edit the watchlist* link at the top right) or with
+`python -m fintracker.manage watchlist add|remove …`.
+
+### Panels
+
+- **Overview** — how many names you're watching, the best and worst over the
+  last 30 days, and the soonest upcoming earnings report.
+- **Watchlist** — one row per name at its latest close, in its own currency:
+  1D / 1W / 1M / YTD / 1Y moves (the latest close against the last close at
+  least that long ago, the same rule the email uses), the gap to the average of
+  the last 200 closes, how far below the 52-week high it is, a gauge of where it
+  sits in its 52-week range (0% at the low, 100% at the high), P/E (TTM) and
+  market cap in USD from the fundamentals views, and the next earnings date
+  (`(est.)` when Yahoo only gives a window). Click a symbol to chart it in the
+  Detail row, or to open it on *Ticker Fundamentals*.
+- **Performance** — every watched name rebased to 0% at the start of the
+  selected time range, so different price levels and currencies compare
+  directly; the legend ranks them by return over the range.
+- **How far below the 52-week high** and **Upcoming earnings** — the drawdown
+  ranking, and each watched company's next report with a countdown in days
+  (orange within a week).
+- **Detail** — the daily close of the name picked in the *Detail* selector, with
+  its 50- and 200-day moving averages.
+
 ## Configuration
 
 All configuration is environment-driven; see `.env.example` for the full list.
@@ -608,7 +656,7 @@ Schedule that command from host cron if you want periodic backups.
 │   ├── seed.py                 # instruments registry (edit to change what's tracked)
 │   ├── migrate.py              # Alembic upgrade at boot
 │   ├── scheduler.py            # APScheduler jobs
-│   ├── manage.py               # CLI: add tickers, edit the weekly-email watchlist
+│   ├── manage.py               # CLI: add tickers, edit the weekly-email watchlist (no holdings)
 │   ├── portfolio.py            # CLI: accounts, trades, positions (average-cost walk)
 │   ├── heartbeat.py / healthcheck.py
 │   ├── run.py                  # entrypoint

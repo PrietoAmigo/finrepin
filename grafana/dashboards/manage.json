@@ -1,7 +1,7 @@
 {
   "uid": "fintracker-manage",
   "title": "Manage",
-  "description": "Add tickers, edit the weekly-email watchlist, and keep the portfolio ledger (accounts and trades). The Business Forms panels write to Postgres; the app ingests queued tickers (minutely), the weekly report reads the watchlist flag, and the Portfolio dashboard derives holdings and P/L from the ledger.",
+  "description": "Add tickers, edit the weekly-email watchlist (instruments you don't hold), and keep the portfolio ledger (accounts and trades). The Business Forms panels write to Postgres; the app ingests queued tickers (minutely), the weekly report reads the watchlist flag, and the Portfolio dashboard derives holdings and P/L from the ledger.",
   "tags": [
     "fintracker"
   ],
@@ -223,7 +223,7 @@
       "id": 4,
       "type": "table",
       "title": "Current watchlist",
-      "description": "Instruments on the weekly-email watchlist. When this is empty the email falls back to REPORT_SYMBOLS, then to every tracked instrument.",
+      "description": "Instruments on the weekly-email watchlist: things you're watching but don't hold. Holdings can't be added (they're always in the email, under Holdings), and a buy takes an instrument off the list. When the list is empty, the email's Watchlist section falls back to REPORT_SYMBOLS, then to every tracked instrument you don't hold.",
       "datasource": {
         "type": "postgres",
         "uid": "fintracker-pg"
@@ -276,7 +276,7 @@
       "id": 5,
       "type": "volkovlabs-form-panel",
       "title": "Add to watchlist",
-      "description": "Pick tracked instruments to add to the weekly-email watchlist.",
+      "description": "Pick tracked stocks, crypto, or metals you don't hold to add to the weekly-email watchlist. Symbols you hold are skipped.",
       "datasource": {
         "type": "postgres",
         "uid": "fintracker-pg"
@@ -304,7 +304,7 @@
             "editorMode": "code",
             "format": "table",
             "rawQuery": true,
-            "rawSql": "UPDATE instruments SET in_watchlist = true WHERE upper(symbol) = ANY(string_to_array(replace(upper('${payload.symbols}'), ' ', ''), ','))",
+            "rawSql": "UPDATE instruments SET in_watchlist = true WHERE upper(symbol) = ANY(string_to_array(replace(upper('${payload.symbols}'), ' ', ''), ',')) AND id NOT IN (SELECT instrument_id FROM portfolio_held_instruments)",
             "refId": "A",
             "sql": {
               "columns": [
@@ -324,7 +324,7 @@
               "limit": 50
             }
           },
-          "code": "if (context.panel.response && context.panel.response.state === 'Done') {\n  context.grafana.notifySuccess(['Watchlist', 'Added. Refresh the dashboard to see the updated list.']);\n  context.panel.patchFormValue({ symbols: '' });\n} else {\n  context.grafana.notifyError(['Watchlist', 'Update failed — open Panel \\u2192 Inspect \\u2192 Query for the error.']);\n}"
+          "code": "if (context.panel.response && context.panel.response.state === 'Done') {\n  context.grafana.notifySuccess(['Watchlist', 'Added. Symbols you hold are skipped. Refresh the dashboard to see the updated list.']);\n  context.panel.patchFormValue({ symbols: '' });\n} else {\n  context.grafana.notifyError(['Watchlist', 'Update failed — open Panel \\u2192 Inspect \\u2192 Query for the error.']);\n}"
         },
         "elements": [
           {
@@ -336,7 +336,7 @@
             "width": 0,
             "labelWidth": 12,
             "options": [],
-            "tooltip": "Comma-separated tickers, e.g. AAPL,BN — case- and space-insensitive",
+            "tooltip": "Comma-separated tickers you don't hold, e.g. AAPL,BN — case- and space-insensitive",
             "uid": "manage-wl-add"
           }
         ],
@@ -610,7 +610,7 @@
               "limit": 50
             }
           },
-          "code": "if (context.panel.response && context.panel.response.state === 'Done') {\n  context.grafana.notifySuccess(['Transaction', 'Recorded. Refresh to see it below, or open the Portfolio dashboard.']);\n  context.panel.patchFormValue({ quantity: \"\", price: \"\", fees: \"\", note: \"\" });\n} else {\n  context.grafana.notifyError(['Transaction', 'Update failed \\u2014 open Panel \\u2192 Inspect \\u2192 Query for the error.']);\n}"
+          "code": "if (context.panel.response && context.panel.response.state === 'Done') {\n  context.grafana.notifySuccess(['Transaction', 'Recorded. A buy takes the symbol off your watchlist. Refresh to see it below, or open the Portfolio dashboard.']);\n  context.panel.patchFormValue({ quantity: \"\", price: \"\", fees: \"\", note: \"\" });\n} else {\n  context.grafana.notifyError(['Transaction', 'Update failed \\u2014 open Panel \\u2192 Inspect \\u2192 Query for the error.']);\n}"
         },
         "elements": [
           {

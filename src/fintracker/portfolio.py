@@ -36,7 +36,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import case, func, select, update
 from sqlalchemy.orm import Session
 
 from fintracker.db import session_scope
@@ -238,7 +238,51 @@ def record_transaction(
     )
     session.add(txn)
     session.flush()
+    # A holding can't be on the watchlist: a buy that opens a position takes it
+    # off (migration 0026's trigger does the same in Postgres).
+    unwatch_holdings(session)
     return txn
+
+
+def held_symbols(session: Session) -> set[str]:
+    """Symbols with an open position: some account bought more than it sold.
+
+    Per account, so an over-sell slip in one account can't hide a real position
+    in another. Mirrors the ``portfolio_held_instruments`` view (migration 0026).
+    """
+    signed = case(
+        (PortfolioTransaction.side == "buy", PortfolioTransaction.quantity),
+        else_=-PortfolioTransaction.quantity,
+    )
+    held_ids = (
+        select(PortfolioTransaction.instrument_id)
+        .group_by(PortfolioTransaction.account_id, PortfolioTransaction.instrument_id)
+        .having(func.sum(signed) > 0)
+    )
+    return set(
+        session.execute(select(Instrument.symbol).where(Instrument.id.in_(held_ids)))
+        .scalars()
+        .all()
+    )
+
+
+def unwatch_holdings(session: Session) -> list[str]:
+    """Take every held instrument off the watchlist. Returns the symbols removed."""
+    held = held_symbols(session)
+    removed = sorted(
+        session.execute(
+            select(Instrument.symbol).where(
+                Instrument.in_watchlist, Instrument.symbol.in_(held)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if removed:
+        session.execute(
+            update(Instrument).where(Instrument.symbol.in_(removed)).values(in_watchlist=False)
+        )
+    return removed
 
 
 @dataclass(frozen=True)
@@ -298,6 +342,12 @@ def current_positions(session: Session, *, include_closed: bool = False) -> list
             )
         )
     return positions
+
+
+def _watched(session: Session) -> set[str]:
+    return set(
+        session.execute(select(Instrument.symbol).where(Instrument.in_watchlist)).scalars().all()
+    )
 
 
 def _last_close(session: Session, symbol: str) -> Decimal | None:
@@ -417,6 +467,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 else:
                     _print_accounts(session)
             elif args.command in ("buy", "sell"):
+                symbol = args.symbol.strip().upper()
+                was_watched = symbol in _watched(session)
                 txn = record_transaction(
                     session,
                     account=args.account,
@@ -430,9 +482,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                     note=args.note,
                 )
                 print(
-                    f"Recorded {txn.side} {txn.quantity} {args.symbol.upper()} "
+                    f"Recorded {txn.side} {txn.quantity} {symbol} "
                     f"@ {txn.price} {txn.currency} on {txn.trade_date} ({args.account})."
                 )
+                if was_watched and symbol not in _watched(session):
+                    print(f"{symbol} is a holding now, so it left the watchlist.")
             elif args.command == "positions":
                 _print_positions(session, include_closed=args.include_closed)
             elif args.command == "transactions":
