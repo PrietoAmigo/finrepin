@@ -423,7 +423,9 @@ so dividends are already in its price.
   **Benchmark** selector (MSCI World by default).
 - **Positions** — one row per holding per account: symbol, portfolio weight,
   daily change %, unrealized %, last price, average cost, quantity, market
-  value, and the asset-class / sector / region labels. Fully sold positions stay
+  value, the asset-class / sector / region labels, and the company's next
+  earnings date (from `earnings_dates`; `(est.)` marks a date Yahoo only
+  estimates, blank for funds, crypto, and metals). Fully sold positions stay
   listed while they carry realized P/L.
 - **Allocation** — donuts by asset class, sector, region, and currency.
 - **Transaction ledger** — the raw trades every number is derived from, in the
