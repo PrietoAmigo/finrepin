@@ -507,6 +507,11 @@ All configuration is environment-driven; see `.env.example` for the full list.
 Key knobs: `TZ`, `DAILY_HOUR`/`DAILY_MINUTE` (daily ingest), `WEEKLY_*` (email),
 `RUN_ON_START`, `LOG_LEVEL`.
 
+Postgres runs with JIT compilation off (`command` on the `db` service in
+`compose.yaml`). The dashboard queries inline several SQL functions and views
+into very large plans, and compiling those took far longer than running them:
+the Portfolio dashboard's Benchmark IRR went from about 10 s to about 1 s.
+
 ### Security note
 
 - Use a dedicated [Gmail app password](https://support.google.com/accounts/answer/185833)

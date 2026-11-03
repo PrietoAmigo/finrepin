@@ -4,6 +4,12 @@ services:
   db:
     image: postgres:16
     restart: unless-stopped
+    # JIT compilation off. The dashboard queries inline several SQL functions
+    # and views into plans of hundreds of nodes, whose estimated cost passes
+    # jit_above_cost, so Postgres spent seconds compiling each one before
+    # running it: the Portfolio dashboard's Benchmark IRR took ~10 s, ~1 s
+    # without JIT. The data here is far too small for JIT to pay for itself.
+    command: ["postgres", "-c", "jit=off"]
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
