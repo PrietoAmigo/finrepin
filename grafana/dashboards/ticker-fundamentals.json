@@ -187,12 +187,68 @@
       ]
     },
     {
+      "id": 14,
+      "type": "timeseries",
+      "title": "P/B",
+      "description": "Market cap (daily close × latest weighted diluted shares) over the latest reported stockholders' equity. No point is drawn while equity is zero or negative, or the last report is older than ~15 months.",
+      "datasource": { "type": "postgres", "uid": "fintracker-pg" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true },
+          "unit": "none",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["lastNotNull", "mean"] },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value FROM equity_metric_series s JOIN instruments i ON i.id = s.instrument_id WHERE i.symbol = '$ticker' AND s.metric = 'pb' AND $__timeFilter(s.\"time\") ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "EV/EBITDA (TTM)",
+      "description": "Enterprise value (market cap + total debt − cash) over TTM EBITDA (operating income + depreciation & amortization). No point is drawn while TTM EBITDA is zero or negative, or the last report is older than ~15 months.",
+      "datasource": { "type": "postgres", "uid": "fintracker-pg" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true },
+          "unit": "none",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["lastNotNull", "mean"] },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value FROM equity_metric_series s JOIN instruments i ON i.id = s.instrument_id WHERE i.symbol = '$ticker' AND s.metric = 'ev_ebitda' AND $__timeFilter(s.\"time\") ORDER BY 1"
+        }
+      ]
+    },
+    {
       "id": 3,
       "type": "timeseries",
       "title": "Revenue (TTM) — $display_currency",
       "description": "Trailing-twelve-month revenue: one point per reported quarter end (annual filers get one point per fiscal year).",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 28 },
       "fieldConfig": {
         "defaults": {
           "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true, "showPoints": "always", "pointSize": 5 },
@@ -219,7 +275,7 @@
       "title": "Earnings (TTM) — $display_currency",
       "description": "Trailing-twelve-month net income: one point per reported quarter end (annual filers get one point per fiscal year).",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 28 },
       "fieldConfig": {
         "defaults": {
           "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true, "showPoints": "always", "pointSize": 5 },
@@ -246,7 +302,7 @@
       "title": "Gross margin (TTM)",
       "description": "Trailing-twelve-month gross profit (revenue minus cost of goods sold) as a percentage of TTM revenue: one point per reported quarter end (annual filers get one point per fiscal year).",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 28 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 36 },
       "fieldConfig": {
         "defaults": {
           "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true, "showPoints": "always", "pointSize": 5 },
@@ -273,7 +329,7 @@
       "title": "Operating margin (TTM)",
       "description": "Trailing-twelve-month operating income as a percentage of TTM revenue: one point per reported quarter end (annual filers get one point per fiscal year).",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 28 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 36 },
       "fieldConfig": {
         "defaults": {
           "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true, "showPoints": "always", "pointSize": 5 },
@@ -300,7 +356,7 @@
       "title": "Total debt — $display_currency",
       "description": "Balance-sheet debt at each report date, composed from the components the filer tags (long-term debt incl. current portion, plus short-term borrowings) without double counting.",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 36 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 44 },
       "fieldConfig": {
         "defaults": {
           "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true, "showPoints": "always", "pointSize": 5 },
@@ -327,7 +383,7 @@
       "title": "Shares outstanding",
       "description": "Weighted diluted share count from each report (the same series MCap and P/FCF use); a falling line means buybacks, a rising one dilution.",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 36 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 44 },
       "fieldConfig": {
         "defaults": {
           "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true, "showPoints": "always", "pointSize": 5 },
