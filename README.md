@@ -106,7 +106,11 @@ thing runs under Docker Compose and schedules itself — no external cron.
   all currencies seen on tracked tickers (listing + reporting currencies).
   Money values — prices, revenue, debt, MCap, statement lines — are converted
   into the selected currency at the matching day's FX rate (fiscal-year-end
-  rate for statement tables); ratios and share counts are left alone. Backed
+  rate for statement tables); ratios and share counts are left alone. The
+  price ratios (P/E, P/FCF, P/B, EV/EBITDA) are computed with the close
+  converted into the company's reporting currency first, so a listing that
+  trades in one currency and reports in another (CSU.TO: CAD vs USD) isn't
+  off by the exchange rate (migration 0028). Backed
   by the `fx_usd_daily` view (migration 0007): the forex ingest auto-registers
   a `<CCY>/USD` pair per currency it encounters, and rates gap-fill across
   weekends. If a rate series hasn't been ingested yet, values fall back to
@@ -682,7 +686,8 @@ Schedule that command from host cron if you want periodic backups.
 │   ├── heartbeat.py / healthcheck.py
 │   ├── run.py                  # entrypoint
 │   ├── ingest/                 # prices, forex, crypto, metals, market orchestrator,
-│   │                           #   fundamentals + sec_client, earnings, classify
+│   │                           #   fundamentals + sec_client, earnings, classify,
+│   │                           #   quote_units (pence/cents listings)
 │   ├── housing/                # Spain housing: region hierarchy + indicators,
 │   │                           #   INE + MIVAU ingest, data/regions_all.json
 │   └── report/                 # weekly email: data (queries), render (HTML/text), email_report (SMTP)
@@ -712,6 +717,20 @@ alembic upgrade head
 - **Prices/forex:** Yahoo via `yfinance` — the only free source that reliably
   covers the `.TO`, `.MC`, and `.V` tickers here. Full history is available
   (`period="max"`), which is what the initial backfill uses.
+- **Pence, cents, and agorot:** Yahoo quotes London (`.L`) in pence (`GBp`),
+  Johannesburg (`.JO`) in cents (`ZAc`), and Tel Aviv (`.TA`) in agorot
+  (`ILA`), while statements, EPS, and FX rates use pounds, rand, and shekels.
+  Those listings are stored in the major unit: `currency` is GBP / ZAR / ILS
+  and every Yahoo bar is divided by the instrument's `price_divisor` (100)
+  before it is stored (`fintracker.ingest.quote_units`). Instruments added
+  before this was handled are repaired by the first market ingest after the
+  upgrade: Yahoo is asked once per equity for its quote unit, and for a
+  minor-unit listing the stored history is divided by 100. So are recorded
+  trades whose price matches that day's close in pence or cents. A trade
+  that matches the close in pounds or rand is only relabelled, and one with
+  no close nearby follows its currency label. Every change is logged as a
+  warning. Run it by hand with
+  `docker compose exec app python -m fintracker.ingest.quote_units`.
 - **Precious metals:** gold and silver in USD per troy ounce from Yahoo's
   continuous front-month COMEX futures (`GC=F`, `SI=F`) — the same yfinance
   path as equities, with decades of daily history. **Not spot**: cost of carry

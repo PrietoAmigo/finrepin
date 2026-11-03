@@ -312,3 +312,33 @@ class TestResolveCryptoFallback:
         assert status == "done"
         inst = session.scalar(select(Instrument).where(Instrument.symbol == "SOL"))
         assert inst is not None and inst.kind == "equity"
+
+
+class TestMinorUnitListing:
+    def test_pence_listing_is_stored_in_pounds(
+        self, session: Session, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        stored: list[dict[str, object]] = []
+        monkeypatch.setattr(ondemand, "_yahoo_meta", lambda sym: _equity_meta())
+        monkeypatch.setattr(ondemand, "fetch_daily_history", lambda ys, start=None: _history())
+        monkeypatch.setattr(
+            ondemand,
+            "upsert_price_rows",
+            lambda s, iid, rows, source: stored.extend(rows) or len(rows),
+        )
+        monkeypatch.setattr(ondemand, "_fetch_currency", lambda sym: "GBp")
+        monkeypatch.setattr(ondemand, "get_settings", lambda: SimpleNamespace(sec_user_agent=""))
+        # No SEC coverage, so registration pulls Yahoo statements next; keep
+        # the test off the network.
+        monkeypatch.setattr(ondemand, "ingest_instrument_yahoo_facts", lambda s, inst: 0)
+
+        req = TickerRequest(symbol="SHEL.L")
+        session.add(req)
+        session.flush()
+
+        status, _ = ondemand._resolve(req, session)
+        assert status == "done"
+        inst = session.scalar(select(Instrument).where(Instrument.symbol == "SHEL.L"))
+        assert inst is not None
+        assert (inst.currency, inst.price_divisor) == ("GBP", 100)
+        assert [row["close"] for row in stored] == [1.0, 1.1]

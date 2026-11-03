@@ -60,6 +60,12 @@ class Instrument(Base):
     in_watchlist: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("false")
     )
+    # Yahoo quotes some listings in a currency's minor unit (London in pence,
+    # Johannesburg in cents, Tel Aviv in agorot). Prices are stored in the major
+    # unit (`currency` is then GBP / ZAR / ILS) after dividing Yahoo's quotes by
+    # this. 1 for everything else; NULL for an equity whose Yahoo quote unit
+    # hasn't been checked yet (see ingest.quote_units).
+    price_divisor: Mapped[int | None] = mapped_column()
 
 
 class Price(Base):

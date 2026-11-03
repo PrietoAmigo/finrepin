@@ -20,6 +20,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from fintracker.db import session_scope
 from fintracker.ingest.prices import ingest_yahoo_prices
+from fintracker.ingest.quote_units import PSEUDO_CURRENCIES
 from fintracker.models import Account, Fundamental, Instrument, PortfolioTransaction
 
 log = logging.getLogger(__name__)
@@ -32,7 +33,7 @@ def fx_instrument_rows(currencies: Iterable[str]) -> list[dict[str, Any]]:
 
     Inputs may be raw fundamentals units ('EUR/shares', 'shares'); anything
     that isn't a three-letter code after stripping the '/shares' suffix is
-    ignored.
+    ignored, and so are minor-unit codes like ZAC that Yahoo has no pair for.
     """
     codes = {str(c).strip().upper().split("/", 1)[0] for c in currencies if c}
     return [
@@ -43,7 +44,7 @@ def fx_instrument_rows(currencies: Iterable[str]) -> list[dict[str, Any]]:
             "currency": "USD",
             "yahoo_symbol": f"{ccy}USD=X",
         }
-        for ccy in sorted(codes - {"USD"})
+        for ccy in sorted(codes - {"USD"} - PSEUDO_CURRENCIES)
         if _CCY_RE.fullmatch(ccy)
     ]
 

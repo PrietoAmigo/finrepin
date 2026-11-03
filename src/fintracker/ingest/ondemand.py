@@ -35,6 +35,7 @@ from fintracker.config import get_settings
 from fintracker.db import session_scope
 from fintracker.ingest.fundamentals import ingest_instrument_facts, resolve_cik
 from fintracker.ingest.prices import fetch_daily_history, rows_from_history, upsert_price_rows
+from fintracker.ingest.quote_units import normalize_quote_currency, scale_price_rows
 from fintracker.ingest.sec_client import SecClient
 from fintracker.ingest.yahoo_fundamentals import ingest_instrument_yahoo_facts
 from fintracker.models import Instrument, TickerRequest
@@ -63,13 +64,14 @@ def detect_taxonomy(company_facts: dict[str, Any]) -> str | None:
 
 
 def _fetch_currency(yahoo_symbol: str) -> str | None:
+    """Yahoo's quote currency with its case intact: "GBp" (pence) is not "GBP"."""
     import yfinance as yf
 
     try:
         currency = yf.Ticker(yahoo_symbol).fast_info["currency"]
     except Exception:
         return None
-    return str(currency).upper() if currency else None
+    return str(currency).strip() if currency else None
 
 
 COINGECKO_COINS_LIST = "https://api.coingecko.com/api/v3/coins/list"
@@ -227,6 +229,7 @@ def _register_crypto(session: Session, spec: CryptoSpec) -> tuple[str, str]:
         currency="USD",
         yahoo_symbol=spec.yahoo_symbol,
         coingecko_id=spec.coingecko_id,
+        price_divisor=1,
     )
     session.add(inst)
     session.flush()
@@ -288,20 +291,26 @@ def _resolve(req: TickerRequest, session: Session) -> tuple[str, str | None]:
         # Name what was actually tried, so a failed request says why.
         return "not_found", f"unknown to Yahoo Finance ({symbol}, {symbol}-USD) and SEC EDGAR"
 
+    # Pence/cents/agorot listings are stored in the major unit (GBP/ZAR/ILS).
+    raw_currency = _fetch_currency(symbol)
+    currency, divisor = normalize_quote_currency(raw_currency)
     inst = Instrument(
         symbol=symbol,
         name=sec_name or symbol,
         kind="equity",
-        currency=_fetch_currency(symbol) or "USD",
+        currency=currency or "USD",
         yahoo_symbol=symbol if price_rows else None,
         cik=cik,
         taxonomy=taxonomy,
+        # Unknown until Yahoo answers; ingest.quote_units checks it later.
+        price_divisor=divisor if raw_currency else None,
     )
     session.add(inst)
     session.flush()
 
     notes = []
     if price_rows:
+        price_rows = scale_price_rows(price_rows, inst.price_divisor)
         upsert_price_rows(session, inst.id, price_rows, source="yfinance")
         notes.append(f"{len(price_rows)} price rows")
     if client is not None and cik is not None and taxonomy is not None:
