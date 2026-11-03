@@ -19,6 +19,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from fintracker.db import session_scope
+from fintracker.ingest.quote_units import scale_price_rows
 from fintracker.models import Instrument, Price
 
 log = logging.getLogger(__name__)
@@ -136,7 +137,8 @@ def ingest_yahoo_prices(kind: str) -> int:
             except Exception:
                 log.exception("Price fetch failed for %s (%s)", inst.symbol, inst.yahoo_symbol)
                 continue
-            rows = rows_from_history(history)
+            # Pence/cents/agorot quotes are stored in the major unit.
+            rows = scale_price_rows(rows_from_history(history), inst.price_divisor)
             if not rows:
                 log.warning("No price rows returned for %s (%s)", inst.symbol, inst.yahoo_symbol)
                 continue

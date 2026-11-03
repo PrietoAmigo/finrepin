@@ -16,6 +16,7 @@ from fintracker.ingest.forex import ingest_forex_rates
 from fintracker.ingest.fred import ingest_interest_rates
 from fintracker.ingest.metals import ingest_metal_prices
 from fintracker.ingest.prices import ingest_equity_prices, ingest_index_prices
+from fintracker.ingest.quote_units import verify_quote_units
 
 log = logging.getLogger(__name__)
 
@@ -24,6 +25,9 @@ def ingest_market_data() -> None:
     """Run all market ingestors; one source failing must not stop the others."""
     totals: dict[str, int] = {}
     for name, ingestor in (
+        # First, so new bars for a pence/cents listing land in the same unit
+        # as its (rescaled) history. Asks Yahoo only about unchecked equities.
+        ("quote-units", verify_quote_units),
         ("equities", ingest_equity_prices),
         ("indexes", ingest_index_prices),
         ("forex", ingest_forex_rates),

@@ -32,6 +32,7 @@ from sqlalchemy.orm import Session
 
 from fintracker.db import session_scope
 from fintracker.ingest.fundamentals import _upsert_facts
+from fintracker.ingest.quote_units import normalize_quote_currency
 from fintracker.models import Instrument
 
 log = logging.getLogger(__name__)
@@ -248,7 +249,8 @@ def _financial_currency(ticker: Any) -> str | None:
         currency = ticker.info.get("financialCurrency")
     except Exception:
         return None
-    return str(currency).upper() if currency else None
+    # Statements are in the major unit even where quotes are not ("GBp" -> GBP).
+    return normalize_quote_currency(str(currency))[0] if currency else None
 
 
 def ingest_instrument_yahoo_facts(session: Session, inst: Instrument) -> int:
