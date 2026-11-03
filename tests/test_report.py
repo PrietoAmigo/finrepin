@@ -8,7 +8,7 @@ from decimal import Decimal
 import pytest
 
 from fintracker.models import Price
-from fintracker.report.data import PriceRow, Report, change_abs, change_pct
+from fintracker.report.data import EarningsRow, PriceRow, Report, change_abs, change_pct
 from fintracker.report.render import render_html, render_text
 
 
@@ -78,7 +78,7 @@ def _report_with_score() -> Report:
     return Report(
         generated_at=dt.date(2026, 7, 13),
         lookback_days=7,
-        prices=[
+        watchlist=[
             PriceRow("BTC", "Bitcoin", "crypto", "USD", 64000.0, 2.1, 6.4, 43.8),
             PriceRow(
                 "MVRV Z-Score", "Bitcoin · market cap vs realized cap",
@@ -92,7 +92,7 @@ def _report_with_metals() -> Report:
     return Report(
         generated_at=dt.date(2026, 7, 13),
         lookback_days=7,
-        prices=[
+        watchlist=[
             PriceRow("XAU", "Gold (front-month futures)", "metal", "USD",
                      3358.90, 1.2, -0.8, 27.4, unit="/oz"),
             PriceRow("XAG", "Silver (front-month futures)", "metal", "USD",
@@ -144,3 +144,51 @@ class TestScoreRendering:
     def test_eth_absence_is_a_data_choice_not_rendering(self) -> None:
         # Rendering shows whatever rows it's given; ETH exclusion lives in data.py.
         assert "ETH" not in render_html(_report_with_score())
+
+
+def _report_with_both() -> Report:
+    return Report(
+        generated_at=dt.date(2026, 11, 7),
+        lookback_days=7,
+        holdings=[
+            PriceRow("AAPL", "Apple", "equity", "USD", 210.0, 1.0, 2.0, 3.0),
+            PriceRow("MSCIWORLD", "MSCI World ETF", "index", "EUR", 105.2, 0.4, 1.1, 14.0),
+        ],
+        watchlist=[PriceRow("XAU", "Gold", "metal", "USD", 3358.9, 1.2, -0.8, 27.4, unit="/oz")],
+        earnings=[
+            EarningsRow("AAPL", "Apple", dt.date(2026, 11, 20), False, held=True),
+            EarningsRow("NVDA", "Nvidia", dt.date(2026, 11, 25), True, held=False),
+        ],
+    )
+
+
+class TestHoldingsAndWatchlistSections:
+    def test_html_has_both_sections_in_order(self) -> None:
+        html = render_html(_report_with_both())
+        assert html.index(">Holdings<") < html.index(">Watchlist<")
+        assert html.index("AAPL") < html.index(">Watchlist<") < html.index("XAU")
+
+    def test_held_funds_get_their_own_header(self) -> None:
+        assert "Indexes &amp; funds" in render_html(_report_with_both())
+        assert "=== INDEXES & FUNDS ===" in render_text(_report_with_both())
+
+    def test_earnings_are_tagged_holding_or_watchlist(self) -> None:
+        html = render_html(_report_with_both())
+        assert ">holding</span>" in html and ">watchlist</span>" in html
+        text = render_text(_report_with_both())
+        assert "AAPL Apple [holding]" in text
+        assert "NVDA Nvidia [watchlist] (estimated)" in text
+
+    def test_empty_sections_say_so(self) -> None:
+        empty = Report(generated_at=dt.date(2026, 11, 7), lookback_days=7)
+        html = render_html(empty)
+        assert "No open positions" in html and "Nothing on your watchlist" in html
+        text = render_text(empty)
+        assert "No open positions" in text and "Nothing on your watchlist" in text
+
+    def test_fallback_watchlist_is_explained(self) -> None:
+        report = _report_with_both()
+        assert "Your watchlist is empty" not in render_html(report)
+        report.watchlist_is_fallback = True
+        assert "Your watchlist is empty" in render_html(report)
+        assert "Your watchlist is empty" in render_text(report)

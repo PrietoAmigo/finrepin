@@ -10,6 +10,7 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from fintracker.models import EarningsDate, Instrument, Price
+from fintracker.portfolio import held_symbols
 
 
 @dataclass
@@ -35,25 +36,37 @@ class EarningsRow:
     name: str
     date: dt.date
     is_estimated: bool
+    # True for a holding, False for a watchlist name.
+    held: bool = False
 
 
 @dataclass
 class Report:
     generated_at: dt.date
     lookback_days: int
-    prices: list[PriceRow] = field(default_factory=list)
+    # What you own: always in the email, whatever the watchlist says.
+    holdings: list[PriceRow] = field(default_factory=list)
+    # What you're watching (never a holding — holdings are listed above).
+    watchlist: list[PriceRow] = field(default_factory=list)
+    # True when the watchlist is empty and the section shows the fallback list
+    # (REPORT_SYMBOLS, else every tracked instrument you don't hold) instead.
+    watchlist_is_fallback: bool = False
     earnings: list[EarningsRow] = field(default_factory=list)
 
 
-_KIND_ORDER = {"equity": 0, "metal": 1, "crypto": 2, "forex": 3}
+_KIND_ORDER = {"equity": 0, "index": 1, "metal": 2, "crypto": 3, "forex": 4}
+
+# Kinds the "every tracked instrument" fallback draws from: tradable prices,
+# not the indexes, rates, and on-chain series that back the market dashboards.
+_FALLBACK_KINDS = ("equity", "metal", "crypto", "forex")
 
 # Level suffix per kind. Metals are quoted per troy ounce, so the level reads
 # "$3,350.20/oz" while its weekly/monthly/yearly moves stay plain percentages.
 _KIND_UNITS = {"metal": "/oz"}
 
-# Symbols intentionally left out of the weekly email. The crypto section focuses
-# on Bitcoin (its price and MVRV Z-Score); ETH stays tracked and on the
-# dashboards, just not in the email.
+# Symbols left out of the fallback list (an empty watchlist). Its crypto section
+# focuses on Bitcoin (its price and MVRV Z-Score); ETH stays tracked and on the
+# dashboards, and shows in the email when you hold it or watch it.
 _EXCLUDED_SYMBOLS = frozenset({"ETH"})
 
 # Enough daily bars to find a base price a year back (~260 trading days).
@@ -169,57 +182,71 @@ def _price_row(session: Session, inst: Instrument, lookback_days: int) -> PriceR
     )
 
 
-def _price_moves(
-    session: Session, lookback_days: int, symbols: tuple[str, ...]
-) -> list[PriceRow]:
-    query = select(Instrument).order_by(Instrument.symbol)
-    if symbols:
-        query = query.where(Instrument.symbol.in_(symbols))
-    instruments = session.execute(query).scalars().all()
-    rows = [
-        _price_row(session, inst, lookback_days)
-        for inst in instruments
-        if inst.symbol not in _EXCLUDED_SYMBOLS
-    ]
+def _price_moves(session: Session, lookback_days: int, symbols: set[str]) -> list[PriceRow]:
+    """One row per symbol that has prices, sorted by kind then symbol."""
+    if not symbols:
+        return []
+    instruments = (
+        session.execute(
+            select(Instrument)
+            .where(Instrument.symbol.in_(sorted(symbols)))
+            .order_by(Instrument.symbol)
+        )
+        .scalars()
+        .all()
+    )
+    rows = [_price_row(session, inst, lookback_days) for inst in instruments]
     result = [r for r in rows if r is not None]
-    # The BTC MVRV Z-Score rides alongside BTC in the crypto section (shown
-    # whenever BTC would be, i.e. no symbol allow-list or BTC is on it).
-    if not symbols or "BTC" in symbols:
+    # The BTC MVRV Z-Score rides alongside BTC, in whichever section BTC is in.
+    if "BTC" in symbols:
         zscore = _mvrv_zscore_row(session, lookback_days)
         if zscore is not None:
             result.append(zscore)
     return sorted(result, key=lambda r: (_KIND_ORDER.get(r.kind, 9), r.symbol))
 
 
-def _watchlist_symbols(session: Session) -> tuple[str, ...]:
+def _watchlist_symbols(session: Session) -> set[str]:
     """Symbols flagged onto the weekly-email watchlist (Manage dashboard)."""
-    rows = (
-        session.execute(
-            select(Instrument.symbol)
-            .where(Instrument.in_watchlist)
-            .order_by(Instrument.symbol)
-        )
+    return set(
+        session.execute(select(Instrument.symbol).where(Instrument.in_watchlist))
         .scalars()
         .all()
     )
-    return tuple(rows)
+
+
+def _fallback_symbols(session: Session, report_symbols: tuple[str, ...]) -> set[str]:
+    """What the Watchlist section shows while the watchlist is empty."""
+    if report_symbols:
+        symbols = set(report_symbols)
+    else:
+        symbols = set(
+            session.execute(
+                select(Instrument.symbol).where(Instrument.kind.in_(_FALLBACK_KINDS))
+            )
+            .scalars()
+            .all()
+        )
+    return symbols - _EXCLUDED_SYMBOLS
 
 
 def _upcoming_earnings(
-    session: Session, today: dt.date, symbols: tuple[str, ...]
+    session: Session, today: dt.date, symbols: set[str], held: set[str]
 ) -> list[EarningsRow]:
-    query = (
+    if not symbols:
+        return []
+    pairs = session.execute(
         select(EarningsDate, Instrument)
         .join(Instrument, Instrument.id == EarningsDate.instrument_id)
-        .where(EarningsDate.earnings_date >= today)
-        .order_by(EarningsDate.earnings_date)
-    )
-    if symbols:
-        query = query.where(Instrument.symbol.in_(symbols))
-    pairs = session.execute(query).all()
+        .where(EarningsDate.earnings_date >= today, Instrument.symbol.in_(sorted(symbols)))
+        .order_by(EarningsDate.earnings_date, Instrument.symbol)
+    ).all()
     return [
         EarningsRow(
-            symbol=inst.symbol, name=inst.name, date=ed.earnings_date, is_estimated=ed.is_estimated
+            symbol=inst.symbol,
+            name=inst.name,
+            date=ed.earnings_date,
+            is_estimated=ed.is_estimated,
+            held=inst.symbol in held,
         )
         for ed, inst in pairs
     ]
@@ -230,18 +257,29 @@ def build_report(session: Session, **overrides: Any) -> Report:
 
     settings = get_settings()
     lookback_days = int(overrides.get("lookback_days", settings.report_lookback_days))
-    # Watchlist precedence: an explicit override wins (tests / manual runs), then
-    # the DB watchlist (edited from the Manage dashboard), then the REPORT_SYMBOLS
-    # env seed, and finally an empty tuple meaning "every tracked instrument".
-    if "symbols" in overrides:
-        symbols: tuple[str, ...] = tuple(overrides["symbols"])
-    else:
-        symbols = _watchlist_symbols(session) or tuple(settings.report_symbols)
     today: dt.date = overrides.get("today", dt.date.today())
+
+    # Holdings are always in the email. The watchlist comes from an explicit
+    # override (tests / manual runs), else the DB watchlist (edited from the
+    # Manage dashboard), else — while that is empty — the REPORT_SYMBOLS env
+    # seed, else every tracked stock/metal/crypto/FX pair. Whatever you hold is
+    # listed under Holdings only, never twice.
+    held = held_symbols(session)
+    fallback = False
+    if "symbols" in overrides:
+        watched = {s.upper() for s in overrides["symbols"]}
+    else:
+        watched = _watchlist_symbols(session)
+        if not watched:
+            fallback = True
+            watched = _fallback_symbols(session, settings.report_symbols)
+    watched -= held
 
     return Report(
         generated_at=today,
         lookback_days=lookback_days,
-        prices=_price_moves(session, lookback_days, symbols),
-        earnings=_upcoming_earnings(session, today, symbols),
+        holdings=_price_moves(session, lookback_days, held),
+        watchlist=_price_moves(session, lookback_days, watched),
+        watchlist_is_fallback=fallback,
+        earnings=_upcoming_earnings(session, today, held | watched, held),
     )

@@ -1,0 +1,1353 @@
+{
+  "uid": "fintracker-watchlist",
+  "title": "Watchlist",
+  "description": "Stocks, crypto, and metals you're watching but don't hold: latest price and period moves, trend and 52-week context, valuation, upcoming earnings, relative performance, and a per-instrument price chart with moving averages. Edit the list on the Manage dashboard.",
+  "tags": [
+    "fintracker"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "",
+  "time": {
+    "from": "now-1y",
+    "to": "now"
+  },
+  "timepicker": {
+    "quick_ranges": [
+      {
+        "display": "Last 24 hours",
+        "from": "now-24h",
+        "to": "now"
+      },
+      {
+        "display": "Last 2 days",
+        "from": "now-2d",
+        "to": "now"
+      },
+      {
+        "display": "Last 7 days",
+        "from": "now-7d",
+        "to": "now"
+      },
+      {
+        "display": "Last 30 days",
+        "from": "now-30d",
+        "to": "now"
+      },
+      {
+        "display": "Last 90 days",
+        "from": "now-90d",
+        "to": "now"
+      },
+      {
+        "display": "Last 6 months",
+        "from": "now-6M",
+        "to": "now"
+      },
+      {
+        "display": "Last 1 year",
+        "from": "now-1y",
+        "to": "now"
+      },
+      {
+        "display": "Last 2 years",
+        "from": "now-2y",
+        "to": "now"
+      },
+      {
+        "display": "Last 5 years",
+        "from": "now-5y",
+        "to": "now"
+      },
+      {
+        "display": "Last 10 years",
+        "from": "now-10y",
+        "to": "now"
+      },
+      {
+        "display": "Last 15 years",
+        "from": "now-15y",
+        "to": "now"
+      },
+      {
+        "display": "Yesterday",
+        "from": "now-1d/d",
+        "to": "now-1d/d"
+      },
+      {
+        "display": "Previous week",
+        "from": "now-1w/w",
+        "to": "now-1w/w"
+      },
+      {
+        "display": "Previous month",
+        "from": "now-1M/M",
+        "to": "now-1M/M"
+      },
+      {
+        "display": "Previous year",
+        "from": "now-1y/y",
+        "to": "now-1y/y"
+      },
+      {
+        "display": "Today so far",
+        "from": "now/d",
+        "to": "now"
+      },
+      {
+        "display": "This week so far",
+        "from": "now/w",
+        "to": "now"
+      },
+      {
+        "display": "This month so far",
+        "from": "now/M",
+        "to": "now"
+      },
+      {
+        "display": "This year so far",
+        "from": "now/y",
+        "to": "now"
+      }
+    ]
+  },
+  "links": [
+    {
+      "title": "Edit the watchlist",
+      "type": "link",
+      "url": "/d/fintracker-manage/manage",
+      "icon": "pen",
+      "targetBlank": false,
+      "keepTime": false,
+      "includeVars": false,
+      "tooltip": "Add or remove symbols on the Manage dashboard"
+    },
+    {
+      "title": "Portfolio",
+      "type": "link",
+      "url": "/d/fintracker-portfolio/portfolio",
+      "icon": "dashboard",
+      "targetBlank": false,
+      "keepTime": true,
+      "includeVars": false,
+      "tooltip": ""
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "symbol",
+        "label": "Detail",
+        "description": "The instrument the Detail chart shows.",
+        "type": "query",
+        "datasource": {
+          "type": "postgres",
+          "uid": "fintracker-pg"
+        },
+        "query": "SELECT symbol FROM instruments WHERE in_watchlist ORDER BY symbol",
+        "definition": "SELECT symbol FROM instruments WHERE in_watchlist ORDER BY symbol",
+        "refresh": 1,
+        "sort": 0,
+        "multi": false,
+        "includeAll": false,
+        "current": {}
+      }
+    ]
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 100,
+      "type": "row",
+      "title": "Overview",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "On the watchlist",
+      "description": "Instruments you're watching. Holdings can't be on the list; edit it on the Manage dashboard.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*) AS \"Watching\" FROM instruments WHERE in_watchlist"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Best month",
+      "description": "The watched name that rose most over the last 30 days.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": true,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "value_and_name",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH w AS ( SELECT i.id, i.symbol, i.name, i.kind, i.currency FROM instruments i WHERE i.in_watchlist ), px AS ( SELECT p.instrument_id, p.date, p.close::float8 AS close FROM prices p JOIN w ON w.id = p.instrument_id WHERE p.close > 0 AND p.date > CURRENT_DATE - 800 ), last AS ( SELECT DISTINCT ON (instrument_id) instrument_id, date, close FROM px ORDER BY instrument_id, date DESC )  SELECT w.symbol AS \"Symbol\", 100.0 * (l.close / NULLIF((SELECT x.close FROM px x WHERE x.instrument_id = l.instrument_id AND x.date <= l.date - 30 ORDER BY x.date DESC LIMIT 1), 0) - 1) AS \"1M\" FROM last l JOIN w ON w.id = l.instrument_id"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "1M",
+                "desc": true
+              }
+            ]
+          }
+        },
+        {
+          "id": "limit",
+          "options": {
+            "limitField": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Worst month",
+      "description": "The watched name that fell most (or rose least) over the last 30 days.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": true,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "value_and_name",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH w AS ( SELECT i.id, i.symbol, i.name, i.kind, i.currency FROM instruments i WHERE i.in_watchlist ), px AS ( SELECT p.instrument_id, p.date, p.close::float8 AS close FROM prices p JOIN w ON w.id = p.instrument_id WHERE p.close > 0 AND p.date > CURRENT_DATE - 800 ), last AS ( SELECT DISTINCT ON (instrument_id) instrument_id, date, close FROM px ORDER BY instrument_id, date DESC )  SELECT w.symbol AS \"Symbol\", 100.0 * (l.close / NULLIF((SELECT x.close FROM px x WHERE x.instrument_id = l.instrument_id AND x.date <= l.date - 30 ORDER BY x.date DESC LIMIT 1), 0) - 1) AS \"1M\" FROM last l JOIN w ON w.id = l.instrument_id"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "1M",
+                "desc": false
+              }
+            ]
+          }
+        },
+        {
+          "id": "limit",
+          "options": {
+            "limitField": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Next earnings",
+      "description": "The soonest upcoming earnings report among watched companies.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/.*/"
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "value",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT i.symbol || ' · ' || to_char(ed.earnings_date, 'DD Mon') AS \"Next earnings\" FROM earnings_dates ed JOIN instruments i ON i.id = ed.instrument_id WHERE i.in_watchlist AND ed.earnings_date >= CURRENT_DATE ORDER BY ed.earnings_date, i.symbol LIMIT 1"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "table",
+      "title": "Watchlist",
+      "description": "Every watched instrument at its latest close, in its own currency. Moves compare the latest close with the last close at least that long ago (1D: the previous close; YTD: the last close of last year), the same rule as the weekly email. vs 200-day avg: the latest close against the average of the last 200 closes. Below 52w high and 52w range use the closes of the last year (0% of the range = at the low, 100% = at the high). P/E and market cap come from the fundamentals views and are blank for non-equities and names without filings. Click a symbol to chart it below.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Symbol"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 90
+              },
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Chart ${__value.raw} below",
+                    "url": "/d/fintracker-watchlist/watchlist?var-symbol=${__value.raw}&${__url_time_range}"
+                  },
+                  {
+                    "title": "Ticker Fundamentals (stocks)",
+                    "url": "/d/fintracker-ticker-fundamentals/ticker-fundamentals?var-ticker=${__value.raw}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Name"
+            },
+            "properties": [
+              {
+                "id": "custom.minWidth",
+                "value": 140
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Type"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 70
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Ccy"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 50
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Last price"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              },
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "1D"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 66
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 0
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "1W"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 66
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 0
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "1M"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 66
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 0
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "YTD"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 66
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 0
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "1Y"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 66
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 0
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "vs 200-day avg"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 122
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 0
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Below 52w high"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 132
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "52w range"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic",
+                  "valueDisplayMode": "text"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 120
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "P/E"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 60
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Mkt cap (USD)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyUSD"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 122
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Next earnings"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 130
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH w AS ( SELECT i.id, i.symbol, i.name, i.kind, i.currency FROM instruments i WHERE i.in_watchlist ), px AS ( SELECT p.instrument_id, p.date, p.close::float8 AS close FROM prices p JOIN w ON w.id = p.instrument_id WHERE p.close > 0 AND p.date > CURRENT_DATE - 800 ), last AS ( SELECT DISTINCT ON (instrument_id) instrument_id, date, close FROM px ORDER BY instrument_id, date DESC )  , stats AS ( SELECT l.instrument_id, l.close, (SELECT x.close FROM px x WHERE x.instrument_id = l.instrument_id AND x.date < l.date ORDER BY x.date DESC LIMIT 1) AS d1, (SELECT x.close FROM px x WHERE x.instrument_id = l.instrument_id AND x.date <= l.date - 7 ORDER BY x.date DESC LIMIT 1) AS w1, (SELECT x.close FROM px x WHERE x.instrument_id = l.instrument_id AND x.date <= l.date - 30 ORDER BY x.date DESC LIMIT 1) AS m1, (SELECT x.close FROM px x WHERE x.instrument_id = l.instrument_id AND x.date < date_trunc('year', l.date)::date ORDER BY x.date DESC LIMIT 1) AS ytd, (SELECT x.close FROM px x WHERE x.instrument_id = l.instrument_id AND x.date <= l.date - 365 ORDER BY x.date DESC LIMIT 1) AS y1, (SELECT max(x.close) FROM px x WHERE x.instrument_id = l.instrument_id AND x.date > l.date - 365) AS hi52, (SELECT min(x.close) FROM px x WHERE x.instrument_id = l.instrument_id AND x.date > l.date - 365) AS lo52, (SELECT CASE WHEN count(*) = 200 THEN avg(s.close) END FROM (SELECT x.close FROM px x WHERE x.instrument_id = l.instrument_id ORDER BY x.date DESC LIMIT 200) s) AS ma200 FROM last l ), val AS ( SELECT DISTINCT ON (m.instrument_id, m.metric) m.instrument_id, m.metric, m.value, m.currency FROM equity_metric_series m WHERE m.metric IN ('pe', 'mcap') AND m.instrument_id IN (SELECT i.id FROM instruments i WHERE i.in_watchlist AND i.kind = 'equity') ORDER BY m.instrument_id, m.metric, m.time DESC ), fx AS ( SELECT DISTINCT ON (currency) currency, usd_rate FROM fx_usd_daily ORDER BY currency, date DESC ) SELECT w.symbol AS \"Symbol\", w.name AS \"Name\", CASE w.kind WHEN 'equity' THEN 'Stock' WHEN 'crypto' THEN 'Crypto' WHEN 'metal' THEN 'Metal' WHEN 'index' THEN 'Index / fund' WHEN 'forex' THEN 'FX' ELSE initcap(w.kind) END AS \"Type\", s.close AS \"Last price\", w.currency AS \"Ccy\", 100.0 * (s.close / NULLIF(s.d1, 0) - 1) AS \"1D\", 100.0 * (s.close / NULLIF(s.w1, 0) - 1) AS \"1W\", 100.0 * (s.close / NULLIF(s.m1, 0) - 1) AS \"1M\", 100.0 * (s.close / NULLIF(s.ytd, 0) - 1) AS \"YTD\", 100.0 * (s.close / NULLIF(s.y1, 0) - 1) AS \"1Y\", 100.0 * (s.close / NULLIF(s.ma200, 0) - 1) AS \"vs 200-day avg\", 100.0 * (1 - s.close / NULLIF(s.hi52, 0)) AS \"Below 52w high\", 100.0 * (s.close - s.lo52) / NULLIF(s.hi52 - s.lo52, 0) AS \"52w range\", pe.value AS \"P/E\", mc.value * fx.usd_rate AS \"Mkt cap (USD)\", to_char(ed.earnings_date, 'YYYY-MM-DD') || CASE WHEN ed.is_estimated THEN ' (est.)' ELSE '' END AS \"Next earnings\" FROM w LEFT JOIN stats s ON s.instrument_id = w.id LEFT JOIN val pe ON pe.instrument_id = w.id AND pe.metric = 'pe' LEFT JOIN val mc ON mc.instrument_id = w.id AND mc.metric = 'mcap' LEFT JOIN fx ON fx.currency = mc.currency LEFT JOIN earnings_dates ed ON ed.instrument_id = w.id AND ed.earnings_date >= CURRENT_DATE ORDER BY 8 DESC NULLS LAST, w.symbol"
+        }
+      ]
+    },
+    {
+      "id": 101,
+      "type": "row",
+      "title": "Performance",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "panels": []
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Performance — % change since the start of the range",
+      "description": "Each watched instrument's daily close rebased to its first close in the selected time range, in its own currency, so names in different currencies and price levels compare directly.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 17
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "spanNulls": true
+          },
+          "unit": "percent",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "lastNotNull"
+          ],
+          "sortBy": "Last *",
+          "sortDesc": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT p.date::timestamptz AS \"time\", i.symbol AS metric, 100.0 * (p.close::float8 / first_value(p.close::float8) OVER (PARTITION BY p.instrument_id ORDER BY p.date) - 1) AS value FROM prices p JOIN instruments i ON i.id = p.instrument_id WHERE i.in_watchlist AND p.close > 0 AND $__timeFilter(p.date) ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "bargauge",
+      "title": "How far below the 52-week high",
+      "description": "The latest close against the highest close of the last year: 0% means at the high, 30% means 30% below it.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 27
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "min": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": true,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "valueMode": "text",
+        "showUnfilled": true,
+        "namePlacement": "left",
+        "sizing": "auto",
+        "minVizHeight": 16,
+        "maxVizHeight": 24,
+        "text": {
+          "titleSize": 13,
+          "valueSize": 16
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH w AS ( SELECT i.id, i.symbol, i.name, i.kind, i.currency FROM instruments i WHERE i.in_watchlist ), px AS ( SELECT p.instrument_id, p.date, p.close::float8 AS close FROM prices p JOIN w ON w.id = p.instrument_id WHERE p.close > 0 AND p.date > CURRENT_DATE - 800 ), last AS ( SELECT DISTINCT ON (instrument_id) instrument_id, date, close FROM px ORDER BY instrument_id, date DESC )  SELECT w.symbol AS \"Symbol\", 100.0 * (1 - l.close / max(x.close)) AS \"Below 52-week high\" FROM last l JOIN w ON w.id = l.instrument_id JOIN px x ON x.instrument_id = l.instrument_id AND x.date > l.date - 365 GROUP BY w.symbol, l.close ORDER BY 2 DESC"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "table",
+      "title": "Upcoming earnings",
+      "description": "Next earnings report per watched company, from Yahoo Finance. Estimated means Yahoo only gives a window; the date shown is its first day.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 27
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "In (days)"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "orange",
+                      "value": null
+                    },
+                    {
+                      "color": "text",
+                      "value": 8
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Date"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 110
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Symbol"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 100
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Status"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 100
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "Estimated": {
+                        "color": "text",
+                        "index": 0
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT to_char(ed.earnings_date, 'YYYY-MM-DD') AS \"Date\", ed.earnings_date - CURRENT_DATE AS \"In (days)\", i.symbol AS \"Symbol\", i.name AS \"Name\", CASE WHEN ed.is_estimated THEN 'Estimated' ELSE 'Confirmed' END AS \"Status\" FROM earnings_dates ed JOIN instruments i ON i.id = ed.instrument_id WHERE i.in_watchlist AND ed.earnings_date >= CURRENT_DATE ORDER BY ed.earnings_date, i.symbol"
+        }
+      ]
+    },
+    {
+      "id": 102,
+      "type": "row",
+      "title": "Detail — $symbol",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 36
+      },
+      "panels": []
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "$symbol — daily close with 50- and 200-day averages",
+      "description": "Pick the instrument with the Detail selector at the top, or click a symbol in the Watchlist table. The averages are over the last 50 and 200 closes and start once that much history exists.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 37
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "spanNulls": true
+          },
+          "unit": "short",
+          "decimals": 2
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Close"
+            },
+            "properties": [
+              {
+                "id": "custom.lineWidth",
+                "value": 2
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "50-day avg"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "200-day avg"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "purple"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    6
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT s.time, s.\"Close\", s.\"50-day avg\", s.\"200-day avg\" FROM ( SELECT p.date, p.date::timestamptz AS \"time\", p.close::float8 AS \"Close\", CASE WHEN row_number() OVER w >= 50 THEN avg(p.close::float8) OVER (w ROWS BETWEEN 49 PRECEDING AND CURRENT ROW) END AS \"50-day avg\", CASE WHEN row_number() OVER w >= 200 THEN avg(p.close::float8) OVER (w ROWS BETWEEN 199 PRECEDING AND CURRENT ROW) END AS \"200-day avg\" FROM prices p JOIN instruments i ON i.id = p.instrument_id WHERE i.symbol = '$symbol' AND p.close > 0 WINDOW w AS (ORDER BY p.date) ) s WHERE $__timeFilter(s.date) ORDER BY 1"
+        }
+      ]
+    }
+  ]
+}
