@@ -328,6 +328,9 @@ class TestMinorUnitListing:
         )
         monkeypatch.setattr(ondemand, "_fetch_currency", lambda sym: "GBp")
         monkeypatch.setattr(ondemand, "get_settings", lambda: SimpleNamespace(sec_user_agent=""))
+        # No SEC coverage, so registration pulls Yahoo statements next; keep
+        # the test off the network.
+        monkeypatch.setattr(ondemand, "ingest_instrument_yahoo_facts", lambda s, inst: 0)
 
         req = TickerRequest(symbol="SHEL.L")
         session.add(req)
