@@ -154,7 +154,7 @@
           "refId": "A",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value FROM equity_metric_series s JOIN instruments i ON i.id = s.instrument_id WHERE i.symbol = '$ticker' AND s.metric = 'pe' AND $__timeFilter(s.\"time\") ORDER BY 1"
+          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value FROM equity_metric_series s WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'pe' AND $__timeFilter(s.\"time\") ORDER BY 1"
         }
       ]
     },
@@ -182,7 +182,7 @@
           "refId": "A",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value FROM equity_metric_series s JOIN instruments i ON i.id = s.instrument_id WHERE i.symbol = '$ticker' AND s.metric = 'pfcf' AND $__timeFilter(s.\"time\") ORDER BY 1"
+          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value FROM equity_metric_series s WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'pfcf' AND $__timeFilter(s.\"time\") ORDER BY 1"
         }
       ]
     },
@@ -210,7 +210,7 @@
           "refId": "A",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value FROM equity_metric_series s JOIN instruments i ON i.id = s.instrument_id WHERE i.symbol = '$ticker' AND s.metric = 'pb' AND $__timeFilter(s.\"time\") ORDER BY 1"
+          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value FROM equity_metric_series s WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'pb' AND $__timeFilter(s.\"time\") ORDER BY 1"
         }
       ]
     },
@@ -238,7 +238,7 @@
           "refId": "A",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value FROM equity_metric_series s JOIN instruments i ON i.id = s.instrument_id WHERE i.symbol = '$ticker' AND s.metric = 'ev_ebitda' AND $__timeFilter(s.\"time\") ORDER BY 1"
+          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value FROM equity_metric_series s WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'ev_ebitda' AND $__timeFilter(s.\"time\") ORDER BY 1"
         }
       ]
     },
@@ -265,7 +265,7 @@
           "refId": "A",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value * (CASE WHEN s.currency IS NULL THEN 1 ELSE COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) END) AS value FROM equity_metric_series s JOIN instruments i ON i.id = s.instrument_id LEFT JOIN fx_usd_daily ff ON ff.currency = s.currency AND ff.date = s.\"time\"::date LEFT JOIN fx_usd_daily ft ON ft.currency = '$display_currency' AND ft.date = s.\"time\"::date WHERE i.symbol = '$ticker' AND s.metric = 'revenue' AND $__timeFilter(s.\"time\") ORDER BY 1"
+          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value * (CASE WHEN s.currency IS NULL THEN 1 ELSE COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) END) AS value FROM equity_metric_series s LEFT JOIN fx_usd_daily ff ON ff.currency = s.currency AND ff.date = s.\"time\"::date LEFT JOIN fx_usd_daily ft ON ft.currency = '$display_currency' AND ft.date = s.\"time\"::date WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'revenue' AND $__timeFilter(s.\"time\") ORDER BY 1"
         }
       ]
     },
@@ -292,7 +292,7 @@
           "refId": "A",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value * (CASE WHEN s.currency IS NULL THEN 1 ELSE COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) END) AS value FROM equity_metric_series s JOIN instruments i ON i.id = s.instrument_id LEFT JOIN fx_usd_daily ff ON ff.currency = s.currency AND ff.date = s.\"time\"::date LEFT JOIN fx_usd_daily ft ON ft.currency = '$display_currency' AND ft.date = s.\"time\"::date WHERE i.symbol = '$ticker' AND s.metric = 'earnings' AND $__timeFilter(s.\"time\") ORDER BY 1"
+          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value * (CASE WHEN s.currency IS NULL THEN 1 ELSE COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) END) AS value FROM equity_metric_series s LEFT JOIN fx_usd_daily ff ON ff.currency = s.currency AND ff.date = s.\"time\"::date LEFT JOIN fx_usd_daily ft ON ft.currency = '$display_currency' AND ft.date = s.\"time\"::date WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'earnings' AND $__timeFilter(s.\"time\") ORDER BY 1"
         }
       ]
     },
@@ -319,7 +319,7 @@
           "refId": "A",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value FROM equity_metric_series s JOIN instruments i ON i.id = s.instrument_id WHERE i.symbol = '$ticker' AND s.metric = 'gross_margin' AND $__timeFilter(s.\"time\") ORDER BY 1"
+          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value FROM equity_metric_series s WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'gross_margin' AND $__timeFilter(s.\"time\") ORDER BY 1"
         }
       ]
     },
@@ -346,7 +346,7 @@
           "refId": "A",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value FROM equity_metric_series s JOIN instruments i ON i.id = s.instrument_id WHERE i.symbol = '$ticker' AND s.metric = 'op_margin' AND $__timeFilter(s.\"time\") ORDER BY 1"
+          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value FROM equity_metric_series s WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'op_margin' AND $__timeFilter(s.\"time\") ORDER BY 1"
         }
       ]
     },
@@ -373,7 +373,7 @@
           "refId": "A",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value * (CASE WHEN s.currency IS NULL THEN 1 ELSE COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) END) AS value FROM equity_metric_series s JOIN instruments i ON i.id = s.instrument_id LEFT JOIN fx_usd_daily ff ON ff.currency = s.currency AND ff.date = s.\"time\"::date LEFT JOIN fx_usd_daily ft ON ft.currency = '$display_currency' AND ft.date = s.\"time\"::date WHERE i.symbol = '$ticker' AND s.metric = 'debt' AND $__timeFilter(s.\"time\") ORDER BY 1"
+          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value * (CASE WHEN s.currency IS NULL THEN 1 ELSE COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) END) AS value FROM equity_metric_series s LEFT JOIN fx_usd_daily ff ON ff.currency = s.currency AND ff.date = s.\"time\"::date LEFT JOIN fx_usd_daily ft ON ft.currency = '$display_currency' AND ft.date = s.\"time\"::date WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'debt' AND $__timeFilter(s.\"time\") ORDER BY 1"
         }
       ]
     },
@@ -400,7 +400,7 @@
           "refId": "A",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value FROM equity_metric_series s JOIN instruments i ON i.id = s.instrument_id WHERE i.symbol = '$ticker' AND s.metric = 'shares' AND $__timeFilter(s.\"time\") ORDER BY 1"
+          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value FROM equity_metric_series s WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'shares' AND $__timeFilter(s.\"time\") ORDER BY 1"
         }
       ]
     }
