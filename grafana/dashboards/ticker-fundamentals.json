@@ -72,56 +72,6 @@
           { "selected": true, "text": "Weekly", "value": "week" },
           { "selected": false, "text": "Monthly", "value": "month" }
         ]
-      },
-      {
-        "name": "metric_left",
-        "label": "Left axis",
-        "type": "custom",
-        "query": "Price : price, P/E : pe, P/FCF : pfcf, P/B : pb, EV/EBITDA : ev_ebitda, EPS : eps, Revenue : revenue, Earnings : earnings, Gross margin : gross_margin, Operating margin : op_margin, Total debt : debt, Debt-to-Equity : de, MCap : mcap, Shares outstanding : shares",
-        "multi": false,
-        "includeAll": false,
-        "current": { "selected": true, "text": "P/E", "value": "pe" },
-        "options": [
-          { "selected": false, "text": "Price", "value": "price" },
-          { "selected": true, "text": "P/E", "value": "pe" },
-          { "selected": false, "text": "P/FCF", "value": "pfcf" },
-          { "selected": false, "text": "P/B", "value": "pb" },
-          { "selected": false, "text": "EV/EBITDA", "value": "ev_ebitda" },
-          { "selected": false, "text": "EPS", "value": "eps" },
-          { "selected": false, "text": "Revenue", "value": "revenue" },
-          { "selected": false, "text": "Earnings", "value": "earnings" },
-          { "selected": false, "text": "Gross margin", "value": "gross_margin" },
-          { "selected": false, "text": "Operating margin", "value": "op_margin" },
-          { "selected": false, "text": "Total debt", "value": "debt" },
-          { "selected": false, "text": "Debt-to-Equity", "value": "de" },
-          { "selected": false, "text": "MCap", "value": "mcap" },
-          { "selected": false, "text": "Shares outstanding", "value": "shares" }
-        ]
-      },
-      {
-        "name": "metric_right",
-        "label": "Right axis",
-        "type": "custom",
-        "query": "Price : price, P/E : pe, P/FCF : pfcf, P/B : pb, EV/EBITDA : ev_ebitda, EPS : eps, Revenue : revenue, Earnings : earnings, Gross margin : gross_margin, Operating margin : op_margin, Total debt : debt, Debt-to-Equity : de, MCap : mcap, Shares outstanding : shares",
-        "multi": false,
-        "includeAll": false,
-        "current": { "selected": true, "text": "Revenue", "value": "revenue" },
-        "options": [
-          { "selected": false, "text": "Price", "value": "price" },
-          { "selected": false, "text": "P/E", "value": "pe" },
-          { "selected": false, "text": "P/FCF", "value": "pfcf" },
-          { "selected": false, "text": "P/B", "value": "pb" },
-          { "selected": false, "text": "EV/EBITDA", "value": "ev_ebitda" },
-          { "selected": false, "text": "EPS", "value": "eps" },
-          { "selected": true, "text": "Revenue", "value": "revenue" },
-          { "selected": false, "text": "Earnings", "value": "earnings" },
-          { "selected": false, "text": "Gross margin", "value": "gross_margin" },
-          { "selected": false, "text": "Operating margin", "value": "op_margin" },
-          { "selected": false, "text": "Total debt", "value": "debt" },
-          { "selected": false, "text": "Debt-to-Equity", "value": "de" },
-          { "selected": false, "text": "MCap", "value": "mcap" },
-          { "selected": false, "text": "Shares outstanding", "value": "shares" }
-        ]
       }
     ]
   },
@@ -181,151 +131,12 @@
       ]
     },
     {
-      "id": 1,
-      "type": "timeseries",
-      "title": "$ticker — $metric_left (left) vs $metric_right (right)",
-      "description": "Pick any two metrics with the 'Left axis' / 'Right axis' selectors above; each gets its own y-axis scale. The mean of each metric over the selected range is shown in the legend table (Mean column). Quarterly metrics connect across report dates (spanNulls).",
-      "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 13, "w": 24, "x": 0, "y": 12 },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 0,
-            "spanNulls": true,
-            "showPoints": "auto",
-            "pointSize": 5,
-            "axisPlacement": "left"
-          },
-          "unit": "none"
-        },
-        "overrides": [
-          {
-            "matcher": { "id": "byFrameRefID", "options": "B" },
-            "properties": [
-              { "id": "custom.axisPlacement", "value": "right" },
-              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [10, 6] } }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "P/E (TTM)" },
-            "properties": [
-              { "id": "decimals", "value": 1 },
-              { "id": "custom.axisLabel", "value": "P/E" }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "P/FCF (TTM)" },
-            "properties": [
-              { "id": "decimals", "value": 1 },
-              { "id": "custom.axisLabel", "value": "P/FCF" }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "P/B" },
-            "properties": [
-              { "id": "decimals", "value": 2 },
-              { "id": "custom.axisLabel", "value": "P/B" }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "EV/EBITDA (TTM)" },
-            "properties": [
-              { "id": "decimals", "value": 1 },
-              { "id": "custom.axisLabel", "value": "EV/EBITDA" }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "EPS (TTM, diluted)" },
-            "properties": [
-              { "id": "decimals", "value": 2 },
-              { "id": "custom.axisLabel", "value": "EPS" }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "Revenue (TTM)" },
-            "properties": [
-              { "id": "unit", "value": "short" },
-              { "id": "custom.axisLabel", "value": "Revenue" }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "Earnings (TTM)" },
-            "properties": [
-              { "id": "unit", "value": "short" },
-              { "id": "custom.axisLabel", "value": "Earnings" }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "Gross margin (TTM)" },
-            "properties": [
-              { "id": "unit", "value": "percent" },
-              { "id": "custom.axisLabel", "value": "Gross margin" }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "Operating margin (TTM)" },
-            "properties": [
-              { "id": "unit", "value": "percent" },
-              { "id": "custom.axisLabel", "value": "Operating margin" }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "Total debt" },
-            "properties": [
-              { "id": "unit", "value": "short" },
-              { "id": "custom.axisLabel", "value": "Total debt" }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "Debt-to-Equity" },
-            "properties": [
-              { "id": "decimals", "value": 2 },
-              { "id": "custom.axisLabel", "value": "Debt-to-Equity" }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "MCap" },
-            "properties": [
-              { "id": "unit", "value": "short" },
-              { "id": "custom.axisLabel", "value": "Market cap" }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "Shares outstanding" },
-            "properties": [
-              { "id": "unit", "value": "short" },
-              { "id": "custom.axisLabel", "value": "Shares" }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "min", "max", "mean"] },
-        "tooltip": { "mode": "multi", "sort": "none" }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value * (CASE WHEN s.currency IS NULL THEN 1 ELSE COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) END) AS value FROM equity_metric_series s JOIN instruments i ON i.id = s.instrument_id LEFT JOIN fx_usd_daily ff ON ff.currency = s.currency AND ff.date = s.\"time\"::date LEFT JOIN fx_usd_daily ft ON ft.currency = '$display_currency' AND ft.date = s.\"time\"::date WHERE i.symbol = '$ticker' AND s.metric = '$metric_left' AND $__timeFilter(s.\"time\") ORDER BY 1"
-        },
-        {
-          "refId": "B",
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value * (CASE WHEN s.currency IS NULL THEN 1 ELSE COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) END) AS value FROM equity_metric_series s JOIN instruments i ON i.id = s.instrument_id LEFT JOIN fx_usd_daily ff ON ff.currency = s.currency AND ff.date = s.\"time\"::date LEFT JOIN fx_usd_daily ft ON ft.currency = '$display_currency' AND ft.date = s.\"time\"::date WHERE i.symbol = '$ticker' AND s.metric = '$metric_right' AND $__timeFilter(s.\"time\") ORDER BY 1"
-        }
-      ]
-    },
-    {
       "id": 2,
       "type": "timeseries",
       "title": "P/E (TTM)",
       "description": "Daily close divided by trailing-twelve-month diluted EPS (quarterly EPS summed, Q4 derived from the 10-K). No point is drawn while TTM EPS is negative or the last report is older than ~15 months.",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 25 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
       "fieldConfig": {
         "defaults": {
           "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true },
@@ -353,7 +164,7 @@
       "title": "P/FCF (TTM)",
       "description": "Market cap (daily close × latest weighted diluted shares) over TTM free cash flow (operating cash flow minus capex). No point is drawn while TTM FCF is negative; missing if the filer doesn't tag capex.",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 25 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
       "fieldConfig": {
         "defaults": {
           "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true },
@@ -381,7 +192,7 @@
       "title": "Revenue (TTM) — $display_currency",
       "description": "Trailing-twelve-month revenue: one point per reported quarter end (annual filers get one point per fiscal year).",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 33 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
       "fieldConfig": {
         "defaults": {
           "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true, "showPoints": "always", "pointSize": 5 },
@@ -408,7 +219,7 @@
       "title": "Earnings (TTM) — $display_currency",
       "description": "Trailing-twelve-month net income: one point per reported quarter end (annual filers get one point per fiscal year).",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 33 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
       "fieldConfig": {
         "defaults": {
           "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true, "showPoints": "always", "pointSize": 5 },
@@ -435,7 +246,7 @@
       "title": "Gross margin (TTM)",
       "description": "Trailing-twelve-month gross profit (revenue minus cost of goods sold) as a percentage of TTM revenue: one point per reported quarter end (annual filers get one point per fiscal year).",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 41 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 28 },
       "fieldConfig": {
         "defaults": {
           "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true, "showPoints": "always", "pointSize": 5 },
@@ -462,7 +273,7 @@
       "title": "Operating margin (TTM)",
       "description": "Trailing-twelve-month operating income as a percentage of TTM revenue: one point per reported quarter end (annual filers get one point per fiscal year).",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 41 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 28 },
       "fieldConfig": {
         "defaults": {
           "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true, "showPoints": "always", "pointSize": 5 },
@@ -489,7 +300,7 @@
       "title": "Total debt — $display_currency",
       "description": "Balance-sheet debt at each report date, composed from the components the filer tags (long-term debt incl. current portion, plus short-term borrowings) without double counting.",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 49 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 36 },
       "fieldConfig": {
         "defaults": {
           "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true, "showPoints": "always", "pointSize": 5 },
@@ -516,7 +327,7 @@
       "title": "Shares outstanding",
       "description": "Weighted diluted share count from each report (the same series MCap and P/FCF use); a falling line means buybacks, a rising one dilution.",
       "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 49 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 36 },
       "fieldConfig": {
         "defaults": {
           "custom": { "lineWidth": 2, "fillOpacity": 6, "spanNulls": true, "showPoints": "always", "pointSize": 5 },
