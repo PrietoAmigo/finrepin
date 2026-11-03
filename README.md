@@ -79,7 +79,9 @@ thing runs under Docker Compose and schedules itself — no external cron.
   *Manage* dashboard (see below), which queues the symbol for the app to
   validate and ingest.
   Grafana boots straight into Market Overview (no welcome/news home page), and
-  the time picker offers quick ranges up to *Last 15 years*.
+  the time picker offers quick ranges up to *Last 15 years*. Built-in Grafana
+  features the stack can't use are switched off; see
+  [Grafana features](#grafana-features).
 - **Manage dashboard (Grafana write-back)** — a *Manage* dashboard for the two
   admin chores, using the **Business Forms** panel (`volkovlabs-form-panel`,
   installed on startup via `GF_INSTALL_PLUGINS`) to write straight to Postgres:
@@ -509,6 +511,27 @@ Key knobs: `TZ`, `DAILY_HOUR`/`DAILY_MINUTE` (daily ingest), `WEEKLY_*` (email),
   it immediately.
 - `.env` is git-ignored. Never commit real secrets.
 
+### Grafana features
+
+Grafana ships with features built for other data sources and for sharing
+dashboards outside the login. This stack has one Postgres datasource and a
+single user, so these are switched off. The `GF_*` variables are on the
+`grafana` service in `compose.yaml`, and the feature toggles are in
+`grafana/grafana.ini`:
+
+| Feature | Status | Why |
+| --- | --- | --- |
+| **Drilldown** apps (Metrics, Logs, Traces, Profiles) | Off | They browse Prometheus, Loki, Tempo, and Pyroscope data, which this stack doesn't have. Grafana no longer downloads them on start (`GF_PLUGINS_PREINSTALL_DISABLED`), any left in `grafana-storage` from earlier starts are not loaded (`GF_PLUGINS_DISABLE_PLUGINS`), and the built-in Metrics app is toggled off. Grafana 11.6 still shows an empty *Drilldown* item in the menu, and no setting removes it. |
+| Public dashboards, snapshots | Off | Both make a dashboard viewable through a link that skips the login. External snapshots are also uploaded to snapshots.raintank.io. Not something to do with portfolio data. |
+| Correlations, Migrate to Grafana Cloud, Support bundles | Off | Correlations link data across several datasources. The other two are for moving to Grafana Cloud and for sending diagnostics to Grafana Labs support. |
+| Explore | On | Ad-hoc SQL against the database, with table and graph views. Useful for checking data without editing a dashboard. |
+| Alerting | On, unused | Could email you when ingestion stalls or a watched price crosses a threshold. It needs Grafana's own SMTP settings (`GF_SMTP_*`) before it can send. |
+| Starred, Bookmarks, Playlists, Library panels | On | Harmless, and Grafana has no switch for them. Star the dashboards you use most to pin them to *Starred*. |
+
+`grafana/grafana.ini` is read when Grafana starts, so after changing it run
+`docker compose restart grafana`. The deploy timer only recreates containers
+when `compose.yaml` changes.
+
 ## Continuous deployment (home server)
 
 The deployment model is pull-based, so the server needs no inbound access
@@ -646,6 +669,7 @@ Schedule that command from host cron if you want periodic backups.
 ├── uv.lock                     # pinned dependency set (Docker + CI install from it)
 ├── migrations/                 # Alembic env + initial schema
 ├── grafana/                    # provisioned datasource + dashboards + geo/ (Spain GeoJSON)
+│                               #   + grafana.ini (feature toggles)
 ├── src/fintracker/
 │   ├── config.py               # env -> Settings
 │   ├── db.py                   # engine, session, wait-for-db

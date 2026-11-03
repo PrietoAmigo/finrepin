@@ -64,6 +64,21 @@ services:
       # panel for the Spain Housing choropleth, and the Business Forms panel that
       # powers the Manage dashboard's add-ticker / watchlist write-back forms.
       GF_INSTALL_PLUGINS: volkovlabs-echarts-panel,volkovlabs-form-panel
+      # Built-in features this single-user, Postgres-only stack has no use for
+      # (see "Grafana features" in the README; feature toggles are in
+      # grafana/grafana.ini):
+      # - The Drilldown apps (Logs, Traces, Profiles, Metrics) need Loki,
+      #   Tempo, Pyroscope, or Prometheus. Stop downloading them on every start,
+      #   and skip loading any an earlier start already put in grafana-storage.
+      GF_PLUGINS_PREINSTALL_DISABLED: "true"
+      GF_PLUGINS_DISABLE_PLUGINS: grafana-lokiexplore-app,grafana-exploretraces-app,grafana-pyroscope-app,grafana-metricsdrilldown-app
+      # - Public dashboards and snapshots put portfolio data behind links that
+      #   skip the login (external snapshots are uploaded to snapshots.raintank.io).
+      GF_PUBLIC_DASHBOARDS_ENABLED: "false"
+      GF_SNAPSHOTS_ENABLED: "false"
+      GF_SNAPSHOTS_EXTERNAL_ENABLED: "false"
+      # - Help > Support bundles: diagnostics archives for Grafana Labs support.
+      GF_SUPPORT_BUNDLES_ENABLED: "false"
       # Consumed by the provisioned datasource (grafana/provisioning/datasources).
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -72,6 +87,7 @@ services:
       - grafana-storage:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./grafana/grafana.ini:/etc/grafana/grafana.ini:ro
     logging:
       driver: json-file
       options:
