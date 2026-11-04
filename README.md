@@ -154,8 +154,8 @@ thing runs under Docker Compose and schedules itself — no external cron.
   price, 1-day / 1-week / 1-month / YTD / 1-year moves, distance from its
   200-day average and 52-week high, where it sits in its 52-week range, P/E,
   market cap, and next earnings date; best and worst month tiles; a drawdown
-  chart (% below the all-time high) for any one name, right below the table; and a
-  52-week-high ranking and upcoming earnings. See
+  chart (% below the all-time high, over its full history) for any one name,
+  right below the table; and a 52-week-high ranking and upcoming earnings. See
   [Watchlist dashboard](#watchlist-dashboard) below.
 
 All core features are in. What remains is **M7/M8 polish**: richer
@@ -496,10 +496,14 @@ dashboard (the *Edit the watchlist* link at the top right) or with
   Detail row, or to open it on *Ticker Fundamentals*.
 - **Detail** — right below the table: the drawdown of the name picked in the
   *Detail* selector (or clicked in the table), i.e. how far each daily close
-  sits below the highest close up to that day (0% at a new high). The peak is
-  taken over all stored history, not only the selected time range, so the
-  left edge of a short range still measures against the true all-time high.
-  The legend shows the current drawdown and the deepest one in the range.
+  sits below the highest close up to that day (0% at a new high). It always
+  covers the instrument's whole stored history, whatever the time picker says:
+  a hidden `detail_span` variable works out how far back its closes go and the
+  panel uses that as its relative time range. The legend shows the current
+  drawdown and the deepest one ever (the maximum drawdown). Dragging to zoom
+  in on the chart still works; Grafana ignores a panel's relative time while
+  the dashboard range is absolute, so pick a relative range (or zoom back out)
+  to return to the full history.
 - **How far below the 52-week high** and **Upcoming earnings** — the drawdown
   ranking, and each watched company's next report with a countdown in days
   (orange within a week).
