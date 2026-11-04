@@ -1,21 +1,32 @@
 {
   "uid": "fintracker-financial-statements",
   "title": "Financial Statements",
-  "description": "Annual Income Statement, Balance Sheet, and Cash Flow for a single ticker, rebuilt from SEC XBRL facts via the equity_statement_matrix view (migration 0006). The three rows act as tabs — click a row title to open or close a statement. Line items are clustered into the sections a filed statement uses (UPPERCASE rows are section headers). Columns are fiscal years (labeled by the calendar year the fiscal year ends in); blank cells mean the filer didn't tag that line. Money values are converted into the selected display currency at each fiscal-year-end FX rate; share-count rows are never converted.",
-  "tags": ["fintracker"],
+  "tags": [
+    "fintracker"
+  ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
   "refresh": "",
-  "time": { "from": "now-10y", "to": "now" },
-  "timepicker": { "hidden": true },
+  "time": {
+    "from": "now-10y",
+    "to": "now"
+  },
+  "timepicker": {
+    "hidden": true
+  },
+  "description": "Annual Income Statement, Balance Sheet, and Cash Flow for a single ticker, rebuilt from SEC XBRL facts via the equity_statement_* views. Highlights show the latest selected fiscal year against the year before; Trends chart the profit, margin, cash, balance-sheet and shareholder-return lines over the selected years; the statements below are line item x fiscal year tables, latest year first, in millions of the display currency (Balance sheet and Cash flow statement open with a click on their row). Fiscal years are labeled by the calendar year they end in. Money values are converted into the selected currency at each fiscal-year-end FX rate; share counts are never converted.",
+  "version": 1,
+  "graphTooltip": 1,
   "templating": {
     "list": [
       {
         "name": "ticker",
         "label": "Ticker",
         "type": "query",
-        "datasource": { "type": "postgres", "uid": "fintracker-pg" },
+        "datasource": {
+          "type": "postgres",
+          "uid": "fintracker-pg"
+        },
         "query": "SELECT i.symbol FROM instruments i WHERE i.kind = 'equity' AND EXISTS (SELECT 1 FROM fundamentals f WHERE f.instrument_id = i.id) ORDER BY i.symbol",
         "definition": "SELECT i.symbol FROM instruments i WHERE i.kind = 'equity' AND EXISTS (SELECT 1 FROM fundamentals f WHERE f.instrument_id = i.id) ORDER BY i.symbol",
         "refresh": 1,
@@ -28,181 +39,1730 @@
         "name": "fiscal_year",
         "label": "Fiscal years",
         "type": "query",
-        "datasource": { "type": "postgres", "uid": "fintracker-pg" },
+        "datasource": {
+          "type": "postgres",
+          "uid": "fintracker-pg"
+        },
         "query": "SELECT DISTINCT fiscal_year::text FROM equity_statement_annual a WHERE a.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') ORDER BY 1 DESC",
         "definition": "SELECT DISTINCT fiscal_year::text FROM equity_statement_annual a WHERE a.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') ORDER BY 1 DESC",
         "refresh": 1,
         "sort": 0,
         "multi": true,
         "includeAll": true,
-        "current": { "selected": true, "text": ["All"], "value": ["$__all"] }
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        }
       },
       {
         "name": "display_currency",
         "label": "Currency",
         "type": "query",
-        "datasource": { "type": "postgres", "uid": "fintracker-pg" },
+        "datasource": {
+          "type": "postgres",
+          "uid": "fintracker-pg"
+        },
         "query": "SELECT DISTINCT split_part(unit, '/', 1) AS currency FROM fundamentals WHERE unit ~ '^[A-Z]{3}(/shares)?$' UNION SELECT currency FROM instruments ORDER BY 1",
         "definition": "SELECT DISTINCT split_part(unit, '/', 1) AS currency FROM fundamentals WHERE unit ~ '^[A-Z]{3}(/shares)?$' UNION SELECT currency FROM instruments ORDER BY 1",
         "refresh": 1,
         "sort": 0,
         "multi": false,
         "includeAll": false,
-        "current": { "selected": true, "text": "USD", "value": "USD" }
+        "current": {
+          "selected": true,
+          "text": "USD",
+          "value": "USD"
+        }
+      },
+      {
+        "name": "latest_fy",
+        "label": "Latest fiscal year",
+        "type": "query",
+        "hide": 2,
+        "datasource": {
+          "type": "postgres",
+          "uid": "fintracker-pg"
+        },
+        "refresh": 1,
+        "sort": 0,
+        "multi": false,
+        "includeAll": false,
+        "query": "SELECT max(a.fiscal_year)::text FROM equity_statement_annual a WHERE a.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND a.fiscal_year::text IN ($fiscal_year)",
+        "definition": "SELECT max(a.fiscal_year)::text FROM equity_statement_annual a WHERE a.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND a.fiscal_year::text IN ($fiscal_year)",
+        "current": {}
       }
     ]
   },
   "panels": [
     {
-      "id": 100,
+      "id": 1,
       "type": "row",
-      "title": "Income Statement",
+      "title": "Highlights — FY$latest_fy vs the year before, $display_currency",
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
       "panels": []
     },
     {
-      "id": 1,
-      "type": "table",
-      "title": "$ticker — Income Statement (annual, $display_currency)",
-      "description": "One column per fiscal year, from the annual (10-K / 20-F) figures, clustered into revenue & gross profit, operating expenses, non-operating, taxes & net income, and per-share sections. Per-share and share-count rows are per share / share counts; everything else is a total in the display currency. A blank cell means the company didn't report that line under a tag we track.",
-      "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-      "gridPos": { "h": 24, "w": 24, "x": 0, "y": 1 },
+      "id": 2,
+      "type": "stat",
+      "title": "Revenue",
+      "description": "Total revenue in the latest selected fiscal year. The arrow is the change from the fiscal year before.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 1
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "noValue": "",
-          "custom": { "align": "right", "cellOptions": { "type": "auto" }, "filterable": false }
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "noValue": "–"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "none",
+        "justifyMode": "auto",
+        "textMode": "value",
+        "wideLayout": true,
+        "text": {
+          "valueSize": 36
+        },
+        "showPercentChange": true,
+        "percentChangeColorMode": "standard",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH latest AS (SELECT max(l.fiscal_year) AS fy FROM equity_statement_annual l WHERE l.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND l.fiscal_year::text IN ($fiscal_year)), a AS (SELECT a.fiscal_year, a.period_end, a.statement, a.line, a.value * (CASE WHEN a.currency IS NULL OR a.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(a.currency, a.period_end) / NULLIF(fx_usd_rate('$display_currency', a.period_end), 0), 1) END) AS v FROM equity_statement_annual a WHERE a.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND (a.statement, a.line) IN (('income', 'Revenue')) AND a.fiscal_year BETWEEN (SELECT fy FROM latest) - 1 AND (SELECT fy FROM latest)) SELECT max(period_end)::timestamptz AS \"time\", max(v) FILTER (WHERE statement = 'income' AND line = 'Revenue') AS \"Revenue\" FROM a GROUP BY fiscal_year ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Op. income",
+      "description": "Operating income in the latest selected fiscal year. The arrow is the change from the fiscal year before.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "noValue": "–"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "none",
+        "justifyMode": "auto",
+        "textMode": "value",
+        "wideLayout": true,
+        "text": {
+          "valueSize": 36
+        },
+        "showPercentChange": true,
+        "percentChangeColorMode": "standard",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH latest AS (SELECT max(l.fiscal_year) AS fy FROM equity_statement_annual l WHERE l.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND l.fiscal_year::text IN ($fiscal_year)), a AS (SELECT a.fiscal_year, a.period_end, a.statement, a.line, a.value * (CASE WHEN a.currency IS NULL OR a.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(a.currency, a.period_end) / NULLIF(fx_usd_rate('$display_currency', a.period_end), 0), 1) END) AS v FROM equity_statement_annual a WHERE a.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND (a.statement, a.line) IN (('income', 'Operating income')) AND a.fiscal_year BETWEEN (SELECT fy FROM latest) - 1 AND (SELECT fy FROM latest)) SELECT max(period_end)::timestamptz AS \"time\", max(v) FILTER (WHERE statement = 'income' AND line = 'Operating income') AS \"Op. income\" FROM a GROUP BY fiscal_year ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Net income",
+      "description": "Net income attributable to the company in the latest selected fiscal year. The arrow is the change from the fiscal year before.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "noValue": "–"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "none",
+        "justifyMode": "auto",
+        "textMode": "value",
+        "wideLayout": true,
+        "text": {
+          "valueSize": 36
+        },
+        "showPercentChange": true,
+        "percentChangeColorMode": "standard",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH latest AS (SELECT max(l.fiscal_year) AS fy FROM equity_statement_annual l WHERE l.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND l.fiscal_year::text IN ($fiscal_year)), a AS (SELECT a.fiscal_year, a.period_end, a.statement, a.line, a.value * (CASE WHEN a.currency IS NULL OR a.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(a.currency, a.period_end) / NULLIF(fx_usd_rate('$display_currency', a.period_end), 0), 1) END) AS v FROM equity_statement_annual a WHERE a.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND (a.statement, a.line) IN (('income', 'Net income')) AND a.fiscal_year BETWEEN (SELECT fy FROM latest) - 1 AND (SELECT fy FROM latest)) SELECT max(period_end)::timestamptz AS \"time\", max(v) FILTER (WHERE statement = 'income' AND line = 'Net income') AS \"Net income\" FROM a GROUP BY fiscal_year ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "EPS (diluted)",
+      "description": "Diluted earnings per share in the latest selected fiscal year. The arrow is the change from the fiscal year before.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "noValue": "–",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "none",
+        "justifyMode": "auto",
+        "textMode": "value",
+        "wideLayout": true,
+        "text": {
+          "valueSize": 36
+        },
+        "showPercentChange": true,
+        "percentChangeColorMode": "standard",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH latest AS (SELECT max(l.fiscal_year) AS fy FROM equity_statement_annual l WHERE l.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND l.fiscal_year::text IN ($fiscal_year)), a AS (SELECT a.fiscal_year, a.period_end, a.statement, a.line, a.value * (CASE WHEN a.currency IS NULL OR a.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(a.currency, a.period_end) / NULLIF(fx_usd_rate('$display_currency', a.period_end), 0), 1) END) AS v FROM equity_statement_annual a WHERE a.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND (a.statement, a.line) IN (('income', 'EPS (diluted)')) AND a.fiscal_year BETWEEN (SELECT fy FROM latest) - 1 AND (SELECT fy FROM latest)) SELECT max(period_end)::timestamptz AS \"time\", max(v) FILTER (WHERE statement = 'income' AND line = 'EPS (diluted)') AS \"EPS (diluted)\" FROM a GROUP BY fiscal_year ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Free cash flow",
+      "description": "Operating cash flow minus capital expenditure in the latest selected fiscal year. The arrow is the change from the fiscal year before.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "noValue": "–"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "none",
+        "justifyMode": "auto",
+        "textMode": "value",
+        "wideLayout": true,
+        "text": {
+          "valueSize": 36
+        },
+        "showPercentChange": true,
+        "percentChangeColorMode": "standard",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH latest AS (SELECT max(l.fiscal_year) AS fy FROM equity_statement_annual l WHERE l.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND l.fiscal_year::text IN ($fiscal_year)), a AS (SELECT a.fiscal_year, a.period_end, a.statement, a.line, a.value * (CASE WHEN a.currency IS NULL OR a.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(a.currency, a.period_end) / NULLIF(fx_usd_rate('$display_currency', a.period_end), 0), 1) END) AS v FROM equity_statement_annual a WHERE a.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND (a.statement, a.line) IN (('cashflow', 'Operating cash flow'), ('cashflow', 'Capital expenditure')) AND a.fiscal_year BETWEEN (SELECT fy FROM latest) - 1 AND (SELECT fy FROM latest)) SELECT max(period_end)::timestamptz AS \"time\", max(v) FILTER (WHERE statement = 'cashflow' AND line = 'Operating cash flow') - COALESCE(max(v) FILTER (WHERE statement = 'cashflow' AND line = 'Capital expenditure'), 0) AS \"Free cash flow\" FROM a GROUP BY fiscal_year ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "Total equity",
+      "description": "Shareholders' equity at the end of the latest selected fiscal year. The arrow is the change from the fiscal year before.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "noValue": "–"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "none",
+        "justifyMode": "auto",
+        "textMode": "value",
+        "wideLayout": true,
+        "text": {
+          "valueSize": 36
+        },
+        "showPercentChange": true,
+        "percentChangeColorMode": "standard",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH latest AS (SELECT max(l.fiscal_year) AS fy FROM equity_statement_annual l WHERE l.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND l.fiscal_year::text IN ($fiscal_year)), a AS (SELECT a.fiscal_year, a.period_end, a.statement, a.line, a.value * (CASE WHEN a.currency IS NULL OR a.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(a.currency, a.period_end) / NULLIF(fx_usd_rate('$display_currency', a.period_end), 0), 1) END) AS v FROM equity_statement_annual a WHERE a.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND (a.statement, a.line) IN (('balance', 'Total equity')) AND a.fiscal_year BETWEEN (SELECT fy FROM latest) - 1 AND (SELECT fy FROM latest)) SELECT max(period_end)::timestamptz AS \"time\", max(v) FILTER (WHERE statement = 'balance' AND line = 'Total equity') AS \"Total equity\" FROM a GROUP BY fiscal_year ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "row",
+      "title": "Trends",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "panels": []
+    },
+    {
+      "id": 9,
+      "type": "barchart",
+      "title": "Revenue and profit — $display_currency",
+      "description": "Revenue, operating income and net income per fiscal year.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 0,
+        "y": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "fillOpacity": 85,
+            "lineWidth": 0,
+            "gradientMode": "none",
+            "axisGridShow": true,
+            "axisBorderShow": false
+          }
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "Line item" },
+            "matcher": {
+              "id": "byName",
+              "options": "Fiscal year"
+            },
             "properties": [
-              { "id": "custom.width", "value": 260 },
-              { "id": "custom.align", "value": "left" }
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Revenue"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Operating income"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Net income"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#199e70"
+                }
+              }
             ]
           }
         ]
       },
-      "options": { "showHeader": true, "footer": { "show": false } },
+      "options": {
+        "xField": "Fiscal year",
+        "orientation": "vertical",
+        "barWidth": 0.82,
+        "groupWidth": 0.72,
+        "stacking": "none",
+        "showValue": "never",
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 24,
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH a AS (SELECT a.fiscal_year, a.period_end, a.statement, a.line, a.value * (CASE WHEN a.currency IS NULL OR a.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(a.currency, a.period_end) / NULLIF(fx_usd_rate('$display_currency', a.period_end), 0), 1) END) AS v FROM equity_statement_annual a WHERE a.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND (a.statement, a.line) IN (('income', 'Revenue'), ('income', 'Operating income'), ('income', 'Net income')) AND a.fiscal_year::text IN ($fiscal_year)) SELECT fiscal_year::text AS \"Fiscal year\", max(v) FILTER (WHERE statement = 'income' AND line = 'Revenue') AS \"Revenue\", max(v) FILTER (WHERE statement = 'income' AND line = 'Operating income') AS \"Operating income\", max(v) FILTER (WHERE statement = 'income' AND line = 'Net income') AS \"Net income\" FROM a GROUP BY fiscal_year ORDER BY fiscal_year"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "trend",
+      "title": "Margins",
+      "description": "Gross, operating and net margin: each profit line as a share of revenue.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 8,
+        "y": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "showPoints": "always",
+            "pointSize": 7,
+            "fillOpacity": 0,
+            "axisBorderShow": false,
+            "spanNulls": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Fiscal year"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "unit",
+                "value": "none"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Gross margin"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Operating margin"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Net margin"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#199e70"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "xField": "Fiscal year",
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH a AS (SELECT a.fiscal_year, a.period_end, a.statement, a.line, a.value * (CASE WHEN a.currency IS NULL OR a.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(a.currency, a.period_end) / NULLIF(fx_usd_rate('$display_currency', a.period_end), 0), 1) END) AS v FROM equity_statement_annual a WHERE a.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND (a.statement, a.line) IN (('income', 'Revenue'), ('income', 'Gross profit'), ('income', 'Operating income'), ('income', 'Net income')) AND a.fiscal_year::text IN ($fiscal_year)) SELECT fiscal_year AS \"Fiscal year\", 100.0 * max(v) FILTER (WHERE statement = 'income' AND line = 'Gross profit') / NULLIF(max(v) FILTER (WHERE statement = 'income' AND line = 'Revenue'), 0) AS \"Gross margin\", 100.0 * max(v) FILTER (WHERE statement = 'income' AND line = 'Operating income') / NULLIF(max(v) FILTER (WHERE statement = 'income' AND line = 'Revenue'), 0) AS \"Operating margin\", 100.0 * max(v) FILTER (WHERE statement = 'income' AND line = 'Net income') / NULLIF(max(v) FILTER (WHERE statement = 'income' AND line = 'Revenue'), 0) AS \"Net margin\" FROM a GROUP BY fiscal_year ORDER BY fiscal_year"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "barchart",
+      "title": "Cash generation — $display_currency",
+      "description": "Operating cash flow, capital expenditure (cash spent, shown positive as filed) and free cash flow (the difference).",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 16,
+        "y": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "fillOpacity": 85,
+            "lineWidth": 0,
+            "gradientMode": "none",
+            "axisGridShow": true,
+            "axisBorderShow": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Fiscal year"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Operating cash flow"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Capital expenditure"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Free cash flow"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#199e70"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "xField": "Fiscal year",
+        "orientation": "vertical",
+        "barWidth": 0.82,
+        "groupWidth": 0.72,
+        "stacking": "none",
+        "showValue": "never",
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 24,
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH a AS (SELECT a.fiscal_year, a.period_end, a.statement, a.line, a.value * (CASE WHEN a.currency IS NULL OR a.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(a.currency, a.period_end) / NULLIF(fx_usd_rate('$display_currency', a.period_end), 0), 1) END) AS v FROM equity_statement_annual a WHERE a.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND (a.statement, a.line) IN (('cashflow', 'Operating cash flow'), ('cashflow', 'Capital expenditure')) AND a.fiscal_year::text IN ($fiscal_year)) SELECT fiscal_year::text AS \"Fiscal year\", max(v) FILTER (WHERE statement = 'cashflow' AND line = 'Operating cash flow') AS \"Operating cash flow\", max(v) FILTER (WHERE statement = 'cashflow' AND line = 'Capital expenditure') AS \"Capital expenditure\", max(v) FILTER (WHERE statement = 'cashflow' AND line = 'Operating cash flow') - COALESCE(max(v) FILTER (WHERE statement = 'cashflow' AND line = 'Capital expenditure'), 0) AS \"Free cash flow\" FROM a GROUP BY fiscal_year ORDER BY fiscal_year"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "barchart",
+      "title": "Liabilities and equity — $display_currency",
+      "description": "What the company owes and what belongs to shareholders at each fiscal year end; together they fund the total assets.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 0,
+        "y": 15
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "fillOpacity": 85,
+            "lineWidth": 0,
+            "gradientMode": "none",
+            "axisGridShow": true,
+            "axisBorderShow": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Fiscal year"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Total liabilities"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Total equity"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "xField": "Fiscal year",
+        "orientation": "vertical",
+        "barWidth": 0.82,
+        "groupWidth": 0.72,
+        "stacking": "normal",
+        "showValue": "never",
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 24,
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH a AS (SELECT a.fiscal_year, a.period_end, a.statement, a.line, a.value * (CASE WHEN a.currency IS NULL OR a.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(a.currency, a.period_end) / NULLIF(fx_usd_rate('$display_currency', a.period_end), 0), 1) END) AS v FROM equity_statement_annual a WHERE a.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND (a.statement, a.line) IN (('balance', 'Total liabilities'), ('balance', 'Total equity')) AND a.fiscal_year::text IN ($fiscal_year)) SELECT fiscal_year::text AS \"Fiscal year\", max(v) FILTER (WHERE statement = 'balance' AND line = 'Total liabilities') AS \"Total liabilities\", max(v) FILTER (WHERE statement = 'balance' AND line = 'Total equity') AS \"Total equity\" FROM a GROUP BY fiscal_year ORDER BY fiscal_year"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "barchart",
+      "title": "Cash and debt — $display_currency",
+      "description": "Cash plus short-term investments against short- plus long-term debt, at each fiscal year end.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 8,
+        "y": 15
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "fillOpacity": 85,
+            "lineWidth": 0,
+            "gradientMode": "none",
+            "axisGridShow": true,
+            "axisBorderShow": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Fiscal year"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Cash & investments"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Debt"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "xField": "Fiscal year",
+        "orientation": "vertical",
+        "barWidth": 0.82,
+        "groupWidth": 0.72,
+        "stacking": "none",
+        "showValue": "never",
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 24,
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH a AS (SELECT a.fiscal_year, a.period_end, a.statement, a.line, a.value * (CASE WHEN a.currency IS NULL OR a.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(a.currency, a.period_end) / NULLIF(fx_usd_rate('$display_currency', a.period_end), 0), 1) END) AS v FROM equity_statement_annual a WHERE a.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND (a.statement, a.line) IN (('balance', 'Cash & equivalents'), ('balance', 'Short-term investments'), ('balance', 'Short-term debt'), ('balance', 'Long-term debt')) AND a.fiscal_year::text IN ($fiscal_year)) SELECT fiscal_year::text AS \"Fiscal year\", COALESCE(max(v) FILTER (WHERE statement = 'balance' AND line = 'Cash & equivalents'), 0) + COALESCE(max(v) FILTER (WHERE statement = 'balance' AND line = 'Short-term investments'), 0) AS \"Cash & investments\", COALESCE(max(v) FILTER (WHERE statement = 'balance' AND line = 'Short-term debt'), 0) + COALESCE(max(v) FILTER (WHERE statement = 'balance' AND line = 'Long-term debt'), 0) AS \"Debt\" FROM a GROUP BY fiscal_year ORDER BY fiscal_year"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "barchart",
+      "title": "Returned to shareholders — $display_currency",
+      "description": "Dividends paid and shares bought back each fiscal year.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 16,
+        "y": 15
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "fillOpacity": 85,
+            "lineWidth": 0,
+            "gradientMode": "none",
+            "axisGridShow": true,
+            "axisBorderShow": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Fiscal year"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Dividends"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Buybacks"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "xField": "Fiscal year",
+        "orientation": "vertical",
+        "barWidth": 0.82,
+        "groupWidth": 0.72,
+        "stacking": "normal",
+        "showValue": "never",
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 24,
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH a AS (SELECT a.fiscal_year, a.period_end, a.statement, a.line, a.value * (CASE WHEN a.currency IS NULL OR a.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(a.currency, a.period_end) / NULLIF(fx_usd_rate('$display_currency', a.period_end), 0), 1) END) AS v FROM equity_statement_annual a WHERE a.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND (a.statement, a.line) IN (('cashflow', 'Dividends paid'), ('cashflow', 'Share buybacks')) AND a.fiscal_year::text IN ($fiscal_year)) SELECT fiscal_year::text AS \"Fiscal year\", max(v) FILTER (WHERE statement = 'cashflow' AND line = 'Dividends paid') AS \"Dividends\", max(v) FILTER (WHERE statement = 'cashflow' AND line = 'Share buybacks') AS \"Buybacks\" FROM a GROUP BY fiscal_year ORDER BY fiscal_year"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "type": "row",
+      "title": "Income statement",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      },
+      "panels": []
+    },
+    {
+      "id": 16,
+      "type": "table",
+      "title": "Income statement — $display_currency millions",
+      "description": "Annual (10-K / 20-F) figures, latest fiscal year first, in millions of the display currency at each fiscal-year-end rate. Section headers are in blue. A blank cell means the company didn't report that line under a tag we track.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 25,
+        "w": 24,
+        "x": 0,
+        "y": 25
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "locale",
+          "decimals": 0,
+          "noValue": "",
+          "custom": {
+            "align": "right",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": false,
+            "minWidth": 84
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Line item"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 300
+              },
+              {
+                "id": "custom.align",
+                "value": "left"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "#c3c2b7",
+                      "value": null
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": "^[A-Z][A-Z &,()'/-]+$",
+                      "result": {
+                        "color": "#3987e5",
+                        "index": 0
+                      }
+                    }
+                  },
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": "^(Gross profit|Operating income|Pretax income|Net income|Total .*|.* cash flow|Net change in cash)$",
+                      "result": {
+                        "color": "#f0efec",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
       "transformations": [
         {
           "id": "groupingToMatrix",
-          "options": { "columnField": "fy", "rowField": "line", "valueField": "value" }
+          "options": {
+            "columnField": "fy",
+            "rowField": "line",
+            "valueField": "value"
+          }
         },
         {
           "id": "organize",
-          "options": { "excludeByName": {}, "indexByName": {}, "renameByName": { "line\\fy": "Line item" } }
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {
+              "line\\fy": "Line item"
+            }
+          }
         }
       ],
       "targets": [
         {
           "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT m.line, m.fiscal_year::text AS fy, m.value * (CASE WHEN m.currency IS NULL OR m.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(m.currency, m.period_end) / NULLIF(fx_usd_rate('$display_currency', m.period_end), 0), 1) END) AS value FROM equity_statement_matrix m WHERE m.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND m.statement = 'income' AND m.fiscal_year::text IN ($fiscal_year) ORDER BY m.ord, m.fiscal_year"
+          "rawSql": "SELECT m.line AS line, m.fiscal_year::text AS fy, m.value * (CASE WHEN m.currency IS NULL OR m.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(m.currency, m.period_end) / NULLIF(fx_usd_rate('$display_currency', m.period_end), 0), 1) END) / 1e6 AS value FROM equity_statement_matrix m WHERE m.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND m.statement = 'income' AND m.ord < 500 AND m.fiscal_year::text IN ($fiscal_year) ORDER BY m.ord, m.fiscal_year DESC"
         }
       ]
     },
     {
-      "id": 200,
+      "id": 17,
+      "type": "table",
+      "title": "Per share — $display_currency",
+      "description": "Earnings and dividends per share in the display currency; weighted average share counts in millions (never converted).",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 50
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 2,
+          "noValue": "",
+          "custom": {
+            "align": "right",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": false,
+            "minWidth": 84
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Line item"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 300
+              },
+              {
+                "id": "custom.align",
+                "value": "left"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "#c3c2b7",
+                      "value": null
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": "^[A-Z][A-Z &,()'/-]+$",
+                      "result": {
+                        "color": "#3987e5",
+                        "index": 0
+                      }
+                    }
+                  },
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": "^(Gross profit|Operating income|Pretax income|Net income|Total .*|.* cash flow|Net change in cash)$",
+                      "result": {
+                        "color": "#f0efec",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "fy",
+            "rowField": "line",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {
+              "line\\fy": "Line item"
+            }
+          }
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT CASE WHEN m.line LIKE 'Weighted avg shares%' THEN m.line || ', millions' ELSE m.line END AS line, m.fiscal_year::text AS fy, CASE WHEN m.line LIKE 'Weighted avg shares%' THEN m.value / 1e6 ELSE m.value * (CASE WHEN m.currency IS NULL OR m.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(m.currency, m.period_end) / NULLIF(fx_usd_rate('$display_currency', m.period_end), 0), 1) END) END AS value FROM equity_statement_matrix m WHERE m.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND m.statement = 'income' AND m.ord > 500 AND m.fiscal_year::text IN ($fiscal_year) ORDER BY m.ord, m.fiscal_year DESC"
+        }
+      ]
+    },
+    {
+      "id": 19,
       "type": "row",
-      "title": "Balance Sheet",
+      "title": "Balance sheet",
       "collapsed": true,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 15 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 57
+      },
       "panels": [
         {
-          "id": 2,
+          "id": 18,
           "type": "table",
-          "title": "$ticker — Balance Sheet (fiscal year end, $display_currency)",
-          "description": "Point-in-time balances at each fiscal year end, from the annual filing, clustered into current / non-current assets, current / non-current liabilities, and equity sections. A blank cell means the company didn't report that line under a tag we track.",
-          "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-          "gridPos": { "h": 26, "w": 24, "x": 0, "y": 16 },
+          "title": "Balance sheet — $display_currency millions",
+          "description": "Point-in-time balances at each fiscal year end, latest first, in millions of the display currency at that day's rate. Section headers are in blue.",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "gridPos": {
+            "h": 36,
+            "w": 24,
+            "x": 0,
+            "y": 58
+          },
           "fieldConfig": {
             "defaults": {
-              "unit": "short",
+              "unit": "locale",
+              "decimals": 0,
               "noValue": "",
-              "custom": { "align": "right", "cellOptions": { "type": "auto" }, "filterable": false }
+              "custom": {
+                "align": "right",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "filterable": false,
+                "minWidth": 84
+              }
             },
             "overrides": [
               {
-                "matcher": { "id": "byName", "options": "Line item" },
+                "matcher": {
+                  "id": "byName",
+                  "options": "Line item"
+                },
                 "properties": [
-                  { "id": "custom.width", "value": 260 },
-                  { "id": "custom.align", "value": "left" }
+                  {
+                    "id": "custom.width",
+                    "value": 300
+                  },
+                  {
+                    "id": "custom.align",
+                    "value": "left"
+                  },
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-text"
+                    }
+                  },
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "thresholds"
+                    }
+                  },
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "#c3c2b7",
+                          "value": null
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "type": "regex",
+                        "options": {
+                          "pattern": "^[A-Z][A-Z &,()'/-]+$",
+                          "result": {
+                            "color": "#3987e5",
+                            "index": 0
+                          }
+                        }
+                      },
+                      {
+                        "type": "regex",
+                        "options": {
+                          "pattern": "^(Gross profit|Operating income|Pretax income|Net income|Total .*|.* cash flow|Net change in cash)$",
+                          "result": {
+                            "color": "#f0efec",
+                            "index": 1
+                          }
+                        }
+                      }
+                    ]
+                  }
                 ]
               }
             ]
           },
-          "options": { "showHeader": true, "footer": { "show": false } },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm",
+            "footer": {
+              "show": false
+            }
+          },
           "transformations": [
             {
               "id": "groupingToMatrix",
-              "options": { "columnField": "fy", "rowField": "line", "valueField": "value" }
+              "options": {
+                "columnField": "fy",
+                "rowField": "line",
+                "valueField": "value"
+              }
             },
             {
               "id": "organize",
-              "options": { "excludeByName": {}, "indexByName": {}, "renameByName": { "line\\fy": "Line item" } }
+              "options": {
+                "excludeByName": {},
+                "indexByName": {},
+                "renameByName": {
+                  "line\\fy": "Line item"
+                }
+              }
             }
           ],
           "targets": [
             {
               "refId": "A",
+              "datasource": {
+                "type": "postgres",
+                "uid": "fintracker-pg"
+              },
+              "editorMode": "code",
               "format": "table",
               "rawQuery": true,
-              "rawSql": "SELECT m.line, m.fiscal_year::text AS fy, m.value * (CASE WHEN m.currency IS NULL OR m.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(m.currency, m.period_end) / NULLIF(fx_usd_rate('$display_currency', m.period_end), 0), 1) END) AS value FROM equity_statement_matrix m WHERE m.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND m.statement = 'balance' AND m.fiscal_year::text IN ($fiscal_year) ORDER BY m.ord, m.fiscal_year"
+              "rawSql": "SELECT m.line AS line, m.fiscal_year::text AS fy, m.value * (CASE WHEN m.currency IS NULL OR m.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(m.currency, m.period_end) / NULLIF(fx_usd_rate('$display_currency', m.period_end), 0), 1) END) / 1e6 AS value FROM equity_statement_matrix m WHERE m.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND m.statement = 'balance' AND m.fiscal_year::text IN ($fiscal_year) ORDER BY m.ord, m.fiscal_year DESC"
             }
           ]
         }
       ]
     },
     {
-      "id": 300,
+      "id": 21,
       "type": "row",
-      "title": "Cash Flow",
+      "title": "Cash flow statement",
       "collapsed": true,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 16 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 58
+      },
       "panels": [
         {
-          "id": 3,
+          "id": 20,
           "type": "table",
-          "title": "$ticker — Cash Flow Statement (annual, $display_currency)",
-          "description": "Annual cash flows from the 10-K / 20-F, clustered into operating, investing, financing, and net-change sections. Capex, acquisitions, dividends, and buybacks are reported as positive outflows (as filed); a blank cell means the company didn't report that line under a tag we track.",
-          "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-          "gridPos": { "h": 22, "w": 24, "x": 0, "y": 17 },
+          "title": "Cash flow statement — $display_currency millions",
+          "description": "Annual cash flows, latest fiscal year first, in millions of the display currency. Capex, acquisitions, dividends and buybacks are positive outflows, as filed.",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "gridPos": {
+            "h": 29,
+            "w": 24,
+            "x": 0,
+            "y": 59
+          },
           "fieldConfig": {
             "defaults": {
-              "unit": "short",
+              "unit": "locale",
+              "decimals": 0,
               "noValue": "",
-              "custom": { "align": "right", "cellOptions": { "type": "auto" }, "filterable": false }
+              "custom": {
+                "align": "right",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "filterable": false,
+                "minWidth": 84
+              }
             },
             "overrides": [
               {
-                "matcher": { "id": "byName", "options": "Line item" },
+                "matcher": {
+                  "id": "byName",
+                  "options": "Line item"
+                },
                 "properties": [
-                  { "id": "custom.width", "value": 260 },
-                  { "id": "custom.align", "value": "left" }
+                  {
+                    "id": "custom.width",
+                    "value": 300
+                  },
+                  {
+                    "id": "custom.align",
+                    "value": "left"
+                  },
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-text"
+                    }
+                  },
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "thresholds"
+                    }
+                  },
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "#c3c2b7",
+                          "value": null
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "type": "regex",
+                        "options": {
+                          "pattern": "^[A-Z][A-Z &,()'/-]+$",
+                          "result": {
+                            "color": "#3987e5",
+                            "index": 0
+                          }
+                        }
+                      },
+                      {
+                        "type": "regex",
+                        "options": {
+                          "pattern": "^(Gross profit|Operating income|Pretax income|Net income|Total .*|.* cash flow|Net change in cash)$",
+                          "result": {
+                            "color": "#f0efec",
+                            "index": 1
+                          }
+                        }
+                      }
+                    ]
+                  }
                 ]
               }
             ]
           },
-          "options": { "showHeader": true, "footer": { "show": false } },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm",
+            "footer": {
+              "show": false
+            }
+          },
           "transformations": [
             {
               "id": "groupingToMatrix",
-              "options": { "columnField": "fy", "rowField": "line", "valueField": "value" }
+              "options": {
+                "columnField": "fy",
+                "rowField": "line",
+                "valueField": "value"
+              }
             },
             {
               "id": "organize",
-              "options": { "excludeByName": {}, "indexByName": {}, "renameByName": { "line\\fy": "Line item" } }
+              "options": {
+                "excludeByName": {},
+                "indexByName": {},
+                "renameByName": {
+                  "line\\fy": "Line item"
+                }
+              }
             }
           ],
           "targets": [
             {
               "refId": "A",
+              "datasource": {
+                "type": "postgres",
+                "uid": "fintracker-pg"
+              },
+              "editorMode": "code",
               "format": "table",
               "rawQuery": true,
-              "rawSql": "SELECT m.line, m.fiscal_year::text AS fy, m.value * (CASE WHEN m.currency IS NULL OR m.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(m.currency, m.period_end) / NULLIF(fx_usd_rate('$display_currency', m.period_end), 0), 1) END) AS value FROM equity_statement_matrix m WHERE m.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND m.statement = 'cashflow' AND m.fiscal_year::text IN ($fiscal_year) ORDER BY m.ord, m.fiscal_year"
+              "rawSql": "SELECT m.line AS line, m.fiscal_year::text AS fy, m.value * (CASE WHEN m.currency IS NULL OR m.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(m.currency, m.period_end) / NULLIF(fx_usd_rate('$display_currency', m.period_end), 0), 1) END) / 1e6 AS value FROM equity_statement_matrix m WHERE m.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND m.statement = 'cashflow' AND m.fiscal_year::text IN ($fiscal_year) ORDER BY m.ord, m.fiscal_year DESC"
             }
           ]
         }
