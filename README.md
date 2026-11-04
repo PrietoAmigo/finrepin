@@ -117,7 +117,9 @@ thing runs under Docker Compose and schedules itself — no external cron.
   `fx_usd_rate(ccy, day)` (migration 0030), the latest `<CCY>/USD` close on
   or before the day, or, for the Watchlist, each pair's latest close, instead
   of building every currency's calendar. The Portfolio functions still join
-  the view, which forward-fills each close directly since migration 0032.
+  the view (it forward-fills each close directly since migration 0032), but
+  only for the currencies their trades, holdings and benchmark use
+  (migration 0033).
   If a rate series hasn't been ingested yet, values fall back to
   unconverted rather than disappearing.
 - **Financial Statements dashboard** — pick one ticker and read its annual
@@ -536,7 +538,9 @@ one, and `tests/test_dashboard_queries.py` checks both:
   `symbol` can't be, so the view is computed for every instrument first;
 - convert money with `fx_usd_rate(ccy, day)` rather than joining
   `fx_usd_daily`, which builds every currency's daily calendar to answer a
-  handful of lookups.
+  handful of lookups. Where a join on the view is the better fit (the
+  Portfolio functions convert every daily close), narrow it to the
+  currencies it can match, as migration 0033 does.
 
 ### Security note
 
