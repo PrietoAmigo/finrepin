@@ -1,7 +1,7 @@
 {
   "uid": "fintracker-watchlist",
   "title": "Watchlist",
-  "description": "Stocks, crypto, and metals you're watching but don't hold: latest price and period moves, trend and 52-week context, valuation, a per-instrument price chart with moving averages, and upcoming earnings. Edit the list on the Manage dashboard.",
+  "description": "Stocks, crypto, and metals you're watching but don't hold: latest price and period moves, trend and 52-week context, valuation, a per-instrument drawdown chart, and upcoming earnings. Edit the list on the Manage dashboard.",
   "tags": [
     "fintracker"
   ],
@@ -148,6 +148,24 @@
         "query": "SELECT symbol FROM instruments WHERE in_watchlist ORDER BY symbol",
         "definition": "SELECT symbol FROM instruments WHERE in_watchlist ORDER BY symbol",
         "refresh": 1,
+        "sort": 0,
+        "multi": false,
+        "includeAll": false,
+        "current": {}
+      },
+      {
+        "name": "detail_span",
+        "label": "Detail history",
+        "description": "How far back the Detail instrument's closes go, as a relative time such as 9000d. The Detail chart uses it as its time range so it always shows the whole history.",
+        "type": "query",
+        "datasource": {
+          "type": "postgres",
+          "uid": "fintracker-pg"
+        },
+        "query": "SELECT (GREATEST(CURRENT_DATE - min(p.date), 0) + 1)::text || 'd' FROM prices p JOIN instruments i ON i.id = p.instrument_id WHERE i.symbol = '$symbol' AND p.close > 0",
+        "definition": "SELECT (GREATEST(CURRENT_DATE - min(p.date), 0) + 1)::text || 'd' FROM prices p JOIN instruments i ON i.id = p.instrument_id WHERE i.symbol = '$symbol' AND p.close > 0",
+        "refresh": 1,
+        "hide": 2,
         "sort": 0,
         "multi": false,
         "includeAll": false,
@@ -961,8 +979,8 @@
     {
       "id": 9,
       "type": "timeseries",
-      "title": "$symbol — daily close with 50- and 200-day averages",
-      "description": "Pick the instrument with the Detail selector at the top, or click a symbol in the Watchlist table. The averages are over the last 50 and 200 closes and start once that much history exists.",
+      "title": "$symbol — drawdown from all-time high, full history",
+      "description": "How far each close is below the highest close up to that day: 0% means at a new high, -30% means 30% below the peak. Always covers every stored close, whatever the time picker says (zooming in on the chart still works). The legend shows the drawdown at the latest close (Last) and the deepest one ever (Min, the maximum drawdown). Pick the instrument with the Detail selector at the top, or click a symbol in the Watchlist table.",
       "datasource": {
         "type": "postgres",
         "uid": "fintracker-pg"
@@ -973,96 +991,36 @@
         "x": 0,
         "y": 17
       },
+      "timeFrom": "$detail_span",
+      "hideTimeOverride": true,
       "fieldConfig": {
         "defaults": {
           "custom": {
             "lineWidth": 1,
-            "fillOpacity": 0,
+            "fillOpacity": 25,
             "spanNulls": true
           },
-          "unit": "short",
-          "decimals": 2
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "red"
+          },
+          "unit": "percent",
+          "decimals": 1,
+          "max": 0
         },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Close"
-            },
-            "properties": [
-              {
-                "id": "custom.lineWidth",
-                "value": 2
-              },
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "blue"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "50-day avg"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "orange"
-                }
-              },
-              {
-                "id": "custom.lineStyle",
-                "value": {
-                  "fill": "dash",
-                  "dash": [
-                    6,
-                    4
-                  ]
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "200-day avg"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "purple"
-                }
-              },
-              {
-                "id": "custom.lineStyle",
-                "value": {
-                  "fill": "dash",
-                  "dash": [
-                    10,
-                    6
-                  ]
-                }
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "options": {
         "legend": {
           "displayMode": "list",
           "placement": "bottom",
-          "calcs": []
+          "calcs": [
+            "lastNotNull",
+            "min"
+          ]
         },
         "tooltip": {
-          "mode": "multi",
+          "mode": "single",
           "sort": "none"
         }
       },
@@ -1076,7 +1034,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT s.time, s.\"Close\", s.\"50-day avg\", s.\"200-day avg\" FROM ( SELECT p.date, p.date::timestamptz AS \"time\", p.close::float8 AS \"Close\", CASE WHEN row_number() OVER w >= 50 THEN avg(p.close::float8) OVER (w ROWS BETWEEN 49 PRECEDING AND CURRENT ROW) END AS \"50-day avg\", CASE WHEN row_number() OVER w >= 200 THEN avg(p.close::float8) OVER (w ROWS BETWEEN 199 PRECEDING AND CURRENT ROW) END AS \"200-day avg\" FROM prices p JOIN instruments i ON i.id = p.instrument_id WHERE i.symbol = '$symbol' AND p.close > 0 WINDOW w AS (ORDER BY p.date) ) s WHERE $__timeFilter(s.date) ORDER BY 1"
+          "rawSql": "SELECT p.date::timestamptz AS \"time\", 100.0 * (p.close::float8 / max(p.close::float8) OVER (ORDER BY p.date ROWS UNBOUNDED PRECEDING) - 1) AS \"Drawdown\" FROM prices p JOIN instruments i ON i.id = p.instrument_id WHERE i.symbol = '$symbol' AND p.close > 0 ORDER BY 1"
         }
       ]
     },
