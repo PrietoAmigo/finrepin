@@ -113,7 +113,14 @@ thing runs under Docker Compose and schedules itself — no external cron.
   off by the exchange rate (migration 0028). Backed
   by the `fx_usd_daily` view (migration 0007): the forex ingest auto-registers
   a `<CCY>/USD` pair per currency it encounters, and rates gap-fill across
-  weekends. If a rate series hasn't been ingested yet, values fall back to
+  weekends. Dashboard panels read the same rates one point at a time through
+  `fx_usd_rate(ccy, day)` (migration 0030), the latest `<CCY>/USD` close on
+  or before the day, or, for the Watchlist, each pair's latest close, instead
+  of building every currency's calendar. The Portfolio functions still join
+  the view (it forward-fills each close directly since migration 0032), but
+  only for the currencies their trades, holdings and benchmark use
+  (migration 0033).
+  If a rate series hasn't been ingested yet, values fall back to
   unconverted rather than disappearing.
 - **Financial Statements dashboard** — pick one ticker and read its annual
   Income Statement, Balance Sheet, and Cash Flow as line-item × fiscal-year
@@ -122,7 +129,10 @@ thing runs under Docker Compose and schedules itself — no external cron.
   sections a filed statement uses (current vs non-current, operating /
   investing / financing, ...) with uppercase header rows. Backed by
   statement views (migration 0006) that map the curated SEC XBRL tags onto
-  statement lines.
+  statement lines. The queries filter on the ticker's `instrument_id`, which
+  Postgres pushes into the views, and a partial index answers the balance
+  sheet's "is this a fiscal-year end?" check (migration 0030), so each table
+  computes one company, in tens of milliseconds rather than most of a minute.
 
 - **Spain housing (Grafana)** — a *Spain Housing* Grafana dashboard: a filled
   choropleth of Spain linked to time series, showing house **prices (€/m²)** and
@@ -145,7 +155,7 @@ thing runs under Docker Compose and schedules itself — no external cron.
   mistyped trade fixes every number at once. Trades are entered from the
   *Manage* dashboard or with `python -m fintracker.portfolio`. Everything is
   computed in the selected display currency — each trade at its own trade-date
-  rate — through the same `fx_usd_daily` view the fundamentals dashboards use,
+  rate — through `fx_usd_daily`, the same rates the fundamentals dashboards use,
   and an **IRR** stat reports the money-weighted return over the selected time
   range. See [Portfolio dashboard](#portfolio-dashboard) below.
 
@@ -518,6 +528,19 @@ Postgres runs with JIT compilation off (`command` on the `db` service in
 `compose.yaml`). The dashboard queries inline several SQL functions and views
 into very large plans, and compiling those took far longer than running them:
 the Portfolio dashboard's Benchmark IRR went from about 10 s to about 1 s.
+
+Two rules keep the dashboard queries from computing every instrument to show
+one, and `tests/test_dashboard_queries.py` checks both:
+
+- filter the per-instrument views (`equity_metric_series`,
+  `equity_statement_*`) with `instrument_id = (SELECT id FROM instruments
+  WHERE symbol = '$ticker')`, which Postgres pushes into the view; a join on
+  `symbol` can't be, so the view is computed for every instrument first;
+- convert money with `fx_usd_rate(ccy, day)` rather than joining
+  `fx_usd_daily`, which builds every currency's daily calendar to answer a
+  handful of lookups. Where a join on the view is the better fit (the
+  Portfolio functions convert every daily close), narrow it to the
+  currencies it can match, as migration 0033 does.
 
 ### Security note
 

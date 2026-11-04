@@ -29,8 +29,8 @@
         "label": "Fiscal years",
         "type": "query",
         "datasource": { "type": "postgres", "uid": "fintracker-pg" },
-        "query": "SELECT DISTINCT fiscal_year::text FROM equity_statement_annual a JOIN instruments i ON i.id = a.instrument_id WHERE i.symbol = '$ticker' ORDER BY 1 DESC",
-        "definition": "SELECT DISTINCT fiscal_year::text FROM equity_statement_annual a JOIN instruments i ON i.id = a.instrument_id WHERE i.symbol = '$ticker' ORDER BY 1 DESC",
+        "query": "SELECT DISTINCT fiscal_year::text FROM equity_statement_annual a WHERE a.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') ORDER BY 1 DESC",
+        "definition": "SELECT DISTINCT fiscal_year::text FROM equity_statement_annual a WHERE a.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') ORDER BY 1 DESC",
         "refresh": 1,
         "sort": 0,
         "multi": true,
@@ -100,7 +100,7 @@
           "refId": "A",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT m.line, m.fiscal_year::text AS fy, m.value * (CASE WHEN m.currency IS NULL THEN 1 ELSE COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) END) AS value FROM equity_statement_matrix m JOIN instruments i ON i.id = m.instrument_id LEFT JOIN fx_usd_daily ff ON ff.currency = m.currency AND ff.date = m.period_end LEFT JOIN fx_usd_daily ft ON ft.currency = '$display_currency' AND ft.date = m.period_end WHERE i.symbol = '$ticker' AND m.statement = 'income' AND m.fiscal_year::text IN ($fiscal_year) ORDER BY m.ord, m.fiscal_year"
+          "rawSql": "SELECT m.line, m.fiscal_year::text AS fy, m.value * (CASE WHEN m.currency IS NULL OR m.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(m.currency, m.period_end) / NULLIF(fx_usd_rate('$display_currency', m.period_end), 0), 1) END) AS value FROM equity_statement_matrix m WHERE m.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND m.statement = 'income' AND m.fiscal_year::text IN ($fiscal_year) ORDER BY m.ord, m.fiscal_year"
         }
       ]
     },
@@ -150,7 +150,7 @@
               "refId": "A",
               "format": "table",
               "rawQuery": true,
-              "rawSql": "SELECT m.line, m.fiscal_year::text AS fy, m.value * (CASE WHEN m.currency IS NULL THEN 1 ELSE COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) END) AS value FROM equity_statement_matrix m JOIN instruments i ON i.id = m.instrument_id LEFT JOIN fx_usd_daily ff ON ff.currency = m.currency AND ff.date = m.period_end LEFT JOIN fx_usd_daily ft ON ft.currency = '$display_currency' AND ft.date = m.period_end WHERE i.symbol = '$ticker' AND m.statement = 'balance' AND m.fiscal_year::text IN ($fiscal_year) ORDER BY m.ord, m.fiscal_year"
+              "rawSql": "SELECT m.line, m.fiscal_year::text AS fy, m.value * (CASE WHEN m.currency IS NULL OR m.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(m.currency, m.period_end) / NULLIF(fx_usd_rate('$display_currency', m.period_end), 0), 1) END) AS value FROM equity_statement_matrix m WHERE m.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND m.statement = 'balance' AND m.fiscal_year::text IN ($fiscal_year) ORDER BY m.ord, m.fiscal_year"
             }
           ]
         }
@@ -202,7 +202,7 @@
               "refId": "A",
               "format": "table",
               "rawQuery": true,
-              "rawSql": "SELECT m.line, m.fiscal_year::text AS fy, m.value * (CASE WHEN m.currency IS NULL THEN 1 ELSE COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) END) AS value FROM equity_statement_matrix m JOIN instruments i ON i.id = m.instrument_id LEFT JOIN fx_usd_daily ff ON ff.currency = m.currency AND ff.date = m.period_end LEFT JOIN fx_usd_daily ft ON ft.currency = '$display_currency' AND ft.date = m.period_end WHERE i.symbol = '$ticker' AND m.statement = 'cashflow' AND m.fiscal_year::text IN ($fiscal_year) ORDER BY m.ord, m.fiscal_year"
+              "rawSql": "SELECT m.line, m.fiscal_year::text AS fy, m.value * (CASE WHEN m.currency IS NULL OR m.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(m.currency, m.period_end) / NULLIF(fx_usd_rate('$display_currency', m.period_end), 0), 1) END) AS value FROM equity_statement_matrix m WHERE m.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND m.statement = 'cashflow' AND m.fiscal_year::text IN ($fiscal_year) ORDER BY m.ord, m.fiscal_year"
             }
           ]
         }

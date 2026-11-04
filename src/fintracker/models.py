@@ -124,6 +124,14 @@ class Fundamental(Base):
         ),
         Index("ix_fundamentals_instrument_tag", "instrument_id", "tag"),
         Index("ix_fundamentals_filed_at", "filed_at"),
+        # Annual facts by end date: the statement view's fiscal-year-end check
+        # (migration 0030).
+        Index(
+            "ix_fundamentals_annual_end",
+            "instrument_id",
+            "period_end",
+            postgresql_where=text("(period_end - period_start) BETWEEN 330 AND 400"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)

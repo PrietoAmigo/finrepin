@@ -126,7 +126,7 @@
           "refId": "A",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH daily AS (SELECT date_trunc('$candle_interval', p.date)::timestamptz AS bucket, p.date, COALESCE(p.open, p.close)::float8 * COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) AS o, COALESCE(p.high, p.close)::float8 * COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) AS h, COALESCE(p.low, p.close)::float8 * COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) AS l, p.close::float8 * COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) AS c FROM prices p JOIN instruments i ON i.id = p.instrument_id LEFT JOIN fx_usd_daily ff ON ff.currency = i.currency AND ff.date = p.date LEFT JOIN fx_usd_daily ft ON ft.currency = '$display_currency' AND ft.date = p.date WHERE i.symbol = '$ticker'), candles AS (SELECT bucket AS t, (array_agg(o ORDER BY date ASC))[1] AS o, max(h) AS h, min(l) AS l, (array_agg(c ORDER BY date DESC))[1] AS c FROM daily GROUP BY bucket), sma AS (SELECT t, o, h, l, c, CASE WHEN count(*) OVER w50 = 50 THEN avg(c) OVER w50 END AS sma50, CASE WHEN count(*) OVER w200 = 200 THEN avg(c) OVER w200 END AS sma200 FROM candles WINDOW w50 AS (ORDER BY t ROWS BETWEEN 49 PRECEDING AND CURRENT ROW), w200 AS (ORDER BY t ROWS BETWEEN 199 PRECEDING AND CURRENT ROW)) SELECT t AS \"time\", o AS \"open\", h AS \"high\", l AS \"low\", c AS \"close\", sma50 AS \"SMA50\", sma200 AS \"SMA200\" FROM sma WHERE $__timeFilter(t) ORDER BY t"
+          "rawSql": "WITH px AS MATERIALIZED (SELECT p.date, p.open, p.high, p.low, p.close, CASE WHEN i.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(i.currency, p.date) / NULLIF(fx_usd_rate('$display_currency', p.date), 0), 1) END AS fx FROM prices p JOIN instruments i ON i.id = p.instrument_id WHERE i.symbol = '$ticker'), daily AS (SELECT date_trunc('$candle_interval', date)::timestamptz AS bucket, date, COALESCE(open, close)::float8 * fx AS o, COALESCE(high, close)::float8 * fx AS h, COALESCE(low, close)::float8 * fx AS l, close::float8 * fx AS c FROM px), candles AS (SELECT bucket AS t, (array_agg(o ORDER BY date ASC))[1] AS o, max(h) AS h, min(l) AS l, (array_agg(c ORDER BY date DESC))[1] AS c FROM daily GROUP BY bucket), sma AS (SELECT t, o, h, l, c, CASE WHEN count(*) OVER w50 = 50 THEN avg(c) OVER w50 END AS sma50, CASE WHEN count(*) OVER w200 = 200 THEN avg(c) OVER w200 END AS sma200 FROM candles WINDOW w50 AS (ORDER BY t ROWS BETWEEN 49 PRECEDING AND CURRENT ROW), w200 AS (ORDER BY t ROWS BETWEEN 199 PRECEDING AND CURRENT ROW)) SELECT t AS \"time\", o AS \"open\", h AS \"high\", l AS \"low\", c AS \"close\", sma50 AS \"SMA50\", sma200 AS \"SMA200\" FROM sma WHERE $__timeFilter(t) ORDER BY t"
         }
       ]
     },
@@ -265,7 +265,7 @@
           "refId": "A",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value * (CASE WHEN s.currency IS NULL THEN 1 ELSE COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) END) AS value FROM equity_metric_series s LEFT JOIN fx_usd_daily ff ON ff.currency = s.currency AND ff.date = s.\"time\"::date LEFT JOIN fx_usd_daily ft ON ft.currency = '$display_currency' AND ft.date = s.\"time\"::date WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'revenue' AND $__timeFilter(s.\"time\") ORDER BY 1"
+          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value * (CASE WHEN s.currency IS NULL OR s.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(s.currency, s.\"time\"::date) / NULLIF(fx_usd_rate('$display_currency', s.\"time\"::date), 0), 1) END) AS value FROM equity_metric_series s WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'revenue' AND $__timeFilter(s.\"time\") ORDER BY 1"
         }
       ]
     },
@@ -292,7 +292,7 @@
           "refId": "A",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value * (CASE WHEN s.currency IS NULL THEN 1 ELSE COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) END) AS value FROM equity_metric_series s LEFT JOIN fx_usd_daily ff ON ff.currency = s.currency AND ff.date = s.\"time\"::date LEFT JOIN fx_usd_daily ft ON ft.currency = '$display_currency' AND ft.date = s.\"time\"::date WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'earnings' AND $__timeFilter(s.\"time\") ORDER BY 1"
+          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value * (CASE WHEN s.currency IS NULL OR s.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(s.currency, s.\"time\"::date) / NULLIF(fx_usd_rate('$display_currency', s.\"time\"::date), 0), 1) END) AS value FROM equity_metric_series s WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'earnings' AND $__timeFilter(s.\"time\") ORDER BY 1"
         }
       ]
     },
@@ -373,7 +373,7 @@
           "refId": "A",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value * (CASE WHEN s.currency IS NULL THEN 1 ELSE COALESCE(ff.usd_rate / NULLIF(ft.usd_rate, 0), 1) END) AS value FROM equity_metric_series s LEFT JOIN fx_usd_daily ff ON ff.currency = s.currency AND ff.date = s.\"time\"::date LEFT JOIN fx_usd_daily ft ON ft.currency = '$display_currency' AND ft.date = s.\"time\"::date WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'debt' AND $__timeFilter(s.\"time\") ORDER BY 1"
+          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value * (CASE WHEN s.currency IS NULL OR s.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(s.currency, s.\"time\"::date) / NULLIF(fx_usd_rate('$display_currency', s.\"time\"::date), 0), 1) END) AS value FROM equity_metric_series s WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'debt' AND $__timeFilter(s.\"time\") ORDER BY 1"
         }
       ]
     },
