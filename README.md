@@ -113,7 +113,10 @@ thing runs under Docker Compose and schedules itself — no external cron.
   off by the exchange rate (migration 0028). Backed
   by the `fx_usd_daily` view (migration 0007): the forex ingest auto-registers
   a `<CCY>/USD` pair per currency it encounters, and rates gap-fill across
-  weekends. If a rate series hasn't been ingested yet, values fall back to
+  weekends. The statement tables read the same rates one cell at a time
+  through `fx_usd_rate(ccy, day)` (migration 0030), the latest `<CCY>/USD`
+  close on or before the day, instead of building every currency's calendar.
+  If a rate series hasn't been ingested yet, values fall back to
   unconverted rather than disappearing.
 - **Financial Statements dashboard** — pick one ticker and read its annual
   Income Statement, Balance Sheet, and Cash Flow as line-item × fiscal-year
@@ -122,7 +125,10 @@ thing runs under Docker Compose and schedules itself — no external cron.
   sections a filed statement uses (current vs non-current, operating /
   investing / financing, ...) with uppercase header rows. Backed by
   statement views (migration 0006) that map the curated SEC XBRL tags onto
-  statement lines.
+  statement lines. The queries filter on the ticker's `instrument_id`, which
+  Postgres pushes into the views, and a partial index answers the balance
+  sheet's "is this a fiscal-year end?" check (migration 0030), so each table
+  computes one company, in tens of milliseconds rather than most of a minute.
 
 - **Spain housing (Grafana)** — a *Spain Housing* Grafana dashboard: a filled
   choropleth of Spain linked to time series, showing house **prices (€/m²)** and
