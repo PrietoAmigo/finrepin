@@ -122,12 +122,21 @@ thing runs under Docker Compose and schedules itself — no external cron.
   (migration 0033).
   If a rate series hasn't been ingested yet, values fall back to
   unconverted rather than disappearing.
-- **Financial Statements dashboard** — pick one ticker and read its annual
-  Income Statement, Balance Sheet, and Cash Flow as line-item × fiscal-year
-  tables, with a multi-select fiscal-year filter. The three statements are
-  collapsible rows that act as tabs; line items are clustered into the
-  sections a filed statement uses (current vs non-current, operating /
-  investing / financing, ...) with uppercase header rows. Backed by
+- **Financial Statements dashboard** — pick one ticker (and optionally a set of
+  fiscal years) and read it top-down:
+  - *Highlights*: revenue, operating income, net income, diluted EPS, free
+    cash flow and total equity for the latest selected fiscal year, each with
+    its change from the year before.
+  - *Trends*: revenue and profit, margins (gross / operating / net), cash
+    generation (operating cash flow, capex, free cash flow), liabilities and
+    equity, cash against debt, and dividends plus buybacks, per fiscal year.
+  - The *Income statement* (with a separate per-share table), *Balance sheet*
+    and *Cash flow statement* as line-item × fiscal-year tables, latest year
+    first and in millions of the display currency; the last two open with a
+    click on their row. Line items are clustered into the sections a filed
+    statement uses (current vs non-current, operating / investing /
+    financing, ...) under blue section headers, with subtotals in brighter
+    ink. Backed by
   statement views (migration 0006) that map the curated SEC XBRL tags onto
   statement lines. The queries filter on the ticker's `instrument_id`, which
   Postgres pushes into the views, and a partial index answers the balance

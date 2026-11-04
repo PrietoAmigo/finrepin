@@ -106,12 +106,17 @@ def test_dashboard_filters_by_instrument_id_and_converts_by_lookup() -> None:
         for where, sql in _queries(json.loads(DASHBOARD.read_text()))
         if "equity_statement_" in sql
     ]
-    assert len(statement_queries) == 4  # fiscal-year picker + three tables
+    variables = [w for w, _ in statement_queries if w.startswith("variable")]
+    assert variables == ["variable fiscal_year", "variable latest_fy"]
+    assert len(statement_queries) > 4  # highlights, trends and the statement tables
     pushed_down = "instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker')"
     for where, sql in statement_queries:
         assert pushed_down in sql, where
         assert "JOIN instruments" not in sql, where
         assert "fx_usd_daily" not in sql, where
-    for where, sql in statement_queries[1:]:
-        assert "fx_usd_rate(m.currency, m.period_end)" in sql, where
-        assert "fx_usd_rate('$display_currency', m.period_end)" in sql, where
+    for where, sql in statement_queries:
+        if where.startswith("variable"):
+            continue
+        # Each cell converts at its fiscal-year-end rate, by lookup.
+        assert re.search(r"fx_usd_rate\((\w+)\.currency, \1\.period_end\)", sql), where
+        assert re.search(r"fx_usd_rate\('\$display_currency', \w+\.period_end\)", sql), where
