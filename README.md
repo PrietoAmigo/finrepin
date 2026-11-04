@@ -113,9 +113,11 @@ thing runs under Docker Compose and schedules itself — no external cron.
   off by the exchange rate (migration 0028). Backed
   by the `fx_usd_daily` view (migration 0007): the forex ingest auto-registers
   a `<CCY>/USD` pair per currency it encounters, and rates gap-fill across
-  weekends. The statement tables read the same rates one cell at a time
-  through `fx_usd_rate(ccy, day)` (migration 0030), the latest `<CCY>/USD`
-  close on or before the day, instead of building every currency's calendar.
+  weekends. Dashboard panels read the same rates one point at a time through
+  `fx_usd_rate(ccy, day)` (migration 0030), the latest `<CCY>/USD` close on
+  or before the day, or, for the Watchlist, each pair's latest close, instead
+  of building every currency's calendar. The Portfolio functions still join
+  the view, which forward-fills each close directly since migration 0032.
   If a rate series hasn't been ingested yet, values fall back to
   unconverted rather than disappearing.
 - **Financial Statements dashboard** — pick one ticker and read its annual
@@ -151,7 +153,7 @@ thing runs under Docker Compose and schedules itself — no external cron.
   mistyped trade fixes every number at once. Trades are entered from the
   *Manage* dashboard or with `python -m fintracker.portfolio`. Everything is
   computed in the selected display currency — each trade at its own trade-date
-  rate — through the same `fx_usd_daily` view the fundamentals dashboards use,
+  rate — through `fx_usd_daily`, the same rates the fundamentals dashboards use,
   and an **IRR** stat reports the money-weighted return over the selected time
   range. See [Portfolio dashboard](#portfolio-dashboard) below.
 
@@ -524,6 +526,17 @@ Postgres runs with JIT compilation off (`command` on the `db` service in
 `compose.yaml`). The dashboard queries inline several SQL functions and views
 into very large plans, and compiling those took far longer than running them:
 the Portfolio dashboard's Benchmark IRR went from about 10 s to about 1 s.
+
+Two rules keep the dashboard queries from computing every instrument to show
+one, and `tests/test_dashboard_queries.py` checks both:
+
+- filter the per-instrument views (`equity_metric_series`,
+  `equity_statement_*`) with `instrument_id = (SELECT id FROM instruments
+  WHERE symbol = '$ticker')`, which Postgres pushes into the view; a join on
+  `symbol` can't be, so the view is computed for every instrument first;
+- convert money with `fx_usd_rate(ccy, day)` rather than joining
+  `fx_usd_daily`, which builds every currency's daily calendar to answer a
+  handful of lookups.
 
 ### Security note
 
