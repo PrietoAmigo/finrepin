@@ -7,7 +7,7 @@
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 6,
+  "version": 7,
   "refresh": "1m",
   "graphTooltip": 1,
   "time": {
@@ -1366,10 +1366,12 @@
       },
       "options": {
         "legend": {
-          "displayMode": "list",
+          "displayMode": "table",
           "placement": "bottom",
-          "showLegend": false,
-          "calcs": []
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull"
+          ]
         },
         "tooltip": {
           "mode": "single",
@@ -1426,10 +1428,12 @@
       },
       "options": {
         "legend": {
-          "displayMode": "list",
+          "displayMode": "table",
           "placement": "bottom",
-          "showLegend": false,
-          "calcs": []
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull"
+          ]
         },
         "tooltip": {
           "mode": "single",
@@ -1487,10 +1491,12 @@
       },
       "options": {
         "legend": {
-          "displayMode": "list",
+          "displayMode": "table",
           "placement": "bottom",
-          "showLegend": false,
-          "calcs": []
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull"
+          ]
         },
         "tooltip": {
           "mode": "single",
@@ -1521,7 +1527,7 @@
         "uid": "fintracker-pg"
       },
       "gridPos": {
-        "h": 9,
+        "h": 10,
         "w": 12,
         "x": 0,
         "y": 43
@@ -1590,10 +1596,12 @@
       },
       "options": {
         "legend": {
-          "displayMode": "list",
+          "displayMode": "table",
           "placement": "bottom",
           "showLegend": true,
-          "calcs": []
+          "calcs": [
+            "lastNotNull"
+          ]
         },
         "tooltip": {
           "mode": "multi",
@@ -1624,7 +1632,7 @@
         "uid": "fintracker-pg"
       },
       "gridPos": {
-        "h": 9,
+        "h": 10,
         "w": 12,
         "x": 12,
         "y": 43
@@ -1692,10 +1700,12 @@
       },
       "options": {
         "legend": {
-          "displayMode": "list",
+          "displayMode": "table",
           "placement": "bottom",
           "showLegend": true,
-          "calcs": []
+          "calcs": [
+            "lastNotNull"
+          ]
         },
         "tooltip": {
           "mode": "multi",
@@ -1725,7 +1735,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 52
+        "y": 53
       },
       "panels": []
     },
@@ -1739,10 +1749,10 @@
         "uid": "fintracker-pg"
       },
       "gridPos": {
-        "h": 8,
+        "h": 9,
         "w": 8,
         "x": 0,
-        "y": 53
+        "y": 54
       },
       "fieldConfig": {
         "defaults": {
@@ -1765,10 +1775,12 @@
       },
       "options": {
         "legend": {
-          "displayMode": "list",
+          "displayMode": "table",
           "placement": "bottom",
-          "showLegend": false,
-          "calcs": []
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull"
+          ]
         },
         "tooltip": {
           "mode": "single",
@@ -1799,10 +1811,10 @@
         "uid": "fintracker-pg"
       },
       "gridPos": {
-        "h": 8,
+        "h": 9,
         "w": 8,
         "x": 8,
-        "y": 53
+        "y": 54
       },
       "fieldConfig": {
         "defaults": {
@@ -1852,10 +1864,12 @@
       },
       "options": {
         "legend": {
-          "displayMode": "list",
+          "displayMode": "table",
           "placement": "bottom",
           "showLegend": true,
-          "calcs": []
+          "calcs": [
+            "lastNotNull"
+          ]
         },
         "tooltip": {
           "mode": "multi",
@@ -1886,10 +1900,10 @@
         "uid": "fintracker-pg"
       },
       "gridPos": {
-        "h": 8,
+        "h": 9,
         "w": 8,
         "x": 16,
-        "y": 53
+        "y": 54
       },
       "fieldConfig": {
         "defaults": {
@@ -1912,10 +1926,12 @@
       },
       "options": {
         "legend": {
-          "displayMode": "list",
+          "displayMode": "table",
           "placement": "bottom",
-          "showLegend": false,
-          "calcs": []
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull"
+          ]
         },
         "tooltip": {
           "mode": "single",
