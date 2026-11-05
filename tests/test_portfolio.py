@@ -218,6 +218,47 @@ class TestRecordTransaction:
         )
         assert txn.currency == "USD"
 
+    @pytest.mark.parametrize(
+        ("typed", "booked"),
+        [("GBp", "GBP"), ("GBX", "GBP"), ("gbx", "GBP"), ("ZAc", "ZAR"), ("ILA", "ILS")],
+    )
+    def test_minor_unit_trade_is_booked_in_the_major_unit(
+        self, session: Session, typed: str, booked: str
+    ) -> None:
+        # Listings are stored in pounds/rand/shekels and no FX pair exists for
+        # pence, so a price typed in pence must be booked in pounds.
+        self._account(session)
+        _instrument(session, "TSCO.L", currency=booked)
+        txn = portfolio.record_transaction(
+            session,
+            account="IBKR",
+            symbol="TSCO.L",
+            side="buy",
+            quantity=Decimal("100"),
+            price=Decimal("345.50"),
+            fees=Decimal("300"),
+            trade_date=dt.date(2026, 3, 2),
+            currency=typed,
+        )
+        assert (txn.price, txn.fees, txn.currency) == (Decimal("3.455"), Decimal("3"), booked)
+
+    @pytest.mark.parametrize("typed", ["GBP", "gbp", None, "  "])
+    def test_major_unit_trade_is_left_alone(self, session: Session, typed: str | None) -> None:
+        self._account(session)
+        _instrument(session, "TSCO.L", currency="GBP")
+        txn = portfolio.record_transaction(
+            session,
+            account="IBKR",
+            symbol="TSCO.L",
+            side="buy",
+            quantity=Decimal("100"),
+            price=Decimal("3.455"),
+            fees=Decimal("3"),
+            trade_date=dt.date(2026, 3, 2),
+            currency=typed,
+        )
+        assert (txn.price, txn.fees, txn.currency) == (Decimal("3.455"), Decimal("3"), "GBP")
+
     def test_unknown_account_is_rejected(self, session: Session) -> None:
         _instrument(session, "AMZN")
         with pytest.raises(PortfolioError, match="unknown account"):

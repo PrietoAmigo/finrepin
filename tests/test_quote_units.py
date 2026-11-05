@@ -190,6 +190,14 @@ class TestVerifyInstrument:
         assert _closes(session, inst) == [Decimal("6800")] * 3
         assert trade.price == Decimal("6790")
 
+    def test_guessed_currency_is_corrected(self, session: Session) -> None:
+        # ingest.ondemand stores USD when Yahoo didn't name the currency at
+        # registration; the prices it stored are in Yahoo's currency all along.
+        inst = _listing(session, "AI.PA", "USD", "170")
+        assert verify_instrument(session, inst, "EUR") is None
+        assert (inst.currency, inst.price_divisor) == ("EUR", 1)
+        assert _closes(session, inst) == [Decimal("170")] * 3
+
 
 class TestVerifyQuoteUnits:
     @pytest.fixture(autouse=True)

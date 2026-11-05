@@ -203,11 +203,24 @@ def _convert_trades(
 
 
 def verify_instrument(session: Session, inst: Instrument, raw_currency: str) -> QuoteUnitFix | None:
-    """Apply Yahoo's quote unit to one instrument; returns what changed, if anything."""
+    """Apply Yahoo's quote unit to one instrument; returns what changed, if anything.
+
+    A major-unit listing only records its divisor, plus its currency when that
+    was a guess: an instrument added while Yahoo didn't name its currency was
+    stored as USD (see ingest.ondemand), but its prices are in Yahoo's currency.
+    """
     currency, divisor = normalize_quote_currency(raw_currency)
     if currency is None:
         return None
     if divisor == 1:
+        if inst.currency != currency:
+            log.warning(
+                "%s is quoted in %s, not %s: currency corrected",
+                inst.symbol,
+                currency,
+                inst.currency,
+            )
+            inst.currency = currency
         inst.price_divisor = 1
         return None
     fix = QuoteUnitFix(

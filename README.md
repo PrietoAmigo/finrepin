@@ -805,6 +805,9 @@ alembic upgrade head
   no close nearby follows its currency label. Every change is logged as a
   warning. Run it by hand with
   `docker compose exec app python -m fintracker.ingest.quote_units`.
+  New trades follow the same rule: a price entered with currency `GBX`
+  (or `GBp`), `ZAC` (`ZAc`), or `ILA` is divided by 100 and booked in GBP,
+  ZAR, or ILS, from the *Record transaction* form and the CLI alike.
 - **Precious metals:** gold and silver in USD per troy ounce from Yahoo's
   continuous front-month COMEX futures (`GC=F`, `SI=F`) — the same yfinance
   path as equities, with decades of daily history. **Not spot**: cost of carry

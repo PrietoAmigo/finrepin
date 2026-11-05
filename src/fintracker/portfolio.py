@@ -40,6 +40,7 @@ from sqlalchemy import case, func, select, update
 from sqlalchemy.orm import Session
 
 from fintracker.db import session_scope
+from fintracker.ingest.quote_units import normalize_quote_currency
 from fintracker.models import Account, Instrument, PortfolioTransaction, Price
 
 ZERO = Decimal("0")
@@ -219,21 +220,24 @@ def record_transaction(
 
     The instrument must already be tracked (its price history is what makes the
     position worth anything); the trade currency defaults to the instrument's
-    listing currency.
+    listing currency. A minor-unit currency (``GBp``/``GBX`` pence, ``ZAc``
+    cents, ``ILA`` agorot) is booked in the major unit, price and fees divided
+    by 100, as the listing's prices are: there is no FX rate for pence.
     """
     if side not in ("buy", "sell"):
         raise PortfolioError(f"side must be 'buy' or 'sell', not {side!r}")
     acct = _require_account(session, account)
     instrument = _require_instrument(session, symbol)
+    trade_currency, divisor = normalize_quote_currency(currency)
     txn = PortfolioTransaction(
         account_id=acct.id,
         instrument_id=instrument.id,
         trade_date=trade_date,
         side=side,
         quantity=quantity,
-        price=price,
-        fees=fees,
-        currency=(currency or instrument.currency).strip().upper(),
+        price=price / divisor,
+        fees=fees / divisor,
+        currency=trade_currency or instrument.currency,
         note=note,
     )
     session.add(txn)

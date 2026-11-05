@@ -79,3 +79,22 @@ def test_per_instrument_views_are_filtered_by_instrument_id(where: str, sql: str
 def test_positions_daily_change_reads_only_the_holdings() -> None:
     sql = dict(ALL_QUERIES)["portfolio.json panel 13 Positions — $display_currency"]
     assert "FROM prices p WHERE p.instrument_id IN (SELECT instrument_id FROM held)" in sql
+
+
+# Variables whose values are free text typed by the user (Manage → Add account),
+# so a name like "Mum's ISA" must reach SQL escaped. Grafana's `sqlstring` format
+# quotes each value and doubles its quotes; `csv`, `raw`, and `singlequote` (which
+# backslash-escapes, a no-op in Postgres) splice the text in as-is.
+FREE_TEXT_VARIABLES = ("account",)
+
+
+@pytest.mark.parametrize(("where", "sql"), ALL_QUERIES, ids=[w for w, _ in ALL_QUERIES])
+def test_free_text_variables_are_sql_escaped(where: str, sql: str) -> None:
+    for name in FREE_TEXT_VARIABLES:
+        for fmt in re.findall(rf"\$\{{{name}(?::(\w+))?\}}|\${name}\b", sql):
+            assert fmt == "sqlstring", f"{where}: ${name} interpolated as {fmt or 'default'}"
+
+
+def test_portfolio_account_filter_survives_quotes_and_commas() -> None:
+    sql = dict(ALL_QUERIES)["portfolio.json panel 1 Market value — $display_currency"]
+    assert "p.account = ANY(ARRAY[${account:sqlstring}]::text[])" in sql

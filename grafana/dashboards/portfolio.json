@@ -253,7 +253,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT sum(p.market_value) AS value FROM portfolio_positions_in('$display_currency') p WHERE p.account = ANY(string_to_array('${account:csv}', ','))"
+          "rawSql": "SELECT sum(p.market_value) AS value FROM portfolio_positions_in('$display_currency') p WHERE p.account = ANY(ARRAY[${account:sqlstring}]::text[])"
         }
       ]
     },
@@ -316,7 +316,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH flows AS ( SELECT f.date, f.amount FROM portfolio_cash_flows_in('$display_currency', $__timeFrom()::date, $__timeTo()::date) f JOIN accounts a ON a.id = f.account_id WHERE a.name = ANY(string_to_array('${account:csv}', ',')) ), irr AS ( SELECT xirr(array_agg(amount), array_agg(date)) AS rate, (max(date) FILTER (WHERE amount <> 0) - min(date) FILTER (WHERE amount <> 0)) / 365.0 AS years FROM flows ) SELECT 100.0 * (power(1 + rate, years) - 1) AS value FROM irr"
+          "rawSql": "WITH flows AS ( SELECT f.date, f.amount FROM portfolio_cash_flows_in('$display_currency', $__timeFrom()::date, $__timeTo()::date) f JOIN accounts a ON a.id = f.account_id WHERE a.name = ANY(ARRAY[${account:sqlstring}]::text[]) ), irr AS ( SELECT xirr(array_agg(amount), array_agg(date)) AS rate, (max(date) FILTER (WHERE amount <> 0) - min(date) FILTER (WHERE amount <> 0)) / 365.0 AS years FROM flows ) SELECT 100.0 * (power(1 + rate, years) - 1) AS value FROM irr"
         }
       ]
     },
@@ -379,7 +379,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH held AS ( SELECT id FROM accounts WHERE name = ANY(string_to_array('${account:csv}', ',')) ), win AS ( SELECT $__timeFrom()::date AS s, LEAST($__timeTo()::date, CURRENT_DATE) AS e ), closing AS ( SELECT b.date, b.value FROM win, LATERAL portfolio_benchmark_daily_in('$display_currency', '$benchmark', win.s - 1) b WHERE b.account_id IN (SELECT id FROM held) AND b.date = win.e AND b.value IS NOT NULL ), flows AS ( SELECT f.date, f.amount FROM win, LATERAL portfolio_cash_flows_in('$display_currency', win.s, win.e) f WHERE f.account_id IN (SELECT id FROM held) AND f.kind <> 'closing' UNION ALL SELECT date, value FROM closing ), irr AS ( SELECT xirr(array_agg(amount), array_agg(date)) AS rate, (max(date) FILTER (WHERE amount <> 0) - min(date) FILTER (WHERE amount <> 0)) / 365.0 AS years FROM flows ) SELECT 100.0 * (power(1 + rate, years) - 1) AS value FROM irr WHERE EXISTS (SELECT 1 FROM closing)"
+          "rawSql": "WITH held AS ( SELECT id FROM accounts WHERE name = ANY(ARRAY[${account:sqlstring}]::text[]) ), win AS ( SELECT $__timeFrom()::date AS s, LEAST($__timeTo()::date, CURRENT_DATE) AS e ), closing AS ( SELECT b.date, b.value FROM win, LATERAL portfolio_benchmark_daily_in('$display_currency', '$benchmark', win.s - 1) b WHERE b.account_id IN (SELECT id FROM held) AND b.date = win.e AND b.value IS NOT NULL ), flows AS ( SELECT f.date, f.amount FROM win, LATERAL portfolio_cash_flows_in('$display_currency', win.s, win.e) f WHERE f.account_id IN (SELECT id FROM held) AND f.kind <> 'closing' UNION ALL SELECT date, value FROM closing ), irr AS ( SELECT xirr(array_agg(amount), array_agg(date)) AS rate, (max(date) FILTER (WHERE amount <> 0) - min(date) FILTER (WHERE amount <> 0)) / 365.0 AS years FROM flows ) SELECT 100.0 * (power(1 + rate, years) - 1) AS value FROM irr WHERE EXISTS (SELECT 1 FROM closing)"
         }
       ]
     },
@@ -498,7 +498,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "WITH held AS ( SELECT id FROM accounts WHERE name = ANY(string_to_array('${account:csv}', ',')) ), pos AS ( SELECT d.date, sum(d.market_value) AS market_value, sum(d.cost_basis) AS cost_basis FROM portfolio_position_daily_in('$display_currency') d WHERE d.account_id IN (SELECT id FROM held) AND $__timeFilter(d.date) GROUP BY d.date ), bench AS ( SELECT b.date, sum(b.value) AS value FROM (SELECT min(date) AS start FROM pos) w, LATERAL portfolio_benchmark_daily_in('$display_currency', '$benchmark', w.start) b WHERE b.account_id IN (SELECT id FROM held) AND $__timeFilter(b.date) GROUP BY b.date ) SELECT p.date::timestamptz AS \"time\", m.metric, CASE m.metric WHEN 'Market value' THEN p.market_value WHEN 'Cost basis' THEN p.cost_basis ELSE b.value END AS value FROM pos p LEFT JOIN bench b ON b.date = p.date CROSS JOIN (VALUES ('Market value'), ('Cost basis'), ('Benchmark value')) AS m(metric) ORDER BY 1, 2"
+          "rawSql": "WITH held AS ( SELECT id FROM accounts WHERE name = ANY(ARRAY[${account:sqlstring}]::text[]) ), pos AS ( SELECT d.date, sum(d.market_value) AS market_value, sum(d.cost_basis) AS cost_basis FROM portfolio_position_daily_in('$display_currency') d WHERE d.account_id IN (SELECT id FROM held) AND $__timeFilter(d.date) GROUP BY d.date ), bench AS ( SELECT b.date, sum(b.value) AS value FROM (SELECT min(date) AS start FROM pos) w, LATERAL portfolio_benchmark_daily_in('$display_currency', '$benchmark', w.start) b WHERE b.account_id IN (SELECT id FROM held) AND $__timeFilter(b.date) GROUP BY b.date ) SELECT p.date::timestamptz AS \"time\", m.metric, CASE m.metric WHEN 'Market value' THEN p.market_value WHEN 'Cost basis' THEN p.cost_basis ELSE b.value END AS value FROM pos p LEFT JOIN bench b ON b.date = p.date CROSS JOIN (VALUES ('Market value'), ('Cost basis'), ('Benchmark value')) AS m(metric) ORDER BY 1, 2"
         }
       ]
     },
@@ -726,7 +726,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH held AS ( SELECT * FROM portfolio_positions_in('$display_currency') WHERE account = ANY(string_to_array('${account:csv}', ',')) ), total AS (SELECT sum(market_value) AS value FROM held WHERE quantity > 0), day_chg AS ( SELECT instrument_id, 100.0 * (close_now / NULLIF(close_prev, 0) - 1) AS change_pct FROM ( SELECT p.instrument_id, p.close::float8 AS close_now, lag(p.close::float8) OVER (PARTITION BY p.instrument_id ORDER BY p.date) AS close_prev, row_number() OVER (PARTITION BY p.instrument_id ORDER BY p.date DESC) AS rn FROM prices p WHERE p.instrument_id IN (SELECT instrument_id FROM held) ) s WHERE s.rn = 1 ) SELECT p.symbol AS \"Symbol\", 100.0 * p.market_value / NULLIF(total.value, 0) AS \"Weight %\", dc.change_pct AS \"Daily change %\", p.unrealized_pct AS \"Unrealized %\", p.price AS \"Last price\", p.avg_cost AS \"Avg cost\", p.quantity AS \"Quantity\", p.market_value AS \"Market value\", p.asset_class AS \"Asset class\", p.sector AS \"Sector\", p.region AS \"Region\", to_char(ed.earnings_date, 'YYYY-MM-DD') || CASE WHEN ed.is_estimated THEN ' (est.)' ELSE '' END AS \"Next earnings\" FROM held p LEFT JOIN day_chg dc ON dc.instrument_id = p.instrument_id LEFT JOIN earnings_dates ed ON ed.instrument_id = p.instrument_id AND ed.earnings_date >= CURRENT_DATE, total WHERE p.quantity <> 0 OR p.realized <> 0 ORDER BY p.market_value DESC NULLS LAST"
+          "rawSql": "WITH held AS ( SELECT * FROM portfolio_positions_in('$display_currency') WHERE account = ANY(ARRAY[${account:sqlstring}]::text[]) ), total AS (SELECT sum(market_value) AS value FROM held WHERE quantity > 0), day_chg AS ( SELECT instrument_id, 100.0 * (close_now / NULLIF(close_prev, 0) - 1) AS change_pct FROM ( SELECT p.instrument_id, p.close::float8 AS close_now, lag(p.close::float8) OVER (PARTITION BY p.instrument_id ORDER BY p.date) AS close_prev, row_number() OVER (PARTITION BY p.instrument_id ORDER BY p.date DESC) AS rn FROM prices p WHERE p.instrument_id IN (SELECT instrument_id FROM held) ) s WHERE s.rn = 1 ) SELECT p.symbol AS \"Symbol\", 100.0 * p.market_value / NULLIF(total.value, 0) AS \"Weight %\", dc.change_pct AS \"Daily change %\", p.unrealized_pct AS \"Unrealized %\", p.price AS \"Last price\", p.avg_cost AS \"Avg cost\", p.quantity AS \"Quantity\", p.market_value AS \"Market value\", p.asset_class AS \"Asset class\", p.sector AS \"Sector\", p.region AS \"Region\", to_char(ed.earnings_date, 'YYYY-MM-DD') || CASE WHEN ed.is_estimated THEN ' (est.)' ELSE '' END AS \"Next earnings\" FROM held p LEFT JOIN day_chg dc ON dc.instrument_id = p.instrument_id LEFT JOIN earnings_dates ed ON ed.instrument_id = p.instrument_id AND ed.earnings_date >= CURRENT_DATE, total WHERE p.quantity <> 0 OR p.realized <> 0 ORDER BY p.market_value DESC NULLS LAST"
         }
       ]
     },
@@ -801,7 +801,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT p.asset_class AS \"Asset class\", sum(p.market_value) AS value FROM portfolio_positions_in('$display_currency') p WHERE p.account = ANY(string_to_array('${account:csv}', ',')) AND p.quantity > 0 GROUP BY p.asset_class ORDER BY 2 DESC"
+          "rawSql": "SELECT p.asset_class AS \"Asset class\", sum(p.market_value) AS value FROM portfolio_positions_in('$display_currency') p WHERE p.account = ANY(ARRAY[${account:sqlstring}]::text[]) AND p.quantity > 0 GROUP BY p.asset_class ORDER BY 2 DESC"
         }
       ]
     },
@@ -863,7 +863,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT p.sector AS \"Sector\", sum(p.market_value) AS value FROM portfolio_positions_in('$display_currency') p WHERE p.account = ANY(string_to_array('${account:csv}', ',')) AND p.quantity > 0 GROUP BY p.sector ORDER BY 2 DESC"
+          "rawSql": "SELECT p.sector AS \"Sector\", sum(p.market_value) AS value FROM portfolio_positions_in('$display_currency') p WHERE p.account = ANY(ARRAY[${account:sqlstring}]::text[]) AND p.quantity > 0 GROUP BY p.sector ORDER BY 2 DESC"
         }
       ]
     },
@@ -925,7 +925,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT p.region AS \"Region\", sum(p.market_value) AS value FROM portfolio_positions_in('$display_currency') p WHERE p.account = ANY(string_to_array('${account:csv}', ',')) AND p.quantity > 0 GROUP BY p.region ORDER BY 2 DESC"
+          "rawSql": "SELECT p.region AS \"Region\", sum(p.market_value) AS value FROM portfolio_positions_in('$display_currency') p WHERE p.account = ANY(ARRAY[${account:sqlstring}]::text[]) AND p.quantity > 0 GROUP BY p.region ORDER BY 2 DESC"
         }
       ]
     },
@@ -987,7 +987,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT p.currency AS \"Currency\", sum(p.market_value) AS value FROM portfolio_positions_in('$display_currency') p WHERE p.account = ANY(string_to_array('${account:csv}', ',')) AND p.quantity > 0 GROUP BY p.currency ORDER BY 2 DESC"
+          "rawSql": "SELECT p.currency AS \"Currency\", sum(p.market_value) AS value FROM portfolio_positions_in('$display_currency') p WHERE p.account = ANY(ARRAY[${account:sqlstring}]::text[]) AND p.quantity > 0 GROUP BY p.currency ORDER BY 2 DESC"
         }
       ]
     },
@@ -1155,7 +1155,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT t.trade_date AS \"Date\", a.name AS \"Account\", i.symbol AS \"Symbol\", t.side AS \"Side\", t.quantity AS \"Quantity\", t.price AS \"Price\", t.fees AS \"Fees\", t.currency AS \"Currency\", (CASE WHEN t.side = 'buy' THEN -1 ELSE 1 END) * (t.quantity * t.price) - t.fees AS \"Cash flow\", COALESCE(t.note, '') AS \"Note\" FROM portfolio_transactions t JOIN accounts a ON a.id = t.account_id JOIN instruments i ON i.id = t.instrument_id WHERE a.name = ANY(string_to_array('${account:csv}', ',')) ORDER BY t.trade_date DESC, t.id DESC LIMIT 100"
+          "rawSql": "SELECT t.trade_date AS \"Date\", a.name AS \"Account\", i.symbol AS \"Symbol\", t.side AS \"Side\", t.quantity AS \"Quantity\", t.price AS \"Price\", t.fees AS \"Fees\", t.currency AS \"Currency\", (CASE WHEN t.side = 'buy' THEN -1 ELSE 1 END) * (t.quantity * t.price) - t.fees AS \"Cash flow\", COALESCE(t.note, '') AS \"Note\" FROM portfolio_transactions t JOIN accounts a ON a.id = t.account_id JOIN instruments i ON i.id = t.instrument_id WHERE a.name = ANY(ARRAY[${account:sqlstring}]::text[]) ORDER BY t.trade_date DESC, t.id DESC LIMIT 100"
         }
       ]
     }

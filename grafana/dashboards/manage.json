@@ -562,7 +562,7 @@
       "id": 8,
       "type": "volkovlabs-form-panel",
       "title": "Record transaction",
-      "description": "Append one buy or sell to the portfolio ledger. The account must exist and the symbol must already be tracked (add it above first). Quantity and price are positive numbers in the trade currency, which defaults to the instrument's listing currency; the date defaults to today. Holdings, cost basis, and P/L on the Portfolio dashboard are derived from these rows.",
+      "description": "Append one buy or sell to the portfolio ledger. The account must exist and the symbol must already be tracked (add it above first). Quantity and price are positive numbers in the trade currency, which defaults to the instrument's listing currency; a price in pence (GBX), cents (ZAC), or agorot (ILA) is divided by 100 and booked in GBP, ZAR, or ILS. The date defaults to today. Holdings, cost basis, and P/L on the Portfolio dashboard are derived from these rows.",
       "datasource": {
         "type": "postgres",
         "uid": "fintracker-pg"
@@ -590,7 +590,7 @@
             "editorMode": "code",
             "format": "table",
             "rawQuery": true,
-            "rawSql": "INSERT INTO portfolio_transactions\n    (account_id, instrument_id, trade_date, side, quantity, price, fees, currency, note)\nSELECT a.id, i.id, COALESCE(f.trade_date, CURRENT_DATE),\n       f.side, f.quantity, f.price, COALESCE(f.fees, 0),\n       COALESCE(f.currency, i.currency),\n       NULLIF(trim('${payload.note}'), '')\nFROM (SELECT lower(trim('${payload.side}')) AS side,\n             substring(trim('${payload.quantity}') from '^[0-9]+(?:\\.[0-9]+)?$')::numeric AS quantity,\n             substring(trim('${payload.price}') from '^[0-9]+(?:\\.[0-9]+)?$')::numeric AS price,\n             substring(trim('${payload.fees}') from '^[0-9]+(?:\\.[0-9]+)?$')::numeric AS fees,\n             substring(upper(trim('${payload.currency}')) from '^[A-Z]{3}$') AS currency,\n             to_date(substring(trim('${payload.trade_date}') from '^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])$'),\n                     'YYYY-MM-DD') AS trade_date) f\nJOIN accounts a ON a.name = trim('${payload.account}')\nJOIN instruments i ON i.symbol = upper(trim('${payload.symbol}'))\nWHERE f.side IN ('buy', 'sell')\n  AND f.quantity > 0 AND f.price IS NOT NULL\n  -- Blank is fine (it means \"default\"); typed-but-unparseable is not, so the\n  -- row is dropped rather than quietly booked with today's date or no fees.\n  AND (trim('${payload.fees}') = '' OR f.fees IS NOT NULL)\n  AND (trim('${payload.currency}') = '' OR f.currency IS NOT NULL)\n  AND (trim('${payload.trade_date}') = '' OR f.trade_date IS NOT NULL)",
+            "rawSql": "INSERT INTO portfolio_transactions\n    (account_id, instrument_id, trade_date, side, quantity, price, fees, currency, note)\nSELECT a.id, i.id, COALESCE(f.trade_date, CURRENT_DATE),\n       f.side, f.quantity, f.price / f.divisor, COALESCE(f.fees, 0) / f.divisor,\n       COALESCE(f.currency, i.currency),\n       NULLIF(trim('${payload.note}'), '')\nFROM (SELECT lower(trim('${payload.side}')) AS side,\n             substring(trim('${payload.quantity}') from '^[0-9]+(?:\\.[0-9]+)?$')::numeric AS quantity,\n             substring(trim('${payload.price}') from '^[0-9]+(?:\\.[0-9]+)?$')::numeric AS price,\n             substring(trim('${payload.fees}') from '^[0-9]+(?:\\.[0-9]+)?$')::numeric AS fees,\n             -- Pence, cents, and agorot (GBp or GBX, ZAc, ILA) are booked in pounds,\n             -- rand, and shekels, like the listings' prices: no FX rate exists for them.\n             CASE upper(trim('${payload.currency}'))\n                  WHEN 'GBX' THEN 'GBP' WHEN 'ZAC' THEN 'ZAR' WHEN 'ILA' THEN 'ILS'\n                  ELSE substring(upper(trim('${payload.currency}')) from '^[A-Z]{3}$')\n             END AS currency,\n             CASE WHEN trim('${payload.currency}') IN ('GBp', 'ZAc')\n                    OR upper(trim('${payload.currency}')) IN ('GBX', 'ZAC', 'ILA')\n                  THEN 100 ELSE 1 END AS divisor,\n             to_date(substring(trim('${payload.trade_date}') from '^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])$'),\n                     'YYYY-MM-DD') AS trade_date) f\nJOIN accounts a ON a.name = trim('${payload.account}')\nJOIN instruments i ON i.symbol = upper(trim('${payload.symbol}'))\nWHERE f.side IN ('buy', 'sell')\n  AND f.quantity > 0 AND f.price IS NOT NULL\n  -- Blank is fine (it means \"default\"); typed-but-unparseable is not, so the\n  -- row is dropped rather than quietly booked with today's date or no fees.\n  AND (trim('${payload.fees}') = '' OR f.fees IS NOT NULL)\n  AND (trim('${payload.currency}') = '' OR f.currency IS NOT NULL)\n  AND (trim('${payload.trade_date}') = '' OR f.trade_date IS NOT NULL)",
             "refId": "A",
             "sql": {
               "columns": [
@@ -717,7 +717,7 @@
             "width": 0,
             "labelWidth": 12,
             "options": [],
-            "tooltip": "Optional — defaults to the instrument's listing currency",
+            "tooltip": "Optional — defaults to the instrument's listing currency. GBX (pence), ZAC, and ILA are booked in GBP, ZAR, and ILS",
             "uid": "manage-trade-ccy"
           },
           {
