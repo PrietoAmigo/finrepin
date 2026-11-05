@@ -67,12 +67,8 @@ thing runs under Docker Compose and schedules itself — no external cron.
   color bands, a combined BTC price (USD) & MVRV Z-Score panel (BTC price on a
   log axis with the on-chain MVRV Z-Score on a second axis, its green/red bands
   marking the historical under/overvaluation extremes; it stands in for the
-  plain BTC/USD close, whose line it already carries), and FX rates) and a *Ticker
-  Fundamentals* dashboard (pick one ticker; price candlesticks with a daily/
-  weekly/monthly candle selector plus SMA-50 and SMA-200 overlay lines that
-  share the candle axis and whose latest and mean values read off a table
-  legend, and 10-year P/E, P/FCF, P/B, EV/EBITDA, revenue, earnings, gross and
-  operating margin, total debt, and shares outstanding). Backed by SQL views (migrations 0002–0012)
+  plain BTC/USD close, whose line it already carries), and FX rates) and a
+  *Fundamentals* dashboard (see below). Backed by SQL views (migrations 0002–0012)
   that derive TTM series from the SEC facts. Global and European
   market indexes — and the VIX — are seeded as `kind='index'` instruments and
   ingested from Yahoo like everything else. New tickers are added from the
@@ -122,6 +118,29 @@ thing runs under Docker Compose and schedules itself — no external cron.
   (migration 0033).
   If a rate series hasn't been ingested yet, values fall back to
   unconverted rather than disappearing.
+- **Fundamentals dashboard** — pick one ticker and read it top-down, under a
+  header with the company's name and its next earnings date:
+  - *Snapshot*: price and market cap with a one-year sparkline and change;
+    P/E, P/FCF and EV/EBITDA against their median over the time range (red
+    when richer than usual, green when cheaper); TTM revenue against a year
+    earlier.
+  - *Price*: candlesticks with a daily/weekly/monthly candle selector, volume
+    along the bottom, and SMA-50 and SMA-200 lines that share the candle axis
+    and whose latest and mean values read off a table legend. An *Earnings
+    reports* toggle marks the dates 10-K/10-Q/20-F/40-F reports were filed.
+  - *Valuation against its own history*: P/E, P/FCF, P/B and EV/EBITDA, each
+    with its median (dashed) and the middle half of its range (25th–75th
+    percentile, shaded), so a glance shows whether it trades rich or cheap
+    for itself.
+  - *Growth and profitability*: TTM revenue, earnings and diluted EPS; revenue
+    and EPS growth year on year; gross, operating and net margin.
+  - *Balance sheet and shares*: total debt, debt-to-equity, and diluted
+    shares outstanding (buybacks vs dilution).
+
+  Charts use the same colorblind-validated palette as Financial Statements
+  (blue, orange, aqua, with grey for context lines), and a link at the top
+  opens Financial Statements for the same ticker and currency (and back).
+  Every query filters `equity_metric_series` by the ticker's `instrument_id`.
 - **Financial Statements dashboard** — pick one ticker (and optionally a set of
   fiscal years) and read it top-down:
   - *Highlights*: revenue, operating income, net income, diluted EPS, free
@@ -512,7 +531,7 @@ dashboard (the *Edit the watchlist* link at the top right) or with
   sits in its 52-week range (0% at the low, 100% at the high), P/E (TTM) and
   market cap in USD from the fundamentals views, and the next earnings date
   (`(est.)` when Yahoo only gives a window). Click a symbol to chart it in the
-  Detail row, or to open it on *Ticker Fundamentals*.
+  Detail row, or to open it on *Fundamentals*.
 - **Detail** — right below the table: the drawdown of the name picked in the
   *Detail* selector (or clicked in the table), i.e. how far each daily close
   sits below the highest close up to that day (0% at a new high). It always

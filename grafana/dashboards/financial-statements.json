@@ -17,6 +17,18 @@
   "description": "Annual Income Statement, Balance Sheet, and Cash Flow for a single ticker, rebuilt from SEC XBRL facts via the equity_statement_* views. Highlights show the latest selected fiscal year against the year before; Trends chart the profit, margin, cash, balance-sheet and shareholder-return lines over the selected years; the statements below are line item x fiscal year tables, latest year first, in millions of the display currency (Balance sheet and Cash flow statement open with a click on their row). Fiscal years are labeled by the calendar year they end in. Money values are converted into the selected currency at each fiscal-year-end FX rate; share counts are never converted.",
   "version": 1,
   "graphTooltip": 1,
+  "links": [
+    {
+      "title": "Fundamentals",
+      "type": "link",
+      "url": "/d/fintracker-ticker-fundamentals/fundamentals?var-ticker=${ticker}&var-display_currency=${display_currency}",
+      "icon": "dashboard",
+      "targetBlank": false,
+      "keepTime": false,
+      "includeVars": false,
+      "tooltip": "This ticker's price, valuation and TTM fundamentals"
+    }
+  ],
   "templating": {
     "list": [
       {
