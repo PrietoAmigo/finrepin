@@ -147,8 +147,10 @@ thing runs under Docker Compose and schedules itself — no external cron.
     shares outstanding (buybacks vs dilution).
 
   Charts use the same colorblind-validated palette as Financial Statements
-  (blue, orange, aqua, with grey for context lines), and a link at the top
-  opens Financial Statements for the same ticker and currency (and back).
+  (blue, orange, aqua, with grey for context lines); the growth, leverage and
+  shares charts show each line's latest value in a legend table. A link at
+  the top opens Financial Statements for the same ticker and currency (and
+  back).
   Every query filters `equity_metric_series` by the ticker's `instrument_id`.
 - **Financial Statements dashboard** — pick one ticker (and optionally a set of
   fiscal years) and read it top-down:

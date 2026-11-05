@@ -105,6 +105,17 @@ def test_leverage_row(panels: list[dict[str, Any]]) -> None:
     assert "CASE WHEN f.ebitda > 0" in sql and "CASE WHEN f.net_income > 0" in sql
 
 
+def test_growth_and_leverage_legends_show_the_last_value(panels: list[dict[str, Any]]) -> None:
+    start = next(p for p in panels if p["title"] == "Growth and profitability")["gridPos"]["y"]
+    charts = [p for p in panels if p["type"] == "timeseries" and p["gridPos"]["y"] > start]
+    assert len(charts) == 8
+    for p in charts:
+        legend = p["options"]["legend"]
+        assert legend["showLegend"] is True, p["title"]
+        assert legend["calcs"] == ["lastNotNull"], p["title"]
+        assert legend["displayMode"] == "table", p["title"]
+
+
 def test_header_variables_are_hidden(dashboard: dict[str, Any]) -> None:
     variables = {v["name"]: v for v in dashboard["templating"]["list"]}
     for name in ("company_name", "next_earnings"):
