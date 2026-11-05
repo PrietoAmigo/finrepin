@@ -106,19 +106,16 @@ def test_snapshot_tiles(panels: list[dict[str, Any]]) -> None:
     tiles = [p for p in panels if p["type"] == "stat"]
     assert [p["title"] for p in tiles] == [
         "Price · 1y",
-        "Market cap · 1y",
         "P/E (TTM) · vs median",
         "P/FCF (TTM) · vs median",
         "EV/EBITDA (TTM) · vs median",
-        "Revenue (TTM) · YoY",
     ]
     for p in tiles:
-        assert p["gridPos"]["y"] == 1 and p["gridPos"]["w"] == 4, p["title"]
+        assert p["gridPos"]["y"] == 1 and p["gridPos"]["w"] == 6, p["title"]
         assert p["options"]["showPercentChange"] is True, p["title"]
         assert p["options"]["reduceOptions"]["calcs"] == ["lastNotNull"], p["title"]
-        one_year = p["title"].endswith("· 1y")
-        assert (p.get("timeFrom") == "1y") is one_year, p["title"]
-        assert (p["options"]["graphMode"] == "area") is one_year, p["title"]
+        assert p["options"]["graphMode"] == "none", p["title"]  # numbers only, no sparkline
+        assert (p.get("timeFrom") == "1y") is p["title"].endswith("· 1y"), p["title"]
         if p["title"].endswith("vs median"):
             # Richer than usual reads red. No rows unless the last day has a
             # ratio, so the tile never shows a stale one.
@@ -150,6 +147,45 @@ def test_price_panel_adds_volume_and_report_markers(
     reports = next(a for a in dashboard["annotations"]["list"] if a["name"] == "Earnings reports")
     assert reports["filter"] == {"exclude": False, "ids": [price["id"]]}
     assert reports["enable"] is False  # opt-in: ~40 markers over ten years
+
+
+def _scale_key(config: dict[str, Any]) -> tuple[Any, ...]:
+    """What Grafana's buildScaleKey (11.6) reads: fields with equal keys share a y-scale."""
+    custom = config.get("custom", {})
+    return (
+        config.get("unit"),
+        config.get("min"),
+        config.get("max"),
+        custom.get("axisSoftMin"),
+        custom.get("axisSoftMax"),
+        custom.get("axisPlacement", "auto"),
+        json.dumps(custom.get("scaleDistribution"), sort_keys=True),
+        custom.get("axisLabel") or None,
+    )
+
+
+def test_volume_gets_its_own_y_scale(panels: list[dict[str, Any]]) -> None:
+    # The candlestick panel sets volume's unit to 'short' and ranges its scale
+    # to [0, 7 x max]. On the prices' scale it stretches the price axis to the
+    # volume, which flattens the candles out of sight.
+    price = next(p for p in panels if p["type"] == "candlestick")
+    defaults = price["fieldConfig"]["defaults"]
+
+    def config(field: str) -> dict[str, Any]:
+        merged = json.loads(json.dumps(defaults))
+        for o in price["fieldConfig"]["overrides"]:
+            if o["matcher"] == {"id": "byName", "options": field}:
+                for prop in o["properties"]:
+                    *path, leaf = prop["id"].split(".")
+                    node = merged
+                    for part in path:
+                        node = node.setdefault(part, {})
+                    node[leaf] = prop["value"]
+        return merged
+
+    volume = {**config("volume"), "unit": "short"}
+    for field in ("open", "high", "low", "close", "SMA50", "SMA200"):
+        assert _scale_key(config(field)) != _scale_key(volume), field
 
 
 def _colors(node: Any) -> Iterator[str]:
