@@ -75,7 +75,7 @@ thing runs under Docker Compose and schedules itself — no external cron.
   log axis with the on-chain MVRV Z-Score on a second axis, its green/red bands
   marking the historical under/overvaluation extremes; it stands in for the
   plain BTC/USD close, whose line it already carries), and FX rates) and a
-  *Fundamentals* dashboard (see below). Backed by SQL views (migrations 0002–0012)
+  *Valuation* dashboard (see below). Backed by SQL views (migrations 0002–0012)
   that derive TTM series from the SEC facts. Global and European
   market indexes — and the VIX — are seeded as `kind='index'` instruments and
   ingested from Yahoo like everything else. New tickers are added from the
@@ -125,7 +125,7 @@ thing runs under Docker Compose and schedules itself — no external cron.
   (migration 0033).
   If a rate series hasn't been ingested yet, values fall back to
   unconverted rather than disappearing.
-- **Fundamentals dashboard** — pick one ticker and read it top-down, under a
+- **Valuation dashboard** — pick one ticker and read it top-down, under a
   header with the company's name and its next earnings date:
   - *Snapshot*: the latest price with its one-year change, and P/E, P/FCF
     and EV/EBITDA against their median over the time range (red when richer
@@ -538,7 +538,7 @@ dashboard (the *Edit the watchlist* link at the top right) or with
   sits in its 52-week range (0% at the low, 100% at the high), P/E (TTM) and
   market cap in USD from the fundamentals views, and the next earnings date
   (`(est.)` when Yahoo only gives a window). Click a symbol to chart it in the
-  Detail row, or to open it on *Fundamentals*.
+  Detail row, or to open it on *Valuation*.
 - **Detail** — right below the table: the drawdown of the name picked in the
   *Detail* selector (or clicked in the table), i.e. how far each daily close
   sits below the highest close up to that day (0% at a new high). It always

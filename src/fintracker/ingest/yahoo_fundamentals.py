@@ -8,7 +8,7 @@ yfinance exposes per ticker (roughly the last 4-5 fiscal years).
 
 Yahoo line labels are mapped onto the *same canonical XBRL tags* the SQL
 views (migrations 0002/0004/0006) already understand, and stored in
-`fundamentals` under taxonomy 'yahoo'. That way both the Fundamentals and
+`fundamentals` under taxonomy 'yahoo'. That way both the Valuation and
 Financial Statements dashboards work for these names with no view
 changes. Where Yahoo's sign convention differs from the XBRL tag it maps to
 (cash outflows are negative at Yahoo, positive under tags like

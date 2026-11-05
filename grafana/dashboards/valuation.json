@@ -1,13 +1,13 @@
 {
   "uid": "fintracker-ticker-fundamentals",
-  "title": "Fundamentals",
+  "title": "Valuation",
   "description": "Price, valuation and fundamentals for a single ticker, from the equity_metric_series view. The snapshot reads the latest values: price against a year earlier, and P/E, P/FCF and EV/EBITDA against their median over the time range. Valuation charts shade the middle half of each ratio's range around its median; growth, margins and the balance sheet have one point per report. Money values are converted into the selected currency at each day's (or report date's) FX rate; ratios and share counts are never converted.",
   "tags": [
     "fintracker"
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 4,
+  "version": 5,
   "refresh": "1m",
   "graphTooltip": 1,
   "time": {
@@ -298,7 +298,7 @@
         "uid": "fintracker-pg"
       },
       "gridPos": {
-        "h": 4,
+        "h": 2,
         "w": 6,
         "x": 0,
         "y": 1
@@ -361,7 +361,7 @@
         "uid": "fintracker-pg"
       },
       "gridPos": {
-        "h": 4,
+        "h": 2,
         "w": 6,
         "x": 6,
         "y": 1
@@ -422,7 +422,7 @@
         "uid": "fintracker-pg"
       },
       "gridPos": {
-        "h": 4,
+        "h": 2,
         "w": 6,
         "x": 12,
         "y": 1
@@ -483,7 +483,7 @@
         "uid": "fintracker-pg"
       },
       "gridPos": {
-        "h": 4,
+        "h": 2,
         "w": 6,
         "x": 18,
         "y": 1
@@ -543,7 +543,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 5
+        "y": 3
       },
       "panels": []
     },
@@ -560,7 +560,7 @@
         "h": 13,
         "w": 24,
         "x": 0,
-        "y": 6
+        "y": 4
       },
       "fieldConfig": {
         "defaults": {
@@ -765,7 +765,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 19
+        "y": 17
       },
       "panels": []
     },
@@ -782,7 +782,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 20
+        "y": 18
       },
       "fieldConfig": {
         "defaults": {
@@ -919,7 +919,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 20
+        "y": 18
       },
       "fieldConfig": {
         "defaults": {
@@ -1056,7 +1056,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 28
+        "y": 26
       },
       "fieldConfig": {
         "defaults": {
@@ -1193,7 +1193,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 28
+        "y": 26
       },
       "fieldConfig": {
         "defaults": {
@@ -1326,7 +1326,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 36
+        "y": 34
       },
       "panels": []
     },
@@ -1343,7 +1343,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 37
+        "y": 35
       },
       "fieldConfig": {
         "defaults": {
@@ -1403,7 +1403,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 37
+        "y": 35
       },
       "fieldConfig": {
         "defaults": {
@@ -1463,7 +1463,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 37
+        "y": 35
       },
       "fieldConfig": {
         "defaults": {
@@ -1524,7 +1524,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 45
+        "y": 43
       },
       "fieldConfig": {
         "defaults": {
@@ -1627,7 +1627,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 45
+        "y": 43
       },
       "fieldConfig": {
         "defaults": {
@@ -1725,7 +1725,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 54
+        "y": 52
       },
       "panels": []
     },
@@ -1742,7 +1742,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 55
+        "y": 53
       },
       "fieldConfig": {
         "defaults": {
@@ -1802,7 +1802,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 55
+        "y": 53
       },
       "fieldConfig": {
         "defaults": {

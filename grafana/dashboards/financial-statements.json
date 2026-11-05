@@ -19,9 +19,9 @@
   "graphTooltip": 1,
   "links": [
     {
-      "title": "Fundamentals",
+      "title": "Valuation",
       "type": "link",
-      "url": "/d/fintracker-ticker-fundamentals/fundamentals?var-ticker=${ticker}&var-display_currency=${display_currency}",
+      "url": "/d/fintracker-ticker-fundamentals/valuation?var-ticker=${ticker}&var-display_currency=${display_currency}",
       "icon": "dashboard",
       "targetBlank": false,
       "keepTime": false,

@@ -1,7 +1,7 @@
-"""The Fundamentals dashboard's layout rules, checked on its JSON.
+"""The Valuation dashboard's layout rules, checked on its JSON.
 
-It was "Ticker Fundamentals": the title changed, the uid did not, so bookmarks
-and links keep working. A snapshot of stat tiles leads; the valuation charts
+It was "Ticker Fundamentals", then "Fundamentals": the title changed, the uid
+did not, so bookmarks and links keep working. A snapshot of stat tiles leads; the valuation charts
 show each ratio against its own median and middle half; charts use only the
 validated categorical palette plus neutral context ink.
 """
@@ -17,7 +17,7 @@ from typing import Any
 import pytest
 
 DASHBOARDS = Path(__file__).resolve().parents[1] / "grafana" / "dashboards"
-DASHBOARD = DASHBOARDS / "fundamentals.json"
+DASHBOARD = DASHBOARDS / "valuation.json"
 UID = "fintracker-ticker-fundamentals"
 # Validated categorical slots (blue, orange, aqua) on Grafana's dark panel
 # surface, the same as Financial Statements, and the neutral inks used for
@@ -47,9 +47,10 @@ def _sql(panel: dict[str, Any]) -> str:
 
 
 def test_renamed_but_same_uid(dashboard: dict[str, Any]) -> None:
-    assert dashboard["title"] == "Fundamentals"
+    assert dashboard["title"] == "Valuation"
     assert dashboard["uid"] == UID
-    assert not (DASHBOARDS / "ticker-fundamentals.json").exists()
+    for old in ("ticker-fundamentals.json", "fundamentals.json"):
+        assert not (DASHBOARDS / old).exists()
 
 
 def test_links_use_the_new_slug() -> None:
@@ -58,12 +59,12 @@ def test_links_use_the_new_slug() -> None:
         text = path.read_text()
         assert "/ticker-fundamentals" not in text, path.name
         urls += re.findall(rf"/d/{UID}/[\w-]+", text)
-    assert urls and set(urls) == {f"/d/{UID}/fundamentals"}
+    assert urls and set(urls) == {f"/d/{UID}/valuation"}
 
 
 def test_linked_both_ways_with_financial_statements(dashboard: dict[str, Any]) -> None:
     statements = json.loads((DASHBOARDS / "financial-statements.json").read_text())
-    for source, target in ((dashboard, "financial-statements"), (statements, "fundamentals")):
+    for source, target in ((dashboard, "financial-statements"), (statements, "valuation")):
         (link,) = source["links"]
         assert f"/{target}?var-ticker=${{ticker}}&var-display_currency=${{display_currency}}" in (
             link["url"]
@@ -111,7 +112,8 @@ def test_snapshot_tiles(panels: list[dict[str, Any]]) -> None:
         "EV/EBITDA (TTM) · vs median",
     ]
     for p in tiles:
-        assert p["gridPos"]["y"] == 1 and p["gridPos"]["w"] == 6, p["title"]
+        # Half height: one line of title over one line of figures.
+        assert p["gridPos"] == {"h": 2, "w": 6, "x": p["gridPos"]["x"], "y": 1}, p["title"]
         assert p["options"]["showPercentChange"] is True, p["title"]
         assert p["options"]["reduceOptions"]["calcs"] == ["lastNotNull"], p["title"]
         assert p["options"]["graphMode"] == "none", p["title"]  # numbers only, no sparkline
