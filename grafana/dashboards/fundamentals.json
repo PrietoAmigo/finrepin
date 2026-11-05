@@ -1,13 +1,13 @@
 {
   "uid": "fintracker-ticker-fundamentals",
   "title": "Fundamentals",
-  "description": "Price, valuation and fundamentals for a single ticker, from the equity_metric_series view. The snapshot reads the latest values: price and market cap over the last year, P/E, P/FCF and EV/EBITDA against their median over the time range, revenue against a year earlier. Valuation charts shade the middle half of each ratio's range around its median; growth, margins and the balance sheet have one point per report. Money values are converted into the selected currency at each day's (or report date's) FX rate; ratios and share counts are never converted.",
+  "description": "Price, valuation and fundamentals for a single ticker, from the equity_metric_series view. The snapshot reads the latest values: price against a year earlier, and P/E, P/FCF and EV/EBITDA against their median over the time range. Valuation charts shade the middle half of each ratio's range around its median; growth, margins and the balance sheet have one point per report. Money values are converted into the selected currency at each day's (or report date's) FX rate; ratios and share counts are never converted.",
   "tags": [
     "fintracker"
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 3,
+  "version": 4,
   "refresh": "1m",
   "graphTooltip": 1,
   "time": {
@@ -292,14 +292,14 @@
       "id": 20,
       "type": "stat",
       "title": "Price · 1y",
-      "description": "Latest close in the display currency. The sparkline and the arrow cover the last 12 months, whatever the time picker says.",
+      "description": "Latest close in the display currency. The arrow is the change over the last 12 months, whatever the time picker says.",
       "datasource": {
         "type": "postgres",
         "uid": "fintracker-pg"
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
+        "w": 6,
         "x": 0,
         "y": 1
       },
@@ -308,7 +308,7 @@
           "unit": "none",
           "color": {
             "mode": "fixed",
-            "fixedColor": "#3987e5"
+            "fixedColor": "text"
           },
           "noValue": "–",
           "decimals": 2
@@ -323,7 +323,7 @@
           "fields": "",
           "values": false
         },
-        "graphMode": "area",
+        "graphMode": "none",
         "colorMode": "none",
         "justifyMode": "auto",
         "textMode": "value",
@@ -352,68 +352,6 @@
       "hideTimeOverride": true
     },
     {
-      "id": 21,
-      "type": "stat",
-      "title": "Market cap · 1y",
-      "description": "Latest close × weighted diluted shares from the latest report, in the display currency. The sparkline and the arrow cover the last 12 months.",
-      "datasource": {
-        "type": "postgres",
-        "uid": "fintracker-pg"
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 4,
-        "y": 1
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#3987e5"
-          },
-          "noValue": "–"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "graphMode": "area",
-        "colorMode": "none",
-        "justifyMode": "auto",
-        "textMode": "value",
-        "wideLayout": true,
-        "text": {
-          "valueSize": 32
-        },
-        "showPercentChange": true,
-        "percentChangeColorMode": "standard",
-        "orientation": "auto"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "postgres",
-            "uid": "fintracker-pg"
-          },
-          "editorMode": "code",
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT s.\"time\", s.value * (CASE WHEN s.currency IS NULL OR s.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(s.currency, s.\"time\"::date) / NULLIF(fx_usd_rate('$display_currency', s.\"time\"::date), 0), 1) END) AS \"Market cap\" FROM equity_metric_series s WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'mcap' AND $__timeFilter(s.\"time\") ORDER BY 1"
-        }
-      ],
-      "timeFrom": "1y",
-      "hideTimeOverride": true
-    },
-    {
       "id": 22,
       "type": "stat",
       "title": "P/E (TTM) · vs median",
@@ -424,8 +362,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 8,
+        "w": 6,
+        "x": 6,
         "y": 1
       },
       "fieldConfig": {
@@ -485,7 +423,7 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
+        "w": 6,
         "x": 12,
         "y": 1
       },
@@ -546,8 +484,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 16,
+        "w": 6,
+        "x": 18,
         "y": 1
       },
       "fieldConfig": {
@@ -593,66 +531,6 @@
           "format": "time_series",
           "rawQuery": true,
           "rawSql": "WITH s AS (SELECT s.\"time\", s.value FROM equity_metric_series s WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'ev_ebitda' AND $__timeFilter(s.\"time\")), latest AS (SELECT s.\"time\", s.value FROM s ORDER BY s.\"time\" DESC LIMIT 1), last_day AS (SELECT l.\"time\", l.value FROM latest l WHERE l.value IS NOT NULL AND l.\"time\" > $__timeTo()::timestamptz - interval '31 days') SELECT $__timeFrom()::timestamptz AS \"time\", (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY s.value) FROM s) AS \"EV/EBITDA (TTM)\" FROM last_day UNION ALL SELECT c.\"time\", c.value FROM last_day c ORDER BY 1"
-        }
-      ]
-    },
-    {
-      "id": 25,
-      "type": "stat",
-      "title": "Revenue (TTM) · YoY",
-      "description": "Trailing-twelve-month revenue at the latest report up to the end of the time range, in the display currency. The arrow is the change from the report a year earlier.",
-      "datasource": {
-        "type": "postgres",
-        "uid": "fintracker-pg"
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 20,
-        "y": 1
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "text"
-          },
-          "noValue": "–"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "graphMode": "none",
-        "colorMode": "none",
-        "justifyMode": "auto",
-        "textMode": "value",
-        "wideLayout": true,
-        "text": {
-          "valueSize": 32
-        },
-        "showPercentChange": true,
-        "percentChangeColorMode": "standard",
-        "orientation": "auto"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "postgres",
-            "uid": "fintracker-pg"
-          },
-          "editorMode": "code",
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "WITH s AS (SELECT s.\"time\", s.value * (CASE WHEN s.currency IS NULL OR s.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(s.currency, s.\"time\"::date) / NULLIF(fx_usd_rate('$display_currency', s.\"time\"::date), 0), 1) END) AS v FROM equity_metric_series s WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'revenue' AND s.value IS NOT NULL AND s.\"time\" <= $__timeTo()::timestamptz), latest AS (SELECT s.\"time\", s.v FROM s ORDER BY s.\"time\" DESC LIMIT 1) SELECT y.\"time\", y.v AS \"Revenue (TTM)\" FROM ((SELECT p.\"time\", p.v FROM s p, latest l WHERE p.\"time\" BETWEEN l.\"time\" - interval '395 days' AND l.\"time\" - interval '335 days' AND p.v > 0 ORDER BY abs(extract(epoch FROM p.\"time\" - (l.\"time\" - interval '365 days'))) LIMIT 1) UNION ALL SELECT l.\"time\", l.v FROM latest l) y ORDER BY 1"
         }
       ]
     },
@@ -769,6 +647,10 @@
                   "tooltip": false,
                   "viz": false
                 }
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "hidden"
               }
             ]
           },
@@ -1858,7 +1740,7 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 8,
+        "w": 12,
         "x": 0,
         "y": 55
       },
@@ -1908,67 +1790,6 @@
       ]
     },
     {
-      "id": 18,
-      "type": "timeseries",
-      "title": "Debt-to-equity",
-      "description": "Total debt over stockholders' equity at each report date. No point is drawn while equity is zero or negative.",
-      "datasource": {
-        "type": "postgres",
-        "uid": "fintracker-pg"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 8,
-        "y": 55
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 18,
-            "gradientMode": "opacity",
-            "showPoints": "always",
-            "pointSize": 5,
-            "spanNulls": true,
-            "axisBorderShow": false
-          },
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#3987e5"
-          },
-          "unit": "none",
-          "decimals": 2
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "postgres",
-            "uid": "fintracker-pg"
-          },
-          "editorMode": "code",
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value AS value FROM equity_metric_series s WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'de' AND $__timeFilter(s.\"time\") ORDER BY 1"
-        }
-      ]
-    },
-    {
       "id": 9,
       "type": "timeseries",
       "title": "Shares outstanding",
@@ -1979,8 +1800,8 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 8,
-        "x": 16,
+        "w": 12,
+        "x": 12,
         "y": 55
       },
       "fieldConfig": {

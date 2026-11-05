@@ -22,7 +22,14 @@ thing runs under Docker Compose and schedules itself — no external cron.
   new filings via the submissions feed (logged in `filings`), and upserts curated
   `us-gaap` (UNH/PRM) and `ifrs-full` (BN) facts into `fundamentals`. No documents
   are downloaded or stored. Requires `SEC_USER_AGENT` with a contact email.
-- **Yahoo fundamentals (non-SEC filers)** — listings that don't file with the
+  Besides the current taxonomy's tags it keeps the ones filers used before the
+  2018 taxonomy retired them (`SalesRevenueNet`, `SalesRevenueServicesNet`,
+  `CostOfGoodsSold`, `CostOfServices`, ...) and common fallbacks (`ProfitLoss`
+  for net income, cost of revenue excluding D&A); the views use a fallback
+  only for a period with no current tag (migration 0034). Without them a
+  company's revenue, margins and earnings begin with FY2016, the oldest year
+  its 2018 filings restate under the new tags.
+- **Yahoo fundamentals (non-SEC filers)** — only listings that don't file with the
   SEC (CSU.TO, AI.PA, RMS.PA, KRI.AT, and any such on-demand ticker) get their
   annual + quarterly income statement, balance sheet, and cash flow from Yahoo
   Finance instead. Yahoo's line items are mapped onto the same canonical XBRL
@@ -120,12 +127,12 @@ thing runs under Docker Compose and schedules itself — no external cron.
   unconverted rather than disappearing.
 - **Fundamentals dashboard** — pick one ticker and read it top-down, under a
   header with the company's name and its next earnings date:
-  - *Snapshot*: price and market cap with a one-year sparkline and change;
-    P/E, P/FCF and EV/EBITDA against their median over the time range (red
-    when richer than usual, green when cheaper); TTM revenue against a year
-    earlier.
+  - *Snapshot*: the latest price with its one-year change, and P/E, P/FCF
+    and EV/EBITDA against their median over the time range (red when richer
+    than usual, green when cheaper).
   - *Price*: candlesticks with a daily/weekly/monthly candle selector, volume
-    along the bottom, and SMA-50 and SMA-200 lines that share the candle axis
+    along the bottom (on its own hidden axis, so it never squeezes the
+    candles), and SMA-50 and SMA-200 lines that share the candle axis
     and whose latest and mean values read off a table legend. An *Earnings
     reports* toggle marks the dates 10-K/10-Q/20-F/40-F reports were filed.
   - *Valuation against its own history*: P/E, P/FCF, P/B and EV/EBITDA, each
@@ -134,8 +141,8 @@ thing runs under Docker Compose and schedules itself — no external cron.
     for itself.
   - *Growth and profitability*: TTM revenue, earnings and diluted EPS; revenue
     and EPS growth year on year; gross, operating and net margin.
-  - *Balance sheet and shares*: total debt, debt-to-equity, and diluted
-    shares outstanding (buybacks vs dilution).
+  - *Balance sheet and shares*: total debt and diluted shares outstanding
+    (buybacks vs dilution).
 
   Charts use the same colorblind-validated palette as Financial Statements
   (blue, orange, aqua, with grey for context lines), and a link at the top
