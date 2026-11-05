@@ -141,8 +141,10 @@ thing runs under Docker Compose and schedules itself — no external cron.
     for itself.
   - *Growth and profitability*: TTM revenue, earnings and diluted EPS; revenue
     and EPS growth year on year; gross, operating and net margin.
-  - *Balance sheet and shares*: total debt and diluted shares outstanding
-    (buybacks vs dilution).
+  - *Leverage and shares*: debt-to-equity; debt to TTM earnings, as debt /
+    EBITDA (the usual leverage measure) and debt / net income (which also
+    covers filers that don't report operating income or D&A); and diluted
+    shares outstanding (buybacks vs dilution).
 
   Charts use the same colorblind-validated palette as Financial Statements
   (blue, orange, aqua, with grey for context lines), and a link at the top

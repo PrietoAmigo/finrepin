@@ -78,8 +78,31 @@ def test_sections_in_reading_order(panels: list[dict[str, Any]]) -> None:
         "Price",
         "Valuation against its own history",
         "Growth and profitability",
-        "Balance sheet and shares",
+        "Leverage and shares",
     ]
+
+
+def test_leverage_row(panels: list[dict[str, Any]]) -> None:
+    row = next(p for p in panels if p["title"] == "Leverage and shares")
+    below = sorted(
+        (p for p in panels if p["gridPos"]["y"] == row["gridPos"]["y"] + 1),
+        key=lambda p: p["gridPos"]["x"],
+    )
+    assert [(p["title"], p["gridPos"]["w"]) for p in below] == [
+        ("Debt-to-equity", 8),
+        ("Debt to earnings (TTM)", 8),
+        ("Shares outstanding", 8),
+    ]
+    assert not any(p["title"].startswith("Total debt") for p in panels)
+    sql = _sql(below[1])
+    # One company's TTM flows (pushed into the view), and no ratio over
+    # earnings that are zero or negative.
+    assert re.search(
+        r"FROM equity_flows_ttm t WHERE t\.instrument_id = "
+        r"\(SELECT id FROM instruments WHERE symbol = '\$ticker'\)",
+        sql,
+    )
+    assert "CASE WHEN f.ebitda > 0" in sql and "CASE WHEN f.net_income > 0" in sql
 
 
 def test_header_variables_are_hidden(dashboard: dict[str, Any]) -> None:
