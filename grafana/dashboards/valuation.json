@@ -1,13 +1,13 @@
 {
   "uid": "fintracker-ticker-fundamentals",
-  "title": "Fundamentals",
+  "title": "Valuation",
   "description": "Price, valuation and fundamentals for a single ticker, from the equity_metric_series view. The snapshot reads the latest values: price against a year earlier, and P/E, P/FCF and EV/EBITDA against their median over the time range. Valuation charts shade the middle half of each ratio's range around its median; growth, margins and the balance sheet have one point per report. Money values are converted into the selected currency at each day's (or report date's) FX rate; ratios and share counts are never converted.",
   "tags": [
     "fintracker"
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 4,
+  "version": 6,
   "refresh": "1m",
   "graphTooltip": 1,
   "time": {
@@ -298,7 +298,7 @@
         "uid": "fintracker-pg"
       },
       "gridPos": {
-        "h": 4,
+        "h": 2,
         "w": 6,
         "x": 0,
         "y": 1
@@ -361,7 +361,7 @@
         "uid": "fintracker-pg"
       },
       "gridPos": {
-        "h": 4,
+        "h": 2,
         "w": 6,
         "x": 6,
         "y": 1
@@ -422,7 +422,7 @@
         "uid": "fintracker-pg"
       },
       "gridPos": {
-        "h": 4,
+        "h": 2,
         "w": 6,
         "x": 12,
         "y": 1
@@ -483,7 +483,7 @@
         "uid": "fintracker-pg"
       },
       "gridPos": {
-        "h": 4,
+        "h": 2,
         "w": 6,
         "x": 18,
         "y": 1
@@ -543,7 +543,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 5
+        "y": 3
       },
       "panels": []
     },
@@ -560,7 +560,7 @@
         "h": 13,
         "w": 24,
         "x": 0,
-        "y": 6
+        "y": 4
       },
       "fieldConfig": {
         "defaults": {
@@ -765,7 +765,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 19
+        "y": 17
       },
       "panels": []
     },
@@ -782,7 +782,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 20
+        "y": 18
       },
       "fieldConfig": {
         "defaults": {
@@ -919,7 +919,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 20
+        "y": 18
       },
       "fieldConfig": {
         "defaults": {
@@ -1056,7 +1056,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 28
+        "y": 26
       },
       "fieldConfig": {
         "defaults": {
@@ -1193,7 +1193,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 28
+        "y": 26
       },
       "fieldConfig": {
         "defaults": {
@@ -1326,7 +1326,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 36
+        "y": 34
       },
       "panels": []
     },
@@ -1343,7 +1343,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 37
+        "y": 35
       },
       "fieldConfig": {
         "defaults": {
@@ -1403,7 +1403,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 37
+        "y": 35
       },
       "fieldConfig": {
         "defaults": {
@@ -1463,7 +1463,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 37
+        "y": 35
       },
       "fieldConfig": {
         "defaults": {
@@ -1524,7 +1524,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 45
+        "y": 43
       },
       "fieldConfig": {
         "defaults": {
@@ -1627,7 +1627,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 45
+        "y": 43
       },
       "fieldConfig": {
         "defaults": {
@@ -1719,37 +1719,36 @@
     {
       "id": 34,
       "type": "row",
-      "title": "Balance sheet and shares",
+      "title": "Leverage and shares",
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 54
+        "y": 52
       },
       "panels": []
     },
     {
-      "id": 6,
+      "id": 18,
       "type": "timeseries",
-      "title": "Total debt — $display_currency",
-      "description": "Balance-sheet debt at each report date, composed from the components the filer tags (long-term debt incl. current portion, plus short-term borrowings) without double counting.",
+      "title": "Debt-to-equity",
+      "description": "Total debt over stockholders' equity at each report date. No point is drawn while equity is zero or negative.",
       "datasource": {
         "type": "postgres",
         "uid": "fintracker-pg"
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 8,
         "x": 0,
-        "y": 55
+        "y": 53
       },
       "fieldConfig": {
         "defaults": {
           "custom": {
             "lineWidth": 2,
-            "fillOpacity": 18,
-            "gradientMode": "opacity",
+            "fillOpacity": 0,
             "showPoints": "always",
             "pointSize": 5,
             "spanNulls": true,
@@ -1759,7 +1758,8 @@
             "mode": "fixed",
             "fixedColor": "#3987e5"
           },
-          "unit": "short"
+          "unit": "none",
+          "decimals": 2
         },
         "overrides": []
       },
@@ -1785,7 +1785,94 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value * (CASE WHEN s.currency IS NULL OR s.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(s.currency, s.\"time\"::date) / NULLIF(fx_usd_rate('$display_currency', s.\"time\"::date), 0), 1) END) AS value FROM equity_metric_series s WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'debt' AND $__timeFilter(s.\"time\") ORDER BY 1"
+          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value FROM equity_metric_series s WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'de' AND $__timeFilter(s.\"time\") ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "type": "timeseries",
+      "title": "Debt to earnings (TTM)",
+      "description": "Total debt at each report date over the trailing twelve months' earnings ending that day: roughly how many years of earnings the debt amounts to. Debt / EBITDA (operating income plus depreciation & amortization, the EBITDA of EV/EBITDA) is the usual leverage measure; Debt / net income also covers filers that don't report operating income or D&A, though net income is after interest and one-offs. Each line is blank while its earnings are zero or negative.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 53
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "always",
+            "pointSize": 5,
+            "spanNulls": true,
+            "axisBorderShow": false
+          },
+          "unit": "none",
+          "decimals": 1
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Debt / EBITDA"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Debt / net income"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH d AS (SELECT s.\"time\", s.value FROM equity_metric_series s WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'debt' AND $__timeFilter(s.\"time\")), f AS (SELECT t.period_end, max(t.value) FILTER (WHERE t.grp = 'op_income') + max(t.value) FILTER (WHERE t.grp = 'd_a') AS ebitda, max(t.value) FILTER (WHERE t.grp = 'net_income') AS net_income FROM equity_flows_ttm t WHERE t.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND t.grp IN ('op_income', 'd_a', 'net_income') GROUP BY t.period_end) SELECT d.\"time\", CASE WHEN f.ebitda > 0 THEN d.value / f.ebitda END AS \"Debt / EBITDA\", CASE WHEN f.net_income > 0 THEN d.value / f.net_income END AS \"Debt / net income\" FROM d LEFT JOIN f ON f.period_end = d.\"time\"::date ORDER BY 1"
         }
       ]
     },
@@ -1800,9 +1887,9 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 55
+        "w": 8,
+        "x": 16,
+        "y": 53
       },
       "fieldConfig": {
         "defaults": {
