@@ -40,11 +40,25 @@ FORMS_WITH_FINANCIALS = frozenset(
 # cash-flow line items; keep all three in sync.
 CURATED_TAGS: dict[str, tuple[str, ...]] = {
     "us-gaap": (
-        # Income statement — revenue & gross profit.
+        # Income statement — revenue & gross profit. The tags after the first
+        # few are fallbacks (migration 0034): pre-2018 filings used the
+        # SalesRevenue*/CostOfGoodsSold/CostOfServices tags the 2018 taxonomy
+        # retired, and some filers tag cost of revenue excluding D&A. Without
+        # them a company's revenue and gross margin begin with FY2016, the
+        # oldest year its 2018 filings restate under the new tags.
         "Revenues",
         "RevenueFromContractWithCustomerExcludingAssessedTax",
+        "SalesRevenueNet",
+        "RevenueFromContractWithCustomerIncludingAssessedTax",
+        "SalesRevenueServicesNet",
+        "SalesRevenueGoodsNet",
         "CostOfRevenue",
         "CostOfGoodsAndServicesSold",
+        "CostOfGoodsSold",
+        "CostOfServices",
+        "CostOfGoodsAndServiceExcludingDepreciationDepletionAndAmortization",
+        "CostOfGoodsSoldExcludingDepreciationDepletionAndAmortization",
+        "CostOfServicesExcludingDepreciationDepletionAndAmortization",
         "GrossProfit",
         # Income statement — operating expenses.
         "ResearchAndDevelopmentExpense",
@@ -68,13 +82,18 @@ CURATED_TAGS: dict[str, tuple[str, ...]] = {
         "IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments",
         "IncomeTaxExpenseBenefit",
         "NetIncomeLoss",
+        # Fallbacks for filers whose net income line carries another tag.
+        "ProfitLoss",
+        "NetIncomeLossAvailableToCommonStockholdersBasic",
         "NetIncomeLossAttributableToNoncontrollingInterest",
         "ComprehensiveIncomeNetOfTax",
-        # Income statement — per share.
+        # Income statement — per share (…BasicAndDiluted: filers without dilution).
         "EarningsPerShareBasic",
         "EarningsPerShareDiluted",
+        "EarningsPerShareBasicAndDiluted",
         "WeightedAverageNumberOfSharesOutstandingBasic",
         "WeightedAverageNumberOfDilutedSharesOutstanding",
+        "WeightedAverageNumberOfShareOutstandingBasicAndDiluted",
         "CommonStockDividendsPerShareDeclared",
         "CommonStockDividendsPerShareCashPaid",
         # Balance sheet — current assets (instant facts).
