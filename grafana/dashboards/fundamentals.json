@@ -1,0 +1,2032 @@
+{
+  "uid": "fintracker-ticker-fundamentals",
+  "title": "Fundamentals",
+  "description": "Price, valuation and fundamentals for a single ticker, from the equity_metric_series view. The snapshot reads the latest values: price and market cap over the last year, P/E, P/FCF and EV/EBITDA against their median over the time range, revenue against a year earlier. Valuation charts shade the middle half of each ratio's range around its median; growth, margins and the balance sheet have one point per report. Money values are converted into the selected currency at each day's (or report date's) FX rate; ratios and share counts are never converted.",
+  "tags": [
+    "fintracker"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 3,
+  "refresh": "1m",
+  "graphTooltip": 1,
+  "time": {
+    "from": "now-10y",
+    "to": "now"
+  },
+  "timepicker": {
+    "quick_ranges": [
+      {
+        "display": "Last 24 hours",
+        "from": "now-24h",
+        "to": "now"
+      },
+      {
+        "display": "Last 2 days",
+        "from": "now-2d",
+        "to": "now"
+      },
+      {
+        "display": "Last 7 days",
+        "from": "now-7d",
+        "to": "now"
+      },
+      {
+        "display": "Last 30 days",
+        "from": "now-30d",
+        "to": "now"
+      },
+      {
+        "display": "Last 90 days",
+        "from": "now-90d",
+        "to": "now"
+      },
+      {
+        "display": "Last 6 months",
+        "from": "now-6M",
+        "to": "now"
+      },
+      {
+        "display": "Last 1 year",
+        "from": "now-1y",
+        "to": "now"
+      },
+      {
+        "display": "Last 2 years",
+        "from": "now-2y",
+        "to": "now"
+      },
+      {
+        "display": "Last 5 years",
+        "from": "now-5y",
+        "to": "now"
+      },
+      {
+        "display": "Last 10 years",
+        "from": "now-10y",
+        "to": "now"
+      },
+      {
+        "display": "Last 15 years",
+        "from": "now-15y",
+        "to": "now"
+      },
+      {
+        "display": "Yesterday",
+        "from": "now-1d/d",
+        "to": "now-1d/d"
+      },
+      {
+        "display": "Previous week",
+        "from": "now-1w/w",
+        "to": "now-1w/w"
+      },
+      {
+        "display": "Previous month",
+        "from": "now-1M/M",
+        "to": "now-1M/M"
+      },
+      {
+        "display": "Previous year",
+        "from": "now-1y/y",
+        "to": "now-1y/y"
+      },
+      {
+        "display": "Today so far",
+        "from": "now/d",
+        "to": "now"
+      },
+      {
+        "display": "This week so far",
+        "from": "now/w",
+        "to": "now"
+      },
+      {
+        "display": "This month so far",
+        "from": "now/M",
+        "to": "now"
+      },
+      {
+        "display": "This year so far",
+        "from": "now/y",
+        "to": "now"
+      }
+    ]
+  },
+  "links": [
+    {
+      "title": "Financial Statements",
+      "type": "link",
+      "url": "/d/fintracker-financial-statements/financial-statements?var-ticker=${ticker}&var-display_currency=${display_currency}",
+      "icon": "doc",
+      "targetBlank": false,
+      "keepTime": false,
+      "includeVars": false,
+      "tooltip": "This ticker's annual income statement, balance sheet and cash flow"
+    }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      },
+      {
+        "name": "Earnings reports",
+        "datasource": {
+          "type": "postgres",
+          "uid": "fintracker-pg"
+        },
+        "enable": false,
+        "hide": false,
+        "iconColor": "#c3c2b7",
+        "filter": {
+          "exclude": false,
+          "ids": [
+            10
+          ]
+        },
+        "target": {
+          "refId": "Anno",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT f.filed_at::timestamptz AS \"time\", f.form || ' filed' AS text, f.form AS tags FROM filings f WHERE f.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND f.form IN ('10-K', '10-Q', '20-F', '40-F') AND $__timeFilter(f.filed_at) ORDER BY 1"
+        }
+      }
+    ]
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "ticker",
+        "label": "Ticker",
+        "type": "query",
+        "datasource": {
+          "type": "postgres",
+          "uid": "fintracker-pg"
+        },
+        "query": "SELECT i.symbol FROM instruments i WHERE i.kind = 'equity' AND EXISTS (SELECT 1 FROM fundamentals f WHERE f.instrument_id = i.id) ORDER BY i.symbol",
+        "definition": "SELECT i.symbol FROM instruments i WHERE i.kind = 'equity' AND EXISTS (SELECT 1 FROM fundamentals f WHERE f.instrument_id = i.id) ORDER BY i.symbol",
+        "refresh": 1,
+        "sort": 0,
+        "multi": false,
+        "includeAll": false,
+        "current": {}
+      },
+      {
+        "name": "display_currency",
+        "label": "Currency",
+        "type": "query",
+        "datasource": {
+          "type": "postgres",
+          "uid": "fintracker-pg"
+        },
+        "query": "SELECT DISTINCT split_part(unit, '/', 1) AS currency FROM fundamentals WHERE unit ~ '^[A-Z]{3}(/shares)?$' UNION SELECT currency FROM instruments ORDER BY 1",
+        "definition": "SELECT DISTINCT split_part(unit, '/', 1) AS currency FROM fundamentals WHERE unit ~ '^[A-Z]{3}(/shares)?$' UNION SELECT currency FROM instruments ORDER BY 1",
+        "refresh": 1,
+        "sort": 0,
+        "multi": false,
+        "includeAll": false,
+        "current": {
+          "selected": true,
+          "text": "USD",
+          "value": "USD"
+        }
+      },
+      {
+        "name": "candle_interval",
+        "label": "Candles",
+        "type": "custom",
+        "query": "Daily : day, Weekly : week, Monthly : month",
+        "multi": false,
+        "includeAll": false,
+        "current": {
+          "selected": true,
+          "text": "Weekly",
+          "value": "week"
+        },
+        "options": [
+          {
+            "selected": false,
+            "text": "Daily",
+            "value": "day"
+          },
+          {
+            "selected": true,
+            "text": "Weekly",
+            "value": "week"
+          },
+          {
+            "selected": false,
+            "text": "Monthly",
+            "value": "month"
+          }
+        ]
+      },
+      {
+        "name": "company_name",
+        "label": "Company",
+        "type": "query",
+        "hide": 2,
+        "skipUrlSync": true,
+        "datasource": {
+          "type": "postgres",
+          "uid": "fintracker-pg"
+        },
+        "query": "SELECT i.name FROM instruments i WHERE i.symbol = '$ticker'",
+        "definition": "SELECT i.name FROM instruments i WHERE i.symbol = '$ticker'",
+        "refresh": 1,
+        "sort": 0,
+        "multi": false,
+        "includeAll": false,
+        "current": {}
+      },
+      {
+        "name": "next_earnings",
+        "label": "Next earnings",
+        "type": "query",
+        "hide": 2,
+        "skipUrlSync": true,
+        "datasource": {
+          "type": "postgres",
+          "uid": "fintracker-pg"
+        },
+        "query": "SELECT COALESCE((SELECT 'next earnings ' || to_char(e.earnings_date, 'FMMon FMDD, YYYY') || CASE WHEN e.is_estimated THEN ' (estimated)' ELSE '' END FROM earnings_dates e WHERE e.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND e.earnings_date >= current_date), 'no earnings date scheduled')",
+        "definition": "SELECT COALESCE((SELECT 'next earnings ' || to_char(e.earnings_date, 'FMMon FMDD, YYYY') || CASE WHEN e.is_estimated THEN ' (estimated)' ELSE '' END FROM earnings_dates e WHERE e.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND e.earnings_date >= current_date), 'no earnings date scheduled')",
+        "refresh": 1,
+        "sort": 0,
+        "multi": false,
+        "includeAll": false,
+        "current": {}
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 30,
+      "type": "row",
+      "title": "$company_name ($ticker) · $display_currency · $next_earnings",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "id": 20,
+      "type": "stat",
+      "title": "Price · 1y",
+      "description": "Latest close in the display currency. The sparkline and the arrow cover the last 12 months, whatever the time picker says.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#3987e5"
+          },
+          "noValue": "–",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "none",
+        "justifyMode": "auto",
+        "textMode": "value",
+        "wideLayout": true,
+        "text": {
+          "valueSize": 32
+        },
+        "showPercentChange": true,
+        "percentChangeColorMode": "standard",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT p.date::timestamptz AS \"time\", p.close::float8 * (CASE WHEN i.currency IS NULL OR i.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(i.currency, p.date) / NULLIF(fx_usd_rate('$display_currency', p.date), 0), 1) END) AS \"Price\" FROM prices p JOIN instruments i ON i.id = p.instrument_id WHERE i.symbol = '$ticker' AND $__timeFilter(p.date) ORDER BY 1"
+        }
+      ],
+      "timeFrom": "1y",
+      "hideTimeOverride": true
+    },
+    {
+      "id": 21,
+      "type": "stat",
+      "title": "Market cap · 1y",
+      "description": "Latest close × weighted diluted shares from the latest report, in the display currency. The sparkline and the arrow cover the last 12 months.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#3987e5"
+          },
+          "noValue": "–"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "none",
+        "justifyMode": "auto",
+        "textMode": "value",
+        "wideLayout": true,
+        "text": {
+          "valueSize": 32
+        },
+        "showPercentChange": true,
+        "percentChangeColorMode": "standard",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT s.\"time\", s.value * (CASE WHEN s.currency IS NULL OR s.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(s.currency, s.\"time\"::date) / NULLIF(fx_usd_rate('$display_currency', s.\"time\"::date), 0), 1) END) AS \"Market cap\" FROM equity_metric_series s WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'mcap' AND $__timeFilter(s.\"time\") ORDER BY 1"
+        }
+      ],
+      "timeFrom": "1y",
+      "hideTimeOverride": true
+    },
+    {
+      "id": 22,
+      "type": "stat",
+      "title": "P/E (TTM) · vs median",
+      "description": "P/E (TTM) on the last day of the time range. The arrow is how far it sits from its median over the same range: red above (pricier than usual), green below. Blank while TTM EPS is negative, or when the last report is older than ~15 months.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "noValue": "–",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "none",
+        "justifyMode": "auto",
+        "textMode": "value",
+        "wideLayout": true,
+        "text": {
+          "valueSize": 32
+        },
+        "showPercentChange": true,
+        "percentChangeColorMode": "inverted",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH s AS (SELECT s.\"time\", s.value FROM equity_metric_series s WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'pe' AND $__timeFilter(s.\"time\")), latest AS (SELECT s.\"time\", s.value FROM s ORDER BY s.\"time\" DESC LIMIT 1), last_day AS (SELECT l.\"time\", l.value FROM latest l WHERE l.value IS NOT NULL AND l.\"time\" > $__timeTo()::timestamptz - interval '31 days') SELECT $__timeFrom()::timestamptz AS \"time\", (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY s.value) FROM s) AS \"P/E (TTM)\" FROM last_day UNION ALL SELECT c.\"time\", c.value FROM last_day c ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "type": "stat",
+      "title": "P/FCF (TTM) · vs median",
+      "description": "P/FCF (TTM) on the last day of the time range. The arrow is how far it sits from its median over the same range: red above (pricier than usual), green below. Blank while TTM free cash flow is negative, or when the last report is older than ~15 months.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "noValue": "–",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "none",
+        "justifyMode": "auto",
+        "textMode": "value",
+        "wideLayout": true,
+        "text": {
+          "valueSize": 32
+        },
+        "showPercentChange": true,
+        "percentChangeColorMode": "inverted",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH s AS (SELECT s.\"time\", s.value FROM equity_metric_series s WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'pfcf' AND $__timeFilter(s.\"time\")), latest AS (SELECT s.\"time\", s.value FROM s ORDER BY s.\"time\" DESC LIMIT 1), last_day AS (SELECT l.\"time\", l.value FROM latest l WHERE l.value IS NOT NULL AND l.\"time\" > $__timeTo()::timestamptz - interval '31 days') SELECT $__timeFrom()::timestamptz AS \"time\", (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY s.value) FROM s) AS \"P/FCF (TTM)\" FROM last_day UNION ALL SELECT c.\"time\", c.value FROM last_day c ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 24,
+      "type": "stat",
+      "title": "EV/EBITDA (TTM) · vs median",
+      "description": "EV/EBITDA (TTM) on the last day of the time range. The arrow is how far it sits from its median over the same range: red above (pricier than usual), green below. Blank while TTM EBITDA is zero or negative, or when the last report is older than ~15 months.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "noValue": "–",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "none",
+        "justifyMode": "auto",
+        "textMode": "value",
+        "wideLayout": true,
+        "text": {
+          "valueSize": 32
+        },
+        "showPercentChange": true,
+        "percentChangeColorMode": "inverted",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH s AS (SELECT s.\"time\", s.value FROM equity_metric_series s WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'ev_ebitda' AND $__timeFilter(s.\"time\")), latest AS (SELECT s.\"time\", s.value FROM s ORDER BY s.\"time\" DESC LIMIT 1), last_day AS (SELECT l.\"time\", l.value FROM latest l WHERE l.value IS NOT NULL AND l.\"time\" > $__timeTo()::timestamptz - interval '31 days') SELECT $__timeFrom()::timestamptz AS \"time\", (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY s.value) FROM s) AS \"EV/EBITDA (TTM)\" FROM last_day UNION ALL SELECT c.\"time\", c.value FROM last_day c ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 25,
+      "type": "stat",
+      "title": "Revenue (TTM) · YoY",
+      "description": "Trailing-twelve-month revenue at the latest report up to the end of the time range, in the display currency. The arrow is the change from the report a year earlier.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "noValue": "–"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "none",
+        "justifyMode": "auto",
+        "textMode": "value",
+        "wideLayout": true,
+        "text": {
+          "valueSize": 32
+        },
+        "showPercentChange": true,
+        "percentChangeColorMode": "standard",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH s AS (SELECT s.\"time\", s.value * (CASE WHEN s.currency IS NULL OR s.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(s.currency, s.\"time\"::date) / NULLIF(fx_usd_rate('$display_currency', s.\"time\"::date), 0), 1) END) AS v FROM equity_metric_series s WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'revenue' AND s.value IS NOT NULL AND s.\"time\" <= $__timeTo()::timestamptz), latest AS (SELECT s.\"time\", s.v FROM s ORDER BY s.\"time\" DESC LIMIT 1) SELECT y.\"time\", y.v AS \"Revenue (TTM)\" FROM ((SELECT p.\"time\", p.v FROM s p, latest l WHERE p.\"time\" BETWEEN l.\"time\" - interval '395 days' AND l.\"time\" - interval '335 days' AND p.v > 0 ORDER BY abs(extract(epoch FROM p.\"time\" - (l.\"time\" - interval '365 days'))) LIMIT 1) UNION ALL SELECT l.\"time\", l.v FROM latest l) y ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 31,
+      "type": "row",
+      "title": "Price",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "panels": []
+    },
+    {
+      "id": 10,
+      "type": "candlestick",
+      "title": "${candle_interval:text} candles with 50- and 200-period averages — $display_currency",
+      "description": "Daily prices as OHLC candles, converted to the display currency and aggregated into the candle size chosen with the 'Candles' selector (daily / weekly / monthly), with traded volume along the bottom and 50- and 200-period simple moving averages of the close. The averages share the candles' price axis and their latest and mean values show in the legend. Turn on 'Earnings reports' at the top to mark the dates 10-K / 10-Q / 20-F / 40-F reports were filed.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 13,
+        "w": 24,
+        "x": 0,
+        "y": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "axisBorderShow": false
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "open"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": false,
+                  "viz": false
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "high"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": false,
+                  "viz": false
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "low"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": false,
+                  "viz": false
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "close"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": false,
+                  "viz": false
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "volume"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": false,
+                  "viz": false
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "SMA50"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 2
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.showPoints",
+                "value": "never"
+              },
+              {
+                "id": "custom.spanNulls",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "SMA200"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#c3c2b7"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 2
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.showPoints",
+                "value": "never"
+              },
+              {
+                "id": "custom.spanNulls",
+                "value": true
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "mode": "candles+volume",
+        "candleStyle": "candles",
+        "colorStrategy": "open-close",
+        "colors": {
+          "up": "#199e70",
+          "down": "#d95926",
+          "flat": "#898781"
+        },
+        "includeAllFields": true,
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull",
+            "mean"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH px AS MATERIALIZED (SELECT p.date, p.open, p.high, p.low, p.close, p.volume, CASE WHEN i.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(i.currency, p.date) / NULLIF(fx_usd_rate('$display_currency', p.date), 0), 1) END AS fx FROM prices p JOIN instruments i ON i.id = p.instrument_id WHERE i.symbol = '$ticker'), daily AS (SELECT date_trunc('$candle_interval', date)::timestamptz AS bucket, date, COALESCE(open, close)::float8 * fx AS o, COALESCE(high, close)::float8 * fx AS h, COALESCE(low, close)::float8 * fx AS l, close::float8 * fx AS c, volume::float8 AS v FROM px), candles AS (SELECT bucket AS t, (array_agg(o ORDER BY date ASC))[1] AS o, max(h) AS h, min(l) AS l, (array_agg(c ORDER BY date DESC))[1] AS c, sum(v) AS v FROM daily GROUP BY bucket), sma AS (SELECT t, o, h, l, c, v, CASE WHEN count(*) OVER w50 = 50 THEN avg(c) OVER w50 END AS sma50, CASE WHEN count(*) OVER w200 = 200 THEN avg(c) OVER w200 END AS sma200 FROM candles WINDOW w50 AS (ORDER BY t ROWS BETWEEN 49 PRECEDING AND CURRENT ROW), w200 AS (ORDER BY t ROWS BETWEEN 199 PRECEDING AND CURRENT ROW)) SELECT t AS \"time\", o AS \"open\", h AS \"high\", l AS \"low\", c AS \"close\", v AS \"volume\", sma50 AS \"SMA50\", sma200 AS \"SMA200\" FROM sma WHERE $__timeFilter(t) ORDER BY t"
+        }
+      ]
+    },
+    {
+      "id": 32,
+      "type": "row",
+      "title": "Valuation against its own history",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 19
+      },
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "P/E (TTM)",
+      "description": "Daily close (in the reporting currency) over trailing-twelve-month diluted EPS. No point is drawn while TTM EPS is negative or the last report is older than ~15 months. The dashed line is its median over the time range and the shaded band the middle half of its values (25th to 75th percentile): above the band it trades richer than usual, below it cheaper.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 20
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": 604800000,
+            "axisBorderShow": false
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#3987e5"
+          },
+          "unit": "none",
+          "decimals": 1
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Median"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#c3c2b7"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    8,
+                    6
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "75th percentile"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#898781"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 0
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 22
+              },
+              {
+                "id": "custom.fillBelowTo",
+                "value": "25th percentile"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "25th percentile"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#898781"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH s AS (SELECT s.\"time\", s.value FROM equity_metric_series s WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'pe' AND $__timeFilter(s.\"time\")), q AS (SELECT percentile_cont(ARRAY[0.25, 0.5, 0.75]) WITHIN GROUP (ORDER BY s.value) AS p FROM s WHERE s.value IS NOT NULL) SELECT s.\"time\", s.value AS \"P/E (TTM)\", q.p[2] AS \"Median\", q.p[1] AS \"25th percentile\", q.p[3] AS \"75th percentile\" FROM s CROSS JOIN q ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "P/FCF (TTM)",
+      "description": "Market cap (daily close × latest weighted diluted shares) over TTM free cash flow (operating cash flow minus capex). No point is drawn while TTM FCF is negative; missing if the filer doesn't tag capex. The dashed line is its median over the time range and the shaded band the middle half of its values (25th to 75th percentile): above the band it trades richer than usual, below it cheaper.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 20
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": 604800000,
+            "axisBorderShow": false
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#3987e5"
+          },
+          "unit": "none",
+          "decimals": 1
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Median"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#c3c2b7"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    8,
+                    6
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "75th percentile"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#898781"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 0
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 22
+              },
+              {
+                "id": "custom.fillBelowTo",
+                "value": "25th percentile"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "25th percentile"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#898781"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH s AS (SELECT s.\"time\", s.value FROM equity_metric_series s WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'pfcf' AND $__timeFilter(s.\"time\")), q AS (SELECT percentile_cont(ARRAY[0.25, 0.5, 0.75]) WITHIN GROUP (ORDER BY s.value) AS p FROM s WHERE s.value IS NOT NULL) SELECT s.\"time\", s.value AS \"P/FCF (TTM)\", q.p[2] AS \"Median\", q.p[1] AS \"25th percentile\", q.p[3] AS \"75th percentile\" FROM s CROSS JOIN q ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "P/B",
+      "description": "Market cap over the latest reported stockholders' equity. No point is drawn while equity is zero or negative, or the last report is older than ~15 months. The dashed line is its median over the time range and the shaded band the middle half of its values (25th to 75th percentile): above the band it trades richer than usual, below it cheaper.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 28
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": 604800000,
+            "axisBorderShow": false
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#3987e5"
+          },
+          "unit": "none",
+          "decimals": 1
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Median"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#c3c2b7"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    8,
+                    6
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "75th percentile"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#898781"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 0
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 22
+              },
+              {
+                "id": "custom.fillBelowTo",
+                "value": "25th percentile"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "25th percentile"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#898781"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH s AS (SELECT s.\"time\", s.value FROM equity_metric_series s WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'pb' AND $__timeFilter(s.\"time\")), q AS (SELECT percentile_cont(ARRAY[0.25, 0.5, 0.75]) WITHIN GROUP (ORDER BY s.value) AS p FROM s WHERE s.value IS NOT NULL) SELECT s.\"time\", s.value AS \"P/B\", q.p[2] AS \"Median\", q.p[1] AS \"25th percentile\", q.p[3] AS \"75th percentile\" FROM s CROSS JOIN q ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "EV/EBITDA (TTM)",
+      "description": "Enterprise value (market cap + total debt − cash) over TTM EBITDA (operating income + depreciation & amortization). No point is drawn while TTM EBITDA is zero or negative, or the last report is older than ~15 months. The dashed line is its median over the time range and the shaded band the middle half of its values (25th to 75th percentile): above the band it trades richer than usual, below it cheaper.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 28
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": 604800000,
+            "axisBorderShow": false
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#3987e5"
+          },
+          "unit": "none",
+          "decimals": 1
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Median"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#c3c2b7"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    8,
+                    6
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "75th percentile"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#898781"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 0
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 22
+              },
+              {
+                "id": "custom.fillBelowTo",
+                "value": "25th percentile"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "25th percentile"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#898781"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH s AS (SELECT s.\"time\", s.value FROM equity_metric_series s WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'ev_ebitda' AND $__timeFilter(s.\"time\")), q AS (SELECT percentile_cont(ARRAY[0.25, 0.5, 0.75]) WITHIN GROUP (ORDER BY s.value) AS p FROM s WHERE s.value IS NOT NULL) SELECT s.\"time\", s.value AS \"EV/EBITDA (TTM)\", q.p[2] AS \"Median\", q.p[1] AS \"25th percentile\", q.p[3] AS \"75th percentile\" FROM s CROSS JOIN q ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 33,
+      "type": "row",
+      "title": "Growth and profitability",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 36
+      },
+      "panels": []
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Revenue (TTM) — $display_currency",
+      "description": "Trailing-twelve-month revenue: one point per reported quarter end (annual filers get one point per fiscal year).",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 37
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 18,
+            "gradientMode": "opacity",
+            "showPoints": "always",
+            "pointSize": 5,
+            "spanNulls": true,
+            "axisBorderShow": false
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#3987e5"
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value * (CASE WHEN s.currency IS NULL OR s.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(s.currency, s.\"time\"::date) / NULLIF(fx_usd_rate('$display_currency', s.\"time\"::date), 0), 1) END) AS value FROM equity_metric_series s WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'revenue' AND $__timeFilter(s.\"time\") ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Earnings (TTM) — $display_currency",
+      "description": "Trailing-twelve-month net income: one point per reported quarter end (annual filers get one point per fiscal year).",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 37
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 18,
+            "gradientMode": "opacity",
+            "showPoints": "always",
+            "pointSize": 5,
+            "spanNulls": true,
+            "axisBorderShow": false
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#3987e5"
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value * (CASE WHEN s.currency IS NULL OR s.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(s.currency, s.\"time\"::date) / NULLIF(fx_usd_rate('$display_currency', s.\"time\"::date), 0), 1) END) AS value FROM equity_metric_series s WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'earnings' AND $__timeFilter(s.\"time\") ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "EPS (TTM, diluted) — $display_currency",
+      "description": "Trailing-twelve-month diluted earnings per share (quarterly EPS summed, Q4 derived from the 10-K), the figure P/E divides by: one point per reported quarter end (annual filers get one point per fiscal year).",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 37
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 18,
+            "gradientMode": "opacity",
+            "showPoints": "always",
+            "pointSize": 5,
+            "spanNulls": true,
+            "axisBorderShow": false
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#3987e5"
+          },
+          "unit": "none",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value * (CASE WHEN s.currency IS NULL OR s.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(s.currency, s.\"time\"::date) / NULLIF(fx_usd_rate('$display_currency', s.\"time\"::date), 0), 1) END) AS value FROM equity_metric_series s WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'eps' AND $__timeFilter(s.\"time\") ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "type": "timeseries",
+      "title": "Growth (TTM, year on year) — $display_currency",
+      "description": "Each report's trailing-twelve-month revenue and diluted EPS against the report a year earlier, in the display currency. EPS growth is left out while the year-earlier EPS isn't positive. The grey line marks 0%.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 45
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "always",
+            "pointSize": 5,
+            "spanNulls": true,
+            "axisBorderShow": false,
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "#898781",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "percent",
+          "decimals": 1
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Revenue"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "EPS (diluted)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH s AS (SELECT s.metric, s.\"time\", s.value * (CASE WHEN s.currency IS NULL OR s.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(s.currency, s.\"time\"::date) / NULLIF(fx_usd_rate('$display_currency', s.\"time\"::date), 0), 1) END) AS v FROM equity_metric_series s WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric IN ('revenue', 'eps') AND s.value IS NOT NULL AND s.\"time\" <= $__timeTo()::timestamptz), g AS (SELECT c.metric, c.\"time\", CASE WHEN p.v > 0 THEN 100.0 * (c.v - p.v) / p.v END AS growth FROM s c JOIN LATERAL (SELECT p.v FROM s p WHERE p.metric = c.metric AND p.\"time\" BETWEEN c.\"time\" - interval '395 days' AND c.\"time\" - interval '335 days' ORDER BY abs(extract(epoch FROM p.\"time\" - (c.\"time\" - interval '365 days'))) LIMIT 1) p ON true) SELECT g.\"time\", max(g.growth) FILTER (WHERE g.metric = 'revenue') AS \"Revenue\", max(g.growth) FILTER (WHERE g.metric = 'eps') AS \"EPS (diluted)\" FROM g WHERE $__timeFilter(g.\"time\") GROUP BY g.\"time\" ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Margins (TTM)",
+      "description": "Trailing-twelve-month gross profit (revenue minus cost of goods sold), operating income and net income, each as a percentage of TTM revenue: one point per reported quarter end (annual filers get one point per fiscal year).",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 45
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "always",
+            "pointSize": 5,
+            "spanNulls": true,
+            "axisBorderShow": false
+          },
+          "unit": "percent",
+          "decimals": 1
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Gross margin"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Operating margin"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Net margin"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#199e70"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH s AS (SELECT s.metric, s.\"time\", s.value FROM equity_metric_series s WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric IN ('gross_margin', 'op_margin', 'revenue', 'earnings') AND $__timeFilter(s.\"time\")) SELECT s.\"time\", max(s.value) FILTER (WHERE s.metric = 'gross_margin') AS \"Gross margin\", max(s.value) FILTER (WHERE s.metric = 'op_margin') AS \"Operating margin\", 100.0 * max(s.value) FILTER (WHERE s.metric = 'earnings') / NULLIF(max(s.value) FILTER (WHERE s.metric = 'revenue'), 0) AS \"Net margin\" FROM s GROUP BY s.\"time\" ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 34,
+      "type": "row",
+      "title": "Balance sheet and shares",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 54
+      },
+      "panels": []
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Total debt — $display_currency",
+      "description": "Balance-sheet debt at each report date, composed from the components the filer tags (long-term debt incl. current portion, plus short-term borrowings) without double counting.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 55
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 18,
+            "gradientMode": "opacity",
+            "showPoints": "always",
+            "pointSize": 5,
+            "spanNulls": true,
+            "axisBorderShow": false
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#3987e5"
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value * (CASE WHEN s.currency IS NULL OR s.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(s.currency, s.\"time\"::date) / NULLIF(fx_usd_rate('$display_currency', s.\"time\"::date), 0), 1) END) AS value FROM equity_metric_series s WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'debt' AND $__timeFilter(s.\"time\") ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "type": "timeseries",
+      "title": "Debt-to-equity",
+      "description": "Total debt over stockholders' equity at each report date. No point is drawn while equity is zero or negative.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 55
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 18,
+            "gradientMode": "opacity",
+            "showPoints": "always",
+            "pointSize": 5,
+            "spanNulls": true,
+            "axisBorderShow": false
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#3987e5"
+          },
+          "unit": "none",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value AS value FROM equity_metric_series s WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'de' AND $__timeFilter(s.\"time\") ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Shares outstanding",
+      "description": "Weighted diluted share count from each report (the same series market cap and P/FCF use); a falling line means buybacks, a rising one dilution.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 55
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 18,
+            "gradientMode": "opacity",
+            "showPoints": "always",
+            "pointSize": 5,
+            "spanNulls": true,
+            "axisBorderShow": false
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#3987e5"
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT s.\"time\", s.label AS metric, s.value AS value FROM equity_metric_series s WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'shares' AND $__timeFilter(s.\"time\") ORDER BY 1"
+        }
+      ]
+    }
+  ]
+}

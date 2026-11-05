@@ -474,7 +474,7 @@
       "id": 5,
       "type": "table",
       "title": "Watchlist",
-      "description": "Every watched instrument at its latest close, in its own currency. Moves compare the latest close with the last close at least that long ago (1D: the previous close; YTD: the last close of last year), the same rule as the weekly email. vs 200-day avg: the latest close against the average of the last 200 closes. Below 52w high and 52w range use the closes of the last year (0% of the range = at the low, 100% = at the high). P/E (latest close in the reporting currency over TTM diluted EPS) and market cap (latest close × diluted shares) follow the Ticker Fundamentals rules, and are blank for non-equities, names without filings, and reports older than about 15 months. Click a symbol to chart it below.",
+      "description": "Every watched instrument at its latest close, in its own currency. Moves compare the latest close with the last close at least that long ago (1D: the previous close; YTD: the last close of last year), the same rule as the weekly email. vs 200-day avg: the latest close against the average of the last 200 closes. Below 52w high and 52w range use the closes of the last year (0% of the range = at the low, 100% = at the high). P/E (latest close in the reporting currency over TTM diluted EPS) and market cap (latest close × diluted shares) follow the Fundamentals dashboard's rules, and are blank for non-equities, names without filings, and reports older than about 15 months. Click a symbol to chart it below.",
       "datasource": {
         "type": "postgres",
         "uid": "fintracker-pg"
@@ -510,8 +510,8 @@
                     "url": "/d/fintracker-watchlist/watchlist?var-symbol=${__value.raw}&${__url_time_range}"
                   },
                   {
-                    "title": "Ticker Fundamentals (stocks)",
-                    "url": "/d/fintracker-ticker-fundamentals/ticker-fundamentals?var-ticker=${__value.raw}"
+                    "title": "Fundamentals (stocks)",
+                    "url": "/d/fintracker-ticker-fundamentals/fundamentals?var-ticker=${__value.raw}"
                   }
                 ]
               }
