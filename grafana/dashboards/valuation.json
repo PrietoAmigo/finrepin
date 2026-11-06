@@ -299,7 +299,7 @@
       },
       "gridPos": {
         "h": 2,
-        "w": 6,
+        "w": 4,
         "x": 0,
         "y": 1
       },
@@ -352,6 +352,68 @@
       "hideTimeOverride": true
     },
     {
+      "id": 21,
+      "type": "stat",
+      "title": "Market cap · 1y",
+      "description": "Latest close × weighted diluted shares from the latest report, in the display currency. The arrow is the change over the last 12 months, whatever the time picker says, so unlike the price's it also moves with buybacks and dilution. Blank when the last report is older than ~15 months.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 5,
+        "x": 4,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "noValue": "–"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "none",
+        "justifyMode": "auto",
+        "textMode": "value",
+        "wideLayout": true,
+        "text": {
+          "valueSize": 32
+        },
+        "showPercentChange": true,
+        "percentChangeColorMode": "standard",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH s AS (SELECT s.\"time\", s.value * (CASE WHEN s.currency IS NULL OR s.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(s.currency, s.\"time\"::date) / NULLIF(fx_usd_rate('$display_currency', s.\"time\"::date), 0), 1) END) AS value FROM equity_metric_series s WHERE s.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND s.metric = 'mcap' AND $__timeFilter(s.\"time\")) SELECT s.\"time\", s.value AS \"Market cap\" FROM s WHERE (SELECT max(m.\"time\") FROM s m) > $__timeTo()::timestamptz - interval '31 days' ORDER BY 1"
+        }
+      ],
+      "timeFrom": "1y",
+      "hideTimeOverride": true
+    },
+    {
       "id": 22,
       "type": "stat",
       "title": "P/E (TTM) · vs median",
@@ -362,8 +424,8 @@
       },
       "gridPos": {
         "h": 2,
-        "w": 6,
-        "x": 6,
+        "w": 5,
+        "x": 9,
         "y": 1
       },
       "fieldConfig": {
@@ -423,8 +485,8 @@
       },
       "gridPos": {
         "h": 2,
-        "w": 6,
-        "x": 12,
+        "w": 5,
+        "x": 14,
         "y": 1
       },
       "fieldConfig": {
@@ -484,8 +546,8 @@
       },
       "gridPos": {
         "h": 2,
-        "w": 6,
-        "x": 18,
+        "w": 5,
+        "x": 19,
         "y": 1
       },
       "fieldConfig": {

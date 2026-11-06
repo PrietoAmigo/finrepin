@@ -141,13 +141,18 @@ def test_snapshot_tiles(panels: list[dict[str, Any]]) -> None:
     tiles = [p for p in panels if p["type"] == "stat"]
     assert [p["title"] for p in tiles] == [
         "Price · 1y",
+        "Market cap · 1y",
         "P/E (TTM) · vs median",
         "P/FCF (TTM) · vs median",
         "EV/EBITDA (TTM) · vs median",
     ]
+    # One row, left to right, filling the 24 columns; the price, with the
+    # shortest title, is the narrow one.
+    widths = [(p["gridPos"]["x"], p["gridPos"]["w"]) for p in tiles]
+    assert widths == [(0, 4), (4, 5), (9, 5), (14, 5), (19, 5)]
     for p in tiles:
         # Half height: one line of title over one line of figures.
-        assert p["gridPos"] == {"h": 2, "w": 6, "x": p["gridPos"]["x"], "y": 1}, p["title"]
+        assert (p["gridPos"]["h"], p["gridPos"]["y"]) == (2, 1), p["title"]
         assert p["options"]["showPercentChange"] is True, p["title"]
         assert p["options"]["reduceOptions"]["calcs"] == ["lastNotNull"], p["title"]
         assert p["options"]["graphMode"] == "none", p["title"]  # numbers only, no sparkline
@@ -160,6 +165,20 @@ def test_snapshot_tiles(panels: list[dict[str, Any]]) -> None:
             assert "percentile_cont(0.5)" in sql and "l.value IS NOT NULL" in sql, p["title"]
         else:
             assert p["options"]["percentChangeColorMode"] == "standard", p["title"]
+
+
+def test_market_cap_tile(panels: list[dict[str, Any]]) -> None:
+    tile = next(p for p in panels if p["title"] == "Market cap · 1y")
+    sql = _sql(tile)
+    # The view's daily close x diluted shares, converted day by day into the
+    # display currency like the price.
+    assert "s.metric = 'mcap'" in sql
+    assert 'fx_usd_rate(s.currency, s."time"::date)' in sql
+    assert "fx_usd_rate('$display_currency', s.\"time\"::date)" in sql
+    # No rows once the series has stopped (shares older than ~15 months), so
+    # the tile never shows a stale market cap as the current one.
+    assert "> $__timeTo()::timestamptz - interval '31 days'" in sql
+    assert tile["fieldConfig"]["defaults"]["unit"] == "short"  # 2.5 Tri, 340 Bil
 
 
 def test_valuation_charts_shade_the_middle_half(panels: list[dict[str, Any]]) -> None:

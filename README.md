@@ -127,7 +127,8 @@ thing runs under Docker Compose and schedules itself — no external cron.
   unconverted rather than disappearing.
 - **Valuation dashboard** — pick one ticker and read it top-down, under a
   header with the company's name and its next earnings date:
-  - *Snapshot*: the latest price with its one-year change, and P/E, P/FCF
+  - *Snapshot*: the latest price and market cap with their one-year change
+    (the market cap's also moves with buybacks and dilution), and P/E, P/FCF
     and EV/EBITDA against their median over the time range (red when richer
     than usual, green when cheaper).
   - *Price*: candlesticks with a daily/weekly/monthly candle selector, volume
