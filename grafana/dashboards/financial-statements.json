@@ -128,7 +128,7 @@
       "id": 2,
       "type": "stat",
       "title": "Revenue",
-      "description": "Total revenue in the latest selected fiscal year. The arrow is the change from the fiscal year before.",
+      "description": "Total revenue in the latest selected fiscal year. The arrow is the change from the fiscal year before. There is no arrow when the year before wasn't reported or wasn't positive: a change from zero or from a loss isn't a meaningful percentage.",
       "datasource": {
         "type": "postgres",
         "uid": "fintracker-pg"
@@ -180,7 +180,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "WITH latest AS (SELECT max(l.fiscal_year) AS fy FROM equity_statement_annual l WHERE l.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND l.fiscal_year::text IN ($fiscal_year)), a AS (SELECT a.fiscal_year, a.period_end, a.statement, a.line, a.value * (CASE WHEN a.currency IS NULL OR a.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(a.currency, a.period_end) / NULLIF(fx_usd_rate('$display_currency', a.period_end), 0), 1) END) AS v FROM equity_statement_annual a WHERE a.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND (a.statement, a.line) IN (('income', 'Revenue')) AND a.fiscal_year BETWEEN (SELECT fy FROM latest) - 1 AND (SELECT fy FROM latest)) SELECT max(period_end)::timestamptz AS \"time\", max(v) FILTER (WHERE statement = 'income' AND line = 'Revenue') AS \"Revenue\" FROM a GROUP BY fiscal_year ORDER BY 1"
+          "rawSql": "WITH latest AS (SELECT max(l.fiscal_year) AS fy FROM equity_statement_annual l WHERE l.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND l.fiscal_year::text IN ($fiscal_year)), a AS (SELECT a.fiscal_year, a.period_end, a.statement, a.line, a.value * (CASE WHEN a.currency IS NULL OR a.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(a.currency, a.period_end) / NULLIF(fx_usd_rate('$display_currency', a.period_end), 0), 1) END) AS v FROM equity_statement_annual a WHERE a.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND (a.statement, a.line) IN (('income', 'Revenue')) AND a.fiscal_year BETWEEN (SELECT fy FROM latest) - 1 AND (SELECT fy FROM latest)), y AS (SELECT fiscal_year, max(period_end) AS period_end, max(v) FILTER (WHERE statement = 'income' AND line = 'Revenue') AS v FROM a GROUP BY fiscal_year), cur AS (SELECT y.period_end, y.v FROM y WHERE y.fiscal_year = (SELECT fy FROM latest) AND y.v IS NOT NULL) SELECT COALESCE(p.period_end, c.period_end - 365)::timestamptz AS \"time\", CASE WHEN p.v > 0 THEN p.v ELSE 'Infinity'::float8 END AS \"Revenue\" FROM cur c LEFT JOIN y p ON p.fiscal_year = (SELECT fy FROM latest) - 1 UNION ALL SELECT c.period_end::timestamptz, c.v FROM cur c ORDER BY 1"
         }
       ]
     },
@@ -188,7 +188,7 @@
       "id": 3,
       "type": "stat",
       "title": "Op. income",
-      "description": "Operating income in the latest selected fiscal year. The arrow is the change from the fiscal year before.",
+      "description": "Operating income in the latest selected fiscal year. The arrow is the change from the fiscal year before. There is no arrow when the year before wasn't reported or wasn't positive: a change from zero or from a loss isn't a meaningful percentage.",
       "datasource": {
         "type": "postgres",
         "uid": "fintracker-pg"
@@ -240,7 +240,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "WITH latest AS (SELECT max(l.fiscal_year) AS fy FROM equity_statement_annual l WHERE l.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND l.fiscal_year::text IN ($fiscal_year)), a AS (SELECT a.fiscal_year, a.period_end, a.statement, a.line, a.value * (CASE WHEN a.currency IS NULL OR a.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(a.currency, a.period_end) / NULLIF(fx_usd_rate('$display_currency', a.period_end), 0), 1) END) AS v FROM equity_statement_annual a WHERE a.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND (a.statement, a.line) IN (('income', 'Operating income')) AND a.fiscal_year BETWEEN (SELECT fy FROM latest) - 1 AND (SELECT fy FROM latest)) SELECT max(period_end)::timestamptz AS \"time\", max(v) FILTER (WHERE statement = 'income' AND line = 'Operating income') AS \"Op. income\" FROM a GROUP BY fiscal_year ORDER BY 1"
+          "rawSql": "WITH latest AS (SELECT max(l.fiscal_year) AS fy FROM equity_statement_annual l WHERE l.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND l.fiscal_year::text IN ($fiscal_year)), a AS (SELECT a.fiscal_year, a.period_end, a.statement, a.line, a.value * (CASE WHEN a.currency IS NULL OR a.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(a.currency, a.period_end) / NULLIF(fx_usd_rate('$display_currency', a.period_end), 0), 1) END) AS v FROM equity_statement_annual a WHERE a.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND (a.statement, a.line) IN (('income', 'Operating income')) AND a.fiscal_year BETWEEN (SELECT fy FROM latest) - 1 AND (SELECT fy FROM latest)), y AS (SELECT fiscal_year, max(period_end) AS period_end, max(v) FILTER (WHERE statement = 'income' AND line = 'Operating income') AS v FROM a GROUP BY fiscal_year), cur AS (SELECT y.period_end, y.v FROM y WHERE y.fiscal_year = (SELECT fy FROM latest) AND y.v IS NOT NULL) SELECT COALESCE(p.period_end, c.period_end - 365)::timestamptz AS \"time\", CASE WHEN p.v > 0 THEN p.v ELSE 'Infinity'::float8 END AS \"Op. income\" FROM cur c LEFT JOIN y p ON p.fiscal_year = (SELECT fy FROM latest) - 1 UNION ALL SELECT c.period_end::timestamptz, c.v FROM cur c ORDER BY 1"
         }
       ]
     },
@@ -248,7 +248,7 @@
       "id": 4,
       "type": "stat",
       "title": "Net income",
-      "description": "Net income attributable to the company in the latest selected fiscal year. The arrow is the change from the fiscal year before.",
+      "description": "Net income attributable to the company in the latest selected fiscal year. The arrow is the change from the fiscal year before. There is no arrow when the year before wasn't reported or wasn't positive: a change from zero or from a loss isn't a meaningful percentage.",
       "datasource": {
         "type": "postgres",
         "uid": "fintracker-pg"
@@ -300,7 +300,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "WITH latest AS (SELECT max(l.fiscal_year) AS fy FROM equity_statement_annual l WHERE l.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND l.fiscal_year::text IN ($fiscal_year)), a AS (SELECT a.fiscal_year, a.period_end, a.statement, a.line, a.value * (CASE WHEN a.currency IS NULL OR a.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(a.currency, a.period_end) / NULLIF(fx_usd_rate('$display_currency', a.period_end), 0), 1) END) AS v FROM equity_statement_annual a WHERE a.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND (a.statement, a.line) IN (('income', 'Net income')) AND a.fiscal_year BETWEEN (SELECT fy FROM latest) - 1 AND (SELECT fy FROM latest)) SELECT max(period_end)::timestamptz AS \"time\", max(v) FILTER (WHERE statement = 'income' AND line = 'Net income') AS \"Net income\" FROM a GROUP BY fiscal_year ORDER BY 1"
+          "rawSql": "WITH latest AS (SELECT max(l.fiscal_year) AS fy FROM equity_statement_annual l WHERE l.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND l.fiscal_year::text IN ($fiscal_year)), a AS (SELECT a.fiscal_year, a.period_end, a.statement, a.line, a.value * (CASE WHEN a.currency IS NULL OR a.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(a.currency, a.period_end) / NULLIF(fx_usd_rate('$display_currency', a.period_end), 0), 1) END) AS v FROM equity_statement_annual a WHERE a.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND (a.statement, a.line) IN (('income', 'Net income')) AND a.fiscal_year BETWEEN (SELECT fy FROM latest) - 1 AND (SELECT fy FROM latest)), y AS (SELECT fiscal_year, max(period_end) AS period_end, max(v) FILTER (WHERE statement = 'income' AND line = 'Net income') AS v FROM a GROUP BY fiscal_year), cur AS (SELECT y.period_end, y.v FROM y WHERE y.fiscal_year = (SELECT fy FROM latest) AND y.v IS NOT NULL) SELECT COALESCE(p.period_end, c.period_end - 365)::timestamptz AS \"time\", CASE WHEN p.v > 0 THEN p.v ELSE 'Infinity'::float8 END AS \"Net income\" FROM cur c LEFT JOIN y p ON p.fiscal_year = (SELECT fy FROM latest) - 1 UNION ALL SELECT c.period_end::timestamptz, c.v FROM cur c ORDER BY 1"
         }
       ]
     },
@@ -308,7 +308,7 @@
       "id": 5,
       "type": "stat",
       "title": "EPS (diluted)",
-      "description": "Diluted earnings per share in the latest selected fiscal year. The arrow is the change from the fiscal year before.",
+      "description": "Diluted earnings per share in the latest selected fiscal year. The arrow is the change from the fiscal year before. There is no arrow when the year before wasn't reported or wasn't positive: a change from zero or from a loss isn't a meaningful percentage.",
       "datasource": {
         "type": "postgres",
         "uid": "fintracker-pg"
@@ -361,7 +361,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "WITH latest AS (SELECT max(l.fiscal_year) AS fy FROM equity_statement_annual l WHERE l.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND l.fiscal_year::text IN ($fiscal_year)), a AS (SELECT a.fiscal_year, a.period_end, a.statement, a.line, a.value * (CASE WHEN a.currency IS NULL OR a.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(a.currency, a.period_end) / NULLIF(fx_usd_rate('$display_currency', a.period_end), 0), 1) END) AS v FROM equity_statement_annual a WHERE a.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND (a.statement, a.line) IN (('income', 'EPS (diluted)')) AND a.fiscal_year BETWEEN (SELECT fy FROM latest) - 1 AND (SELECT fy FROM latest)) SELECT max(period_end)::timestamptz AS \"time\", max(v) FILTER (WHERE statement = 'income' AND line = 'EPS (diluted)') AS \"EPS (diluted)\" FROM a GROUP BY fiscal_year ORDER BY 1"
+          "rawSql": "WITH latest AS (SELECT max(l.fiscal_year) AS fy FROM equity_statement_annual l WHERE l.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND l.fiscal_year::text IN ($fiscal_year)), a AS (SELECT a.fiscal_year, a.period_end, a.statement, a.line, a.value * (CASE WHEN a.currency IS NULL OR a.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(a.currency, a.period_end) / NULLIF(fx_usd_rate('$display_currency', a.period_end), 0), 1) END) AS v FROM equity_statement_annual a WHERE a.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND (a.statement, a.line) IN (('income', 'EPS (diluted)')) AND a.fiscal_year BETWEEN (SELECT fy FROM latest) - 1 AND (SELECT fy FROM latest)), y AS (SELECT fiscal_year, max(period_end) AS period_end, max(v) FILTER (WHERE statement = 'income' AND line = 'EPS (diluted)') AS v FROM a GROUP BY fiscal_year), cur AS (SELECT y.period_end, y.v FROM y WHERE y.fiscal_year = (SELECT fy FROM latest) AND y.v IS NOT NULL) SELECT COALESCE(p.period_end, c.period_end - 365)::timestamptz AS \"time\", CASE WHEN p.v > 0 THEN p.v ELSE 'Infinity'::float8 END AS \"EPS (diluted)\" FROM cur c LEFT JOIN y p ON p.fiscal_year = (SELECT fy FROM latest) - 1 UNION ALL SELECT c.period_end::timestamptz, c.v FROM cur c ORDER BY 1"
         }
       ]
     },
@@ -369,7 +369,7 @@
       "id": 6,
       "type": "stat",
       "title": "Free cash flow",
-      "description": "Operating cash flow minus capital expenditure in the latest selected fiscal year. The arrow is the change from the fiscal year before.",
+      "description": "Operating cash flow minus capital expenditure in the latest selected fiscal year. The arrow is the change from the fiscal year before. There is no arrow when the year before wasn't reported or wasn't positive: a change from zero or from a loss isn't a meaningful percentage.",
       "datasource": {
         "type": "postgres",
         "uid": "fintracker-pg"
@@ -421,7 +421,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "WITH latest AS (SELECT max(l.fiscal_year) AS fy FROM equity_statement_annual l WHERE l.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND l.fiscal_year::text IN ($fiscal_year)), a AS (SELECT a.fiscal_year, a.period_end, a.statement, a.line, a.value * (CASE WHEN a.currency IS NULL OR a.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(a.currency, a.period_end) / NULLIF(fx_usd_rate('$display_currency', a.period_end), 0), 1) END) AS v FROM equity_statement_annual a WHERE a.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND (a.statement, a.line) IN (('cashflow', 'Operating cash flow'), ('cashflow', 'Capital expenditure')) AND a.fiscal_year BETWEEN (SELECT fy FROM latest) - 1 AND (SELECT fy FROM latest)) SELECT max(period_end)::timestamptz AS \"time\", max(v) FILTER (WHERE statement = 'cashflow' AND line = 'Operating cash flow') - COALESCE(max(v) FILTER (WHERE statement = 'cashflow' AND line = 'Capital expenditure'), 0) AS \"Free cash flow\" FROM a GROUP BY fiscal_year ORDER BY 1"
+          "rawSql": "WITH latest AS (SELECT max(l.fiscal_year) AS fy FROM equity_statement_annual l WHERE l.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND l.fiscal_year::text IN ($fiscal_year)), a AS (SELECT a.fiscal_year, a.period_end, a.statement, a.line, a.value * (CASE WHEN a.currency IS NULL OR a.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(a.currency, a.period_end) / NULLIF(fx_usd_rate('$display_currency', a.period_end), 0), 1) END) AS v FROM equity_statement_annual a WHERE a.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND (a.statement, a.line) IN (('cashflow', 'Operating cash flow'), ('cashflow', 'Capital expenditure')) AND a.fiscal_year BETWEEN (SELECT fy FROM latest) - 1 AND (SELECT fy FROM latest)), y AS (SELECT fiscal_year, max(period_end) AS period_end, max(v) FILTER (WHERE statement = 'cashflow' AND line = 'Operating cash flow') - COALESCE(max(v) FILTER (WHERE statement = 'cashflow' AND line = 'Capital expenditure'), 0) AS v FROM a GROUP BY fiscal_year), cur AS (SELECT y.period_end, y.v FROM y WHERE y.fiscal_year = (SELECT fy FROM latest) AND y.v IS NOT NULL) SELECT COALESCE(p.period_end, c.period_end - 365)::timestamptz AS \"time\", CASE WHEN p.v > 0 THEN p.v ELSE 'Infinity'::float8 END AS \"Free cash flow\" FROM cur c LEFT JOIN y p ON p.fiscal_year = (SELECT fy FROM latest) - 1 UNION ALL SELECT c.period_end::timestamptz, c.v FROM cur c ORDER BY 1"
         }
       ]
     },
@@ -429,7 +429,7 @@
       "id": 7,
       "type": "stat",
       "title": "Total equity",
-      "description": "Shareholders' equity at the end of the latest selected fiscal year. The arrow is the change from the fiscal year before.",
+      "description": "Shareholders' equity at the end of the latest selected fiscal year. The arrow is the change from the fiscal year before. There is no arrow when the year before wasn't reported or wasn't positive: a change from zero or from a loss isn't a meaningful percentage.",
       "datasource": {
         "type": "postgres",
         "uid": "fintracker-pg"
@@ -481,7 +481,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "WITH latest AS (SELECT max(l.fiscal_year) AS fy FROM equity_statement_annual l WHERE l.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND l.fiscal_year::text IN ($fiscal_year)), a AS (SELECT a.fiscal_year, a.period_end, a.statement, a.line, a.value * (CASE WHEN a.currency IS NULL OR a.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(a.currency, a.period_end) / NULLIF(fx_usd_rate('$display_currency', a.period_end), 0), 1) END) AS v FROM equity_statement_annual a WHERE a.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND (a.statement, a.line) IN (('balance', 'Total equity')) AND a.fiscal_year BETWEEN (SELECT fy FROM latest) - 1 AND (SELECT fy FROM latest)) SELECT max(period_end)::timestamptz AS \"time\", max(v) FILTER (WHERE statement = 'balance' AND line = 'Total equity') AS \"Total equity\" FROM a GROUP BY fiscal_year ORDER BY 1"
+          "rawSql": "WITH latest AS (SELECT max(l.fiscal_year) AS fy FROM equity_statement_annual l WHERE l.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND l.fiscal_year::text IN ($fiscal_year)), a AS (SELECT a.fiscal_year, a.period_end, a.statement, a.line, a.value * (CASE WHEN a.currency IS NULL OR a.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(a.currency, a.period_end) / NULLIF(fx_usd_rate('$display_currency', a.period_end), 0), 1) END) AS v FROM equity_statement_annual a WHERE a.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND (a.statement, a.line) IN (('balance', 'Total equity')) AND a.fiscal_year BETWEEN (SELECT fy FROM latest) - 1 AND (SELECT fy FROM latest)), y AS (SELECT fiscal_year, max(period_end) AS period_end, max(v) FILTER (WHERE statement = 'balance' AND line = 'Total equity') AS v FROM a GROUP BY fiscal_year), cur AS (SELECT y.period_end, y.v FROM y WHERE y.fiscal_year = (SELECT fy FROM latest) AND y.v IS NOT NULL) SELECT COALESCE(p.period_end, c.period_end - 365)::timestamptz AS \"time\", CASE WHEN p.v > 0 THEN p.v ELSE 'Infinity'::float8 END AS \"Total equity\" FROM cur c LEFT JOIN y p ON p.fiscal_year = (SELECT fy FROM latest) - 1 UNION ALL SELECT c.period_end::timestamptz, c.v FROM cur c ORDER BY 1"
         }
       ]
     },
