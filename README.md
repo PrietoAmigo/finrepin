@@ -188,7 +188,14 @@ thing runs under Docker Compose and schedules itself — no external cron.
     in millions of the display currency; the last two open with a click on
     their row. Line items are clustered into the sections a filed statement
     uses (current vs non-current, operating / investing / financing, ...)
-    under blue section headers, with subtotals in brighter ink.
+    under blue section headers, with subtotals in brighter ink. Each period
+    is followed by a *YoY* column: its % change from a year earlier (the
+    same quarter of the fiscal year before, or the fiscal year before), green
+    when the line rose and red when it fell, and blank on the same terms as
+    the Highlights (the year before not reported, or not positive). The year
+    before is read even when it isn't shown, so the oldest period shown has a
+    YoY too. It compares the figures shown, so in a currency other than the
+    one reported it includes exchange-rate moves.
 
   Fiscal years are labeled by the calendar year they end in (`2025`), and
   quarters by their place in that fiscal year (`2025 Q3`; a September

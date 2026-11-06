@@ -14,7 +14,7 @@
   "timepicker": {
     "hidden": true
   },
-  "description": "Income Statement, Balance Sheet, and Cash Flow for a single ticker, per fiscal year or per fiscal quarter (the Period picker), rebuilt from SEC XBRL facts (or Yahoo Finance for listings outside the SEC) via the equity_statement_* views. Highlights show the latest selected period against a year earlier (the fiscal year before, or the same quarter of the fiscal year before); Trends chart the profit, margin, cash, balance-sheet and shareholder-return lines over the selected periods; the statements below are line item x period tables, latest first, in millions of the display currency (Balance sheet and Cash flow statement open with a click on their row). Quarterly shows the latest $quarters quarters of the selected fiscal years. A 10-Q reports cash flow only year to date, and Q4 is never filed on its own, so those quarters are the year to date less the year to date a quarter earlier (Q4: the full year less nine months). Fiscal years are labeled by the calendar year they end in, and quarters by their place in that fiscal year. Money values are converted into the selected currency at each period-end FX rate; share counts are never converted.",
+  "description": "Income Statement, Balance Sheet, and Cash Flow for a single ticker, per fiscal year or per fiscal quarter (the Period picker), rebuilt from SEC XBRL facts (or Yahoo Finance for listings outside the SEC) via the equity_statement_* views. Highlights show the latest selected period against a year earlier (the fiscal year before, or the same quarter of the fiscal year before); Trends chart the profit, margin, cash, balance-sheet and shareholder-return lines over the selected periods; the statements below are line item x period tables, latest first, each period followed by its % change from a year earlier (YoY), in millions of the display currency (Balance sheet and Cash flow statement open with a click on their row). Quarterly shows the latest $quarters quarters of the selected fiscal years. A 10-Q reports cash flow only year to date, and Q4 is never filed on its own, so those quarters are the year to date less the year to date a quarter earlier (Q4: the full year less nine months). Fiscal years are labeled by the calendar year they end in, and quarters by their place in that fiscal year. Money values are converted into the selected currency at each period-end FX rate; share counts are never converted.",
   "version": 1,
   "graphTooltip": 1,
   "links": [
@@ -1301,7 +1301,7 @@
       "id": 16,
       "type": "table",
       "title": "Income statement — $display_currency millions",
-      "description": "Annual (10-K / 20-F) or quarterly (10-Q) figures, latest period first, in millions of the display currency at each period-end rate. Q4 is never filed on its own, so it is the full year less the first nine months. Section headers are in blue. A blank cell means the company didn't report that line under a tag we track.",
+      "description": "Annual (10-K / 20-F) or quarterly (10-Q) figures, latest period first, in millions of the display currency at each period-end rate. Q4 is never filed on its own, so it is the full year less the first nine months. Section headers are in blue. A blank cell means the company didn't report that line under a tag we track. Each period is followed by its YoY: the % change from the same quarter of the fiscal year before (Annual: the fiscal year before), green when the figure rose and red when it fell. It's blank when that period wasn't reported or wasn't positive: a change from zero or from a negative figure isn't a meaningful percentage. It compares the figures shown, so in a currency other than the one reported it includes exchange-rate moves, as the Highlights do.",
       "datasource": {
         "type": "postgres",
         "uid": "fintracker-pg"
@@ -1391,6 +1391,54 @@
                 ]
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^YoY/"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.minWidth",
+                "value": 72
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 0
+                    }
+                  ]
+                }
+              }
+            ]
           }
         ]
       },
@@ -1431,7 +1479,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT m.line AS line, m.period AS period, m.value * (CASE WHEN m.currency IS NULL OR m.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(m.currency, m.period_end) / NULLIF(fx_usd_rate('$display_currency', m.period_end), 0), 1) END) / 1e6 AS value FROM equity_statement_period_matrix m WHERE m.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND m.freq = '$freq' AND m.statement = 'income' AND m.ord < 500 AND m.fiscal_year::text IN ($fiscal_year) AND m.period_end >= '$since' ORDER BY m.ord, m.period_end DESC"
+          "rawSql": "WITH cells AS (SELECT m.ord, m.line AS line, m.period, m.fiscal_year, m.fiscal_quarter, m.period_end, m.value * (CASE WHEN m.currency IS NULL OR m.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(m.currency, m.period_end) / NULLIF(fx_usd_rate('$display_currency', m.period_end), 0), 1) END) / 1e6 AS value FROM equity_statement_period_matrix m WHERE m.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND m.freq = '$freq' AND m.statement = 'income' AND m.ord < 500 AND (m.fiscal_year::text IN ($fiscal_year) OR (m.fiscal_year + 1)::text IN ($fiscal_year))), growth AS (SELECT c.*, CASE WHEN LAG(c.fiscal_year) OVER w = c.fiscal_year - 1 AND LAG(c.value) OVER w > 0 THEN (c.value / LAG(c.value) OVER w - 1) * 100 END AS yoy, DENSE_RANK() OVER (ORDER BY c.fiscal_year, c.fiscal_quarter) AS n FROM cells c WINDOW w AS (PARTITION BY c.line, c.fiscal_quarter ORDER BY c.fiscal_year, c.period_end)) SELECT g.line AS line, r.period AS period, r.value AS value FROM growth g CROSS JOIN LATERAL (VALUES (g.period, g.value, 0), ('YoY' || repeat(' ', g.n::int), g.yoy, 1)) AS r(period, value, k) WHERE g.fiscal_year::text IN ($fiscal_year) AND g.period_end >= '$since' ORDER BY g.ord, g.period_end DESC, r.k"
         }
       ]
     },
@@ -1439,7 +1487,7 @@
       "id": 17,
       "type": "table",
       "title": "Per share — $display_currency",
-      "description": "Earnings and dividends per share in the display currency; weighted average share counts in millions (never converted). A derived quarter's EPS is the year to date less the year to date a quarter earlier (Q4: the full year less nine months), so it can differ by a cent from one computed on that quarter's own share count; its share count is time-weighted from the two.",
+      "description": "Earnings and dividends per share in the display currency; weighted average share counts in millions (never converted). A derived quarter's EPS is the year to date less the year to date a quarter earlier (Q4: the full year less nine months), so it can differ by a cent from one computed on that quarter's own share count; its share count is time-weighted from the two. Each period is followed by its YoY: the % change from the same quarter of the fiscal year before (Annual: the fiscal year before), green when the figure rose and red when it fell. It's blank when that period wasn't reported or wasn't positive: a change from zero or from a negative figure isn't a meaningful percentage. It compares the figures shown, so in a currency other than the one reported it includes exchange-rate moves, as the Highlights do.",
       "datasource": {
         "type": "postgres",
         "uid": "fintracker-pg"
@@ -1529,6 +1577,54 @@
                 ]
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^YoY/"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.minWidth",
+                "value": 72
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 0
+                    }
+                  ]
+                }
+              }
+            ]
           }
         ]
       },
@@ -1569,7 +1665,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT CASE WHEN m.line LIKE 'Weighted avg shares%' THEN m.line || ', millions' ELSE m.line END AS line, m.period AS period, CASE WHEN m.line LIKE 'Weighted avg shares%' THEN m.value / 1e6 ELSE m.value * (CASE WHEN m.currency IS NULL OR m.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(m.currency, m.period_end) / NULLIF(fx_usd_rate('$display_currency', m.period_end), 0), 1) END) END AS value FROM equity_statement_period_matrix m WHERE m.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND m.freq = '$freq' AND m.statement = 'income' AND m.ord > 500 AND m.fiscal_year::text IN ($fiscal_year) AND m.period_end >= '$since' ORDER BY m.ord, m.period_end DESC"
+          "rawSql": "WITH cells AS (SELECT m.ord, CASE WHEN m.line LIKE 'Weighted avg shares%' THEN m.line || ', millions' ELSE m.line END AS line, m.period, m.fiscal_year, m.fiscal_quarter, m.period_end, CASE WHEN m.line LIKE 'Weighted avg shares%' THEN m.value / 1e6 ELSE m.value * (CASE WHEN m.currency IS NULL OR m.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(m.currency, m.period_end) / NULLIF(fx_usd_rate('$display_currency', m.period_end), 0), 1) END) END AS value FROM equity_statement_period_matrix m WHERE m.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND m.freq = '$freq' AND m.statement = 'income' AND m.ord > 500 AND (m.fiscal_year::text IN ($fiscal_year) OR (m.fiscal_year + 1)::text IN ($fiscal_year))), growth AS (SELECT c.*, CASE WHEN LAG(c.fiscal_year) OVER w = c.fiscal_year - 1 AND LAG(c.value) OVER w > 0 THEN (c.value / LAG(c.value) OVER w - 1) * 100 END AS yoy, DENSE_RANK() OVER (ORDER BY c.fiscal_year, c.fiscal_quarter) AS n FROM cells c WINDOW w AS (PARTITION BY c.line, c.fiscal_quarter ORDER BY c.fiscal_year, c.period_end)) SELECT g.line AS line, r.period AS period, r.value AS value FROM growth g CROSS JOIN LATERAL (VALUES (g.period, g.value, 0), ('YoY' || repeat(' ', g.n::int), g.yoy, 1)) AS r(period, value, k) WHERE g.fiscal_year::text IN ($fiscal_year) AND g.period_end >= '$since' ORDER BY g.ord, g.period_end DESC, r.k"
         }
       ]
     },
@@ -1589,7 +1685,7 @@
           "id": 18,
           "type": "table",
           "title": "Balance sheet — $display_currency millions",
-          "description": "Point-in-time balances at each fiscal year or quarter end, latest first, in millions of the display currency at that day's rate. Section headers are in blue.",
+          "description": "Point-in-time balances at each fiscal year or quarter end, latest first, in millions of the display currency at that day's rate. Section headers are in blue. Each period is followed by its YoY: the % change from the same quarter of the fiscal year before (Annual: the fiscal year before), green when the figure rose and red when it fell. It's blank when that period wasn't reported or wasn't positive: a change from zero or from a negative figure isn't a meaningful percentage. It compares the figures shown, so in a currency other than the one reported it includes exchange-rate moves, as the Highlights do.",
           "datasource": {
             "type": "postgres",
             "uid": "fintracker-pg"
@@ -1679,6 +1775,54 @@
                     ]
                   }
                 ]
+              },
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": "/^YoY/"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "percent"
+                  },
+                  {
+                    "id": "decimals",
+                    "value": 1
+                  },
+                  {
+                    "id": "custom.minWidth",
+                    "value": 72
+                  },
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-text"
+                    }
+                  },
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "thresholds"
+                    }
+                  },
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "red",
+                          "value": null
+                        },
+                        {
+                          "color": "green",
+                          "value": 0
+                        }
+                      ]
+                    }
+                  }
+                ]
               }
             ]
           },
@@ -1719,7 +1863,7 @@
               "editorMode": "code",
               "format": "table",
               "rawQuery": true,
-              "rawSql": "SELECT m.line AS line, m.period AS period, m.value * (CASE WHEN m.currency IS NULL OR m.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(m.currency, m.period_end) / NULLIF(fx_usd_rate('$display_currency', m.period_end), 0), 1) END) / 1e6 AS value FROM equity_statement_period_matrix m WHERE m.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND m.freq = '$freq' AND m.statement = 'balance' AND m.fiscal_year::text IN ($fiscal_year) AND m.period_end >= '$since' ORDER BY m.ord, m.period_end DESC"
+              "rawSql": "WITH cells AS (SELECT m.ord, m.line AS line, m.period, m.fiscal_year, m.fiscal_quarter, m.period_end, m.value * (CASE WHEN m.currency IS NULL OR m.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(m.currency, m.period_end) / NULLIF(fx_usd_rate('$display_currency', m.period_end), 0), 1) END) / 1e6 AS value FROM equity_statement_period_matrix m WHERE m.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND m.freq = '$freq' AND m.statement = 'balance' AND (m.fiscal_year::text IN ($fiscal_year) OR (m.fiscal_year + 1)::text IN ($fiscal_year))), growth AS (SELECT c.*, CASE WHEN LAG(c.fiscal_year) OVER w = c.fiscal_year - 1 AND LAG(c.value) OVER w > 0 THEN (c.value / LAG(c.value) OVER w - 1) * 100 END AS yoy, DENSE_RANK() OVER (ORDER BY c.fiscal_year, c.fiscal_quarter) AS n FROM cells c WINDOW w AS (PARTITION BY c.line, c.fiscal_quarter ORDER BY c.fiscal_year, c.period_end)) SELECT g.line AS line, r.period AS period, r.value AS value FROM growth g CROSS JOIN LATERAL (VALUES (g.period, g.value, 0), ('YoY' || repeat(' ', g.n::int), g.yoy, 1)) AS r(period, value, k) WHERE g.fiscal_year::text IN ($fiscal_year) AND g.period_end >= '$since' ORDER BY g.ord, g.period_end DESC, r.k"
             }
           ]
         }
@@ -1741,7 +1885,7 @@
           "id": 20,
           "type": "table",
           "title": "Cash flow statement — $display_currency millions",
-          "description": "Cash flows per fiscal year or quarter, latest first, in millions of the display currency. A 10-Q reports cash flow only year to date, so Q2 is the half year less Q1, Q3 nine months less the half year, and Q4 the full year less nine months. Capex, acquisitions, dividends and buybacks are positive outflows, as filed.",
+          "description": "Cash flows per fiscal year or quarter, latest first, in millions of the display currency. A 10-Q reports cash flow only year to date, so Q2 is the half year less Q1, Q3 nine months less the half year, and Q4 the full year less nine months. Capex, acquisitions, dividends and buybacks are positive outflows, as filed. Each period is followed by its YoY: the % change from the same quarter of the fiscal year before (Annual: the fiscal year before), green when the figure rose and red when it fell. It's blank when that period wasn't reported or wasn't positive: a change from zero or from a negative figure isn't a meaningful percentage. It compares the figures shown, so in a currency other than the one reported it includes exchange-rate moves, as the Highlights do.",
           "datasource": {
             "type": "postgres",
             "uid": "fintracker-pg"
@@ -1831,6 +1975,54 @@
                     ]
                   }
                 ]
+              },
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": "/^YoY/"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "percent"
+                  },
+                  {
+                    "id": "decimals",
+                    "value": 1
+                  },
+                  {
+                    "id": "custom.minWidth",
+                    "value": 72
+                  },
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-text"
+                    }
+                  },
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "thresholds"
+                    }
+                  },
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "red",
+                          "value": null
+                        },
+                        {
+                          "color": "green",
+                          "value": 0
+                        }
+                      ]
+                    }
+                  }
+                ]
               }
             ]
           },
@@ -1871,7 +2063,7 @@
               "editorMode": "code",
               "format": "table",
               "rawQuery": true,
-              "rawSql": "SELECT m.line AS line, m.period AS period, m.value * (CASE WHEN m.currency IS NULL OR m.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(m.currency, m.period_end) / NULLIF(fx_usd_rate('$display_currency', m.period_end), 0), 1) END) / 1e6 AS value FROM equity_statement_period_matrix m WHERE m.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND m.freq = '$freq' AND m.statement = 'cashflow' AND m.fiscal_year::text IN ($fiscal_year) AND m.period_end >= '$since' ORDER BY m.ord, m.period_end DESC"
+              "rawSql": "WITH cells AS (SELECT m.ord, m.line AS line, m.period, m.fiscal_year, m.fiscal_quarter, m.period_end, m.value * (CASE WHEN m.currency IS NULL OR m.currency = '$display_currency' THEN 1 ELSE COALESCE(fx_usd_rate(m.currency, m.period_end) / NULLIF(fx_usd_rate('$display_currency', m.period_end), 0), 1) END) / 1e6 AS value FROM equity_statement_period_matrix m WHERE m.instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker') AND m.freq = '$freq' AND m.statement = 'cashflow' AND (m.fiscal_year::text IN ($fiscal_year) OR (m.fiscal_year + 1)::text IN ($fiscal_year))), growth AS (SELECT c.*, CASE WHEN LAG(c.fiscal_year) OVER w = c.fiscal_year - 1 AND LAG(c.value) OVER w > 0 THEN (c.value / LAG(c.value) OVER w - 1) * 100 END AS yoy, DENSE_RANK() OVER (ORDER BY c.fiscal_year, c.fiscal_quarter) AS n FROM cells c WINDOW w AS (PARTITION BY c.line, c.fiscal_quarter ORDER BY c.fiscal_year, c.period_end)) SELECT g.line AS line, r.period AS period, r.value AS value FROM growth g CROSS JOIN LATERAL (VALUES (g.period, g.value, 0), ('YoY' || repeat(' ', g.n::int), g.yoy, 1)) AS r(period, value, k) WHERE g.fiscal_year::text IN ($fiscal_year) AND g.period_end >= '$since' ORDER BY g.ord, g.period_end DESC, r.k"
             }
           ]
         }
