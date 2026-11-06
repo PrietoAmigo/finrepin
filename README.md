@@ -157,7 +157,9 @@ thing runs under Docker Compose and schedules itself — no external cron.
   fiscal years) and read it top-down:
   - *Highlights*: revenue, operating income, net income, diluted EPS, free
     cash flow and total equity for the latest selected fiscal year, each with
-    its change from the year before.
+    its change from the year before. A tile shows no change when the year
+    before isn't reported or wasn't positive (a change from zero or from a
+    loss isn't a meaningful percentage), rather than a 0 % or a flipped sign.
   - *Trends*: revenue and profit, margins (gross / operating / net), cash
     generation (operating cash flow, capex, free cash flow), liabilities and
     equity, cash against debt, and dividends plus buybacks, per fiscal year.
