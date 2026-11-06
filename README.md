@@ -34,7 +34,12 @@ thing runs under Docker Compose and schedules itself — no external cron.
   annual + quarterly income statement, balance sheet, and cash flow from Yahoo
   Finance instead. Yahoo's line items are mapped onto the same canonical XBRL
   tags (stored under taxonomy `yahoo`), so the dashboards work identically —
-  Yahoo just carries less history (roughly the last 4–5 fiscal years).
+  Yahoo just carries less history (roughly the last 4–5 fiscal years). For a
+  company that reports half-yearly (much of Europe), Yahoo's "quarterly"
+  statements hold half-years; the ingest tells them apart by how far apart
+  each line's period ends are and stores them as half-year periods, which
+  neither the quarterly views nor the TTM figures read as quarters. Rows an
+  earlier ingest stored as quarters are replaced on the next run.
 - **Earnings dates** — next upcoming earnings date per equity via yfinance,
   stored in `earnings_dates` with an `is_estimated` flag; names with no coverage
   are skipped.
@@ -153,28 +158,53 @@ thing runs under Docker Compose and schedules itself — no external cron.
   the top opens Financial Statements for the same ticker and currency (and
   back).
   Every query filters `equity_metric_series` by the ticker's `instrument_id`.
-- **Financial Statements dashboard** — pick one ticker (and optionally a set of
-  fiscal years) and read it top-down:
+- **Financial Statements dashboard** — pick one ticker, *Annual* or
+  *Quarterly* (the Period picker), and optionally a set of fiscal years, and
+  read it top-down. Quarterly shows the latest 12 quarters of the selected
+  years (the Quarters picker: 4 to 40, or All).
   - *Highlights*: revenue, operating income, net income, diluted EPS, free
-    cash flow and total equity for the latest selected fiscal year, each with
-    its change from the year before. A tile shows no change when the year
-    before isn't reported or wasn't positive (a change from zero or from a
+    cash flow and total equity for the latest selected fiscal year or quarter,
+    each with its change from a year earlier (the fiscal year before, or the
+    same quarter of the fiscal year before). A tile shows no change when that
+    period isn't reported or wasn't positive (a change from zero or from a
     loss isn't a meaningful percentage), rather than a 0 % or a flipped sign.
+    For a company with no quarters the row title says why: its SEC filings
+    are annual only (20-F / 40-F filers such as BN), or it reports
+    half-yearly (AI.PA, RMS.PA, ...).
   - *Trends*: revenue and profit, margins (gross / operating / net), cash
     generation (operating cash flow, capex, free cash flow), liabilities and
-    equity, cash against debt, and dividends plus buybacks, per fiscal year.
+    equity, cash against debt, and dividends plus buybacks, per fiscal year
+    or quarter, all as bar charts over the period labels.
   - The *Income statement* (with a separate per-share table), *Balance sheet*
-    and *Cash flow statement* as line-item × fiscal-year tables, latest year
-    first and in millions of the display currency; the last two open with a
-    click on their row. Line items are clustered into the sections a filed
-    statement uses (current vs non-current, operating / investing /
-    financing, ...) under blue section headers, with subtotals in brighter
-    ink. Backed by
-  statement views (migration 0006) that map the curated SEC XBRL tags onto
-  statement lines. The queries filter on the ticker's `instrument_id`, which
-  Postgres pushes into the views, and a partial index answers the balance
-  sheet's "is this a fiscal-year end?" check (migration 0030), so each table
-  computes one company, in tens of milliseconds rather than most of a minute.
+    and *Cash flow statement* as line-item × period tables, latest first and
+    in millions of the display currency; the last two open with a click on
+    their row. Line items are clustered into the sections a filed statement
+    uses (current vs non-current, operating / investing / financing, ...)
+    under blue section headers, with subtotals in brighter ink.
+
+  Fiscal years are labeled by the calendar year they end in (`2025`), and
+  quarters by their place in that fiscal year (`2025 Q3`; a September
+  year-end's Q1 ends in December). A 10-Q doesn't report every quarter on its
+  own: its cash flow statement is year to date only, and Q4 is never filed (the
+  10-K has the full year). So a quarter is either a reported three-month
+  figure or the year to date less the year to date a quarter earlier, within
+  one tag and unit: Q2 is the half year less Q1, Q3 nine months less the
+  half, Q4 the full year less nine months. Weighted average share counts are
+  time-weighted the same way; a derived Q4 EPS is the full year's less the
+  first nine months' (the usual convention), so it can be a cent off one
+  computed on Q4's own share count. A restatement can leave a derived quarter
+  mixing the restated full year with the nine months as first filed.
+
+  Backed by statement views (migrations 0006 and 0035) that map the curated
+  SEC XBRL tags onto statement lines: `equity_statement_annual`,
+  `equity_statement_quarterly`, and `equity_statement_periods` /
+  `equity_statement_period_matrix` (both frequencies, told apart by `freq`)
+  for the dashboard. The queries filter on the ticker's `instrument_id`,
+  which Postgres pushes into the views, a partial index answers the "is this
+  a fiscal-year end?" checks (migration 0030), and statistics on the period
+  length keep the planner's row estimates honest (migration 0035), so each
+  table computes one company: a few milliseconds annual, tens of milliseconds
+  quarterly.
 
 - **Spain housing (Grafana)** — a *Spain Housing* Grafana dashboard: a filled
   choropleth of Spain linked to time series, showing house **prices (€/m²)** and

@@ -4,7 +4,10 @@ CSU.TO, AI.PA, RMS.PA, KRI.AT and any on-demand ticker unknown to EDGAR get
 no XBRL facts, so their statement/metric dashboards stay empty. This module
 fills the gap from the same source that already covers their prices: the
 annual and quarterly income statement, balance sheet, and cash flow that
-yfinance exposes per ticker (roughly the last 4-5 fiscal years).
+yfinance exposes per ticker (roughly the last 4-5 fiscal years). For a
+company that reports half-yearly, Yahoo's quarterly statements hold
+half-years; those are stored as half-year periods (`interim_period_days`),
+so no view reads them as quarters.
 
 Yahoo line labels are mapped onto the *same canonical XBRL tags* the SQL
 views (migrations 0002/0004/0006) already understand, and stored in
@@ -27,13 +30,13 @@ from collections.abc import Sequence
 from typing import Any
 
 import pandas as pd
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from fintracker.db import session_scope
 from fintracker.ingest.fundamentals import _upsert_facts
 from fintracker.ingest.quote_units import normalize_quote_currency
-from fintracker.models import Instrument
+from fintracker.models import Fundamental, Instrument
 
 log = logging.getLogger(__name__)
 
@@ -41,9 +44,15 @@ TAXONOMY = "yahoo"
 
 # Fabricated period lengths for flow facts: Yahoo only reports the period-end
 # date, and the SQL views window on (period_end - period_start) — 330..400
-# days is annual, 60..120 is quarterly.
+# days is annual, 60..120 is quarterly. Companies that report half-yearly
+# (much of Europe) get half-years in Yahoo's "quarterly" statements; those are
+# stored as 182-day periods, which no view treats as a quarter or a year.
 ANNUAL_DAYS = 364
 QUARTER_DAYS = 91
+HALF_YEAR_DAYS = 182
+# A "quarterly" line whose period ends sit at least this far apart (to the
+# nearest neighbour) holds half-years.
+HALF_YEAR_SPACING = 150
 
 # (yahoo label, canonical XBRL tag, sign). Order matters: when two Yahoo
 # labels map onto the same tag, the first one present for a period wins.
@@ -177,6 +186,26 @@ def _unit_for(tag: str, currency: str) -> str:
     return currency
 
 
+def interim_period_days(ends: Sequence[dt.date]) -> dict[dt.date, int]:
+    """Period length for each end date of one "quarterly" line.
+
+    Each end is measured against its nearest neighbour, so one missing
+    quarter doesn't turn the quarters around the gap into half-years. A line
+    with a single value can't be measured and stays a quarter.
+    """
+    ordered = sorted(set(ends))
+    out: dict[dt.date, int] = {}
+    for i, end in enumerate(ordered):
+        neighbours = ordered[max(i - 1, 0) : i] + ordered[i + 1 : i + 2]
+        spacing = min(((n - end).days for n in neighbours), key=abs, default=0)
+        out[end] = HALF_YEAR_DAYS if abs(spacing) >= HALF_YEAR_SPACING else QUARTER_DAYS
+    return out
+
+
+def _fiscal_period(days: int) -> str:
+    return {ANNUAL_DAYS: "FY", HALF_YEAR_DAYS: "H", QUARTER_DAYS: "Q"}[days]
+
+
 def facts_from_statement(
     frame: pd.DataFrame,
     lines: Sequence[tuple[str, str, int]],
@@ -189,9 +218,10 @@ def facts_from_statement(
 
     The frame is line-label × period-end. Balance-sheet facts are instant
     (period_start == period_end); flow facts get a fabricated period_start
-    (end - 364/91 days) that lands inside the annual/quarterly windows the
-    SQL views select on. NaN cells are skipped; when several Yahoo labels
-    map to one tag, the first listed wins per period.
+    (end - 364 days, or 91 for a quarter, 182 for a half-year in a quarterly
+    frame) that lands inside the windows the SQL views select on. NaN cells
+    are skipped; when several Yahoo labels map to one tag, the first listed
+    wins per period.
     """
     if frame is None or frame.empty:
         return []
@@ -203,34 +233,63 @@ def facts_from_statement(
         # Duplicate labels would return a DataFrame; keep the first row.
         if isinstance(row, pd.DataFrame):
             row = row.iloc[0]
+        values: dict[dt.date, float] = {}
         for col, value in row.items():
             if value is None or pd.isna(value):
                 continue
             try:
-                period_end = pd.Timestamp(col).date()
+                values[pd.Timestamp(col).date()] = float(value)
             except (TypeError, ValueError):
                 continue
+        if instant:
+            days_by_end = dict.fromkeys(values, 0)
+        elif quarterly:
+            days_by_end = interim_period_days(list(values))
+        else:
+            days_by_end = dict.fromkeys(values, ANNUAL_DAYS)
+        for period_end, value in values.items():
             if (tag, period_end) in out:
                 continue
-            if instant:
-                period_start = period_end
-            else:
-                days = QUARTER_DAYS if quarterly else ANNUAL_DAYS
-                period_start = period_end - dt.timedelta(days=days)
+            days = days_by_end[period_end]
             out[(tag, period_end)] = {
                 "taxonomy": TAXONOMY,
                 "tag": tag,
                 "unit": _unit_for(tag, currency),
-                "period_start": period_start,
+                "period_start": period_end - dt.timedelta(days=days),
                 "period_end": period_end,
-                "value": sign * float(value),
+                "value": sign * value,
                 "fiscal_year": period_end.year,
-                "fiscal_period": "Q" if quarterly and not instant else "FY",
+                "fiscal_period": "FY" if instant else _fiscal_period(days),
                 "form": TAXONOMY,
                 "accession_no": None,
                 "filed_at": None,
             }
     return list(out.values())
+
+
+def superseded_fact_ids(
+    stored: Sequence[tuple[int, str, str, dt.date, dt.date]], facts: Sequence[dict[str, Any]]
+) -> list[int]:
+    """Stored interim flow facts that a new fact replaces with another length.
+
+    `stored` is (id, tag, unit, period_start, period_end) of the instrument's
+    Yahoo facts. A half-year stored earlier as a 91-day quarter has the same
+    end as the new 182-day fact but a different start, so the upsert would
+    keep both; this returns the stale one. Annual facts and instants are kept.
+    """
+    new_starts = {
+        (f["tag"], f["unit"], f["period_end"]): f["period_start"]
+        for f in facts
+        if f["period_start"] != f["period_end"]
+        and (f["period_end"] - f["period_start"]).days < ANNUAL_DAYS
+    }
+    return [
+        fact_id
+        for fact_id, tag, unit, start, end in stored
+        if start != end
+        and (end - start).days < ANNUAL_DAYS
+        and new_starts.get((tag, unit, end), start) != start
+    ]
 
 
 def _fetch_frame(ticker: Any, attr: str) -> pd.DataFrame:
@@ -275,6 +334,21 @@ def ingest_instrument_yahoo_facts(session: Session, inst: Instrument) -> int:
             facts_from_statement(frame, lines, currency, instant=instant, quarterly=quarterly)
         )
 
+    stored = session.execute(
+        select(
+            Fundamental.id,
+            Fundamental.tag,
+            Fundamental.unit,
+            Fundamental.period_start,
+            Fundamental.period_end,
+        ).where(Fundamental.instrument_id == inst.id, Fundamental.taxonomy == TAXONOMY)
+    ).all()
+    stale = superseded_fact_ids([tuple(row) for row in stored], facts)
+    if stale:
+        session.execute(delete(Fundamental).where(Fundamental.id.in_(stale)))
+        log.info(
+            "Dropped %d Yahoo facts of %s stored with another period.", len(stale), inst.symbol
+        )
     _upsert_facts(session, inst.id, facts)
     log.info("Upserted %d Yahoo facts for %s.", len(facts), inst.symbol)
     return len(facts)
