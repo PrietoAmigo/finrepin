@@ -152,16 +152,24 @@ thing runs under Docker Compose and schedules itself — no external cron.
     covers filers that don't report operating income or D&A); and diluted
     shares outstanding (buybacks vs dilution).
 
+  TTM figures are the sum of the last four quarters at each quarter end, or
+  the filed full year at a fiscal-year end. The quarters are built as the
+  Financial Statements quarters are (migration 0036): a reported three-month
+  figure, or the year to date less the year to date a quarter earlier, since
+  a 10-Q's cash flow statement is year to date only and Q4 is never filed.
+  So TTM operating cash flow, capex, D&A, and the P/FCF and EV/EBITDA built
+  on them refresh with every 10-Q, not only with the 10-K.
+
   Charts use the same colorblind-validated palette as Financial Statements
   (blue, orange, aqua, with grey for context lines); the growth, leverage and
   shares charts show each line's latest value in a legend table. A link at
   the top opens Financial Statements for the same ticker and currency (and
   back).
   Every query filters `equity_metric_series` by the ticker's `instrument_id`.
-- **Financial Statements dashboard** — pick one ticker, *Annual* or
-  *Quarterly* (the Period picker), and optionally a set of fiscal years, and
-  read it top-down. Quarterly shows the latest 12 quarters of the selected
-  years (the Quarters picker: 4 to 40, or All).
+- **Financial Statements dashboard** — pick one ticker, *Quarterly* (the
+  default) or *Annual* (the Period picker), and optionally a set of fiscal
+  years, and read it top-down. Quarterly shows the latest 8 quarters of the
+  selected years (the Quarters picker: 4 to 40, or All).
   - *Highlights*: revenue, operating income, net income, diluted EPS, free
     cash flow and total equity for the latest selected fiscal year or quarter,
     each with its change from a year earlier (the fiscal year before, or the

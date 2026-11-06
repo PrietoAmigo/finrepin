@@ -57,17 +57,17 @@
         "includeAll": false,
         "current": {
           "selected": true,
-          "text": "Annual",
-          "value": "annual"
+          "text": "Quarterly",
+          "value": "quarterly"
         },
         "options": [
           {
-            "selected": true,
+            "selected": false,
             "text": "Annual",
             "value": "annual"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "Quarterly",
             "value": "quarterly"
           }
@@ -108,8 +108,8 @@
         "allValue": "NULL",
         "current": {
           "selected": true,
-          "text": "12",
-          "value": "12"
+          "text": "8",
+          "value": "8"
         },
         "options": [
           {
@@ -123,12 +123,12 @@
             "value": "4"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "8",
             "value": "8"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "12",
             "value": "12"
           },
