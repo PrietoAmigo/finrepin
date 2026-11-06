@@ -26,6 +26,9 @@ PER_INSTRUMENT_VIEWS = (
     "equity_metric_series",
     "equity_statement_matrix",
     "equity_statement_annual",
+    "equity_statement_quarterly",
+    "equity_statement_periods",
+    "equity_statement_period_matrix",
 )
 PUSHED_DOWN = r"instrument_id = \(SELECT id FROM instruments WHERE symbol = '\$\w+'\)"
 

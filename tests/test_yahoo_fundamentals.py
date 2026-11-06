@@ -12,6 +12,8 @@ from fintracker.ingest.yahoo_fundamentals import (
     CASHFLOW_LINES,
     INCOME_LINES,
     facts_from_statement,
+    interim_period_days,
+    superseded_fact_ids,
 )
 
 FY25 = pd.Timestamp("2025-12-31")
@@ -120,6 +122,90 @@ class TestCashFlowSigns:
         (fact,) = facts_from_statement(frame, CASHFLOW_LINES, "CAD", instant=False)
         assert fact["tag"] == "IncreaseDecreaseInAccountsReceivable"
         assert fact["value"] == 50.0
+
+
+def _ts(*days: str) -> list[pd.Timestamp]:
+    return [pd.Timestamp(d) for d in days]
+
+
+class TestInterimPeriods:
+    """Yahoo's "quarterly" statements hold half-years for companies that report
+    half-yearly; stored as quarters they would read as Q2 and Q4."""
+
+    def test_quarter_spacing_stays_quarterly(self) -> None:
+        cols = _ts("2026-09-30", "2026-06-30", "2026-03-31", "2025-12-31")
+        frame = _frame({"Total Revenue": [4.0, 3.0, 2.0, 1.0]}, cols)
+        facts = facts_from_statement(frame, INCOME_LINES, "EUR", instant=False, quarterly=True)
+        assert {(f["period_end"] - f["period_start"]).days for f in facts} == {91}
+        assert {f["fiscal_period"] for f in facts} == {"Q"}
+
+    def test_half_year_spacing_is_stored_as_half_years(self) -> None:
+        cols = _ts("2026-06-30", "2025-12-31", "2025-06-30")
+        frame = _frame({"Total Revenue": [3.0, 2.0, 1.0]}, cols)
+        facts = facts_from_statement(frame, INCOME_LINES, "EUR", instant=False, quarterly=True)
+        assert {(f["period_end"] - f["period_start"]).days for f in facts} == {182}
+        # Outside both the quarterly (60..120) and annual (330..400) windows.
+        assert {f["fiscal_period"] for f in facts} == {"H"}
+
+    def test_each_line_is_measured_on_its_own_values(self) -> None:
+        # Quarterly revenue, half-yearly earnings: NaN quarters don't count.
+        cols = _ts("2026-06-30", "2026-03-31", "2025-12-31", "2025-09-30", "2025-06-30")
+        frame = _frame(
+            {
+                "Total Revenue": [5.0, 4.0, 3.0, 2.0, 1.0],
+                "Net Income": [2.0, None, 1.5, None, 1.0],
+            },
+            cols,
+        )
+        facts = facts_from_statement(frame, INCOME_LINES, "EUR", instant=False, quarterly=True)
+        days = {(f["tag"], (f["period_end"] - f["period_start"]).days) for f in facts}
+        assert days == {("Revenues", 91), ("NetIncomeLoss", 182)}
+
+    def test_one_missing_quarter_does_not_make_half_years(self) -> None:
+        ends = [dt.date(2025, 3, 31), dt.date(2025, 6, 30), dt.date(2025, 12, 31),
+                dt.date(2026, 3, 31)]
+        # 2025-12-31 is six months after June, but three before March.
+        assert set(interim_period_days(ends).values()) == {91}
+
+    def test_a_single_value_stays_a_quarter(self) -> None:
+        assert interim_period_days([dt.date(2026, 3, 31)]) == {dt.date(2026, 3, 31): 91}
+
+    def test_balance_sheet_instants_are_unaffected(self) -> None:
+        cols = _ts("2026-06-30", "2025-12-31")
+        frame = _frame({"Total Assets": [10.0, 9.0]}, cols)
+        facts = facts_from_statement(frame, BALANCE_LINES, "EUR", instant=True, quarterly=True)
+        assert all(f["period_start"] == f["period_end"] for f in facts)
+        assert {f["fiscal_period"] for f in facts} == {"FY"}
+
+
+class TestSupersededFacts:
+    END = dt.date(2025, 6, 30)
+
+    def _new(self, days: int, tag: str = "Revenues") -> dict:
+        return {"tag": tag, "unit": "EUR", "period_end": self.END,
+                "period_start": self.END - dt.timedelta(days=days)}
+
+    def test_half_year_stored_as_a_quarter_is_dropped(self) -> None:
+        stored = [(1, "Revenues", "EUR", self.END - dt.timedelta(days=91), self.END)]
+        assert superseded_fact_ids(stored, [self._new(182)]) == [1]
+
+    def test_same_period_is_kept_for_the_upsert(self) -> None:
+        stored = [(1, "Revenues", "EUR", self.END - dt.timedelta(days=91), self.END)]
+        assert superseded_fact_ids(stored, [self._new(91)]) == []
+
+    def test_annual_facts_instants_and_other_tags_are_kept(self) -> None:
+        stored = [
+            (1, "Revenues", "EUR", self.END - dt.timedelta(days=364), self.END),
+            (2, "Assets", "EUR", self.END, self.END),
+            (3, "NetIncomeLoss", "EUR", self.END - dt.timedelta(days=91), self.END),
+            (4, "Revenues", "USD", self.END - dt.timedelta(days=91), self.END),
+        ]
+        assert superseded_fact_ids(stored, [self._new(182)]) == []
+
+    def test_history_yahoo_no_longer_returns_is_kept(self) -> None:
+        old_end = dt.date(2020, 6, 30)
+        stored = [(1, "Revenues", "EUR", old_end - dt.timedelta(days=91), old_end)]
+        assert superseded_fact_ids(stored, [self._new(182)]) == []
 
 
 class TestTagsStayInSyncWithViews:

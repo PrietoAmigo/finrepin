@@ -1,7 +1,8 @@
 """The Financial Statements dashboard's layout rules, checked on its JSON.
 
-Highlights compare the latest selected fiscal year with the year before; the
-statement tables put the latest year first and show money in millions (a
+Every panel reads fiscal years or fiscal quarters, as the Period picker says.
+Highlights compare the latest selected period with a year earlier; the
+statement tables put the latest period first and show money in millions (a
 fixed scale, so a row never switches between Mil and Bil); charts use only
 the validated categorical palette.
 """
@@ -9,6 +10,7 @@ the validated categorical palette.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -42,10 +44,14 @@ def _sql(panel: dict[str, Any]) -> str:
     return str(panel["targets"][0]["rawSql"])
 
 
+def _variables(dashboard: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {v["name"]: v for v in dashboard["templating"]["list"]}
+
+
 def test_sections_in_reading_order(panels: list[dict[str, Any]]) -> None:
     rows = [p["title"] for p in panels if p["type"] == "row"]
     assert rows == [
-        "Highlights — FY$latest_fy vs the year before, $display_currency",
+        "$heading",
         "Trends",
         "Income statement",
         "Balance sheet",
@@ -53,10 +59,72 @@ def test_sections_in_reading_order(panels: list[dict[str, Any]]) -> None:
     ]
 
 
-def test_latest_fy_variable_is_hidden(dashboard: dict[str, Any]) -> None:
-    latest = next(v for v in dashboard["templating"]["list"] if v["name"] == "latest_fy")
-    assert latest["hide"] == 2
-    assert "max(a.fiscal_year)" in latest["query"] and "IN ($fiscal_year)" in latest["query"]
+def test_period_picker_defaults_to_annual(dashboard: dict[str, Any]) -> None:
+    variables = _variables(dashboard)
+    assert list(variables) == [
+        "ticker",
+        "freq",
+        "fiscal_year",
+        "quarters",
+        "display_currency",
+        "since",
+        "heading",
+    ]
+    freq = variables["freq"]
+    assert freq["type"] == "custom" and freq["label"] == "Period"
+    assert freq["query"] == "Annual : annual,Quarterly : quarterly"
+    assert freq["current"]["value"] == "annual"
+    assert [o["value"] for o in freq["options"]] == ["annual", "quarterly"]
+
+
+def test_quarterly_view_shows_the_latest_twelve_quarters_by_default(
+    dashboard: dict[str, Any],
+) -> None:
+    variables = _variables(dashboard)
+    quarters = variables["quarters"]
+    assert quarters["current"]["value"] == "12"
+    # All is no LIMIT: the hidden `since` variable casts it to LIMIT NULL.
+    assert quarters["includeAll"] is True and quarters["allValue"] == "NULL"
+    since = variables["since"]
+    assert since["hide"] == 2
+    assert "LIMIT CASE WHEN '$freq' = 'quarterly' THEN ($quarters)::int END" in since["query"]
+    # Counted per period label, so a fiscal year whose lines end on two
+    # different days still counts once.
+    assert "GROUP BY p.period ORDER BY 1 DESC" in since["query"]
+    assert "COALESCE(min(s.period_end), DATE '1900-01-01')" in since["query"]
+
+
+def test_fiscal_years_list_both_frequencies(dashboard: dict[str, Any]) -> None:
+    # Not filtered on $freq: switching Period keeps the selected years, and a
+    # company with no quarters still has years to pick (an empty list would
+    # interpolate as `IN ()`, a syntax error in every panel).
+    query = _variables(dashboard)["fiscal_year"]["query"]
+    assert "FROM equity_statement_periods a" in query and "$freq" not in query
+
+
+def test_heading_names_the_period_or_why_there_are_no_quarters(
+    dashboard: dict[str, Any],
+) -> None:
+    heading = _variables(dashboard)["heading"]
+    assert heading["hide"] == 2
+    query = heading["query"]
+    assert "'Highlights — FY' || p.period || ' vs a year earlier, $display_currency'" in query
+    assert "ORDER BY p.period_end DESC LIMIT 1" in query
+    assert "'No quarterly figures for $ticker: '" in query
+    assert "annual reports only (Form 20-F / 40-F)" in query
+    assert "it reports half-yearly, not quarterly" in query
+
+
+def test_every_panel_reads_the_selected_frequency(panels: list[dict[str, Any]]) -> None:
+    for p in panels:
+        if p["type"] == "row":
+            continue
+        sql = _sql(p)
+        assert "equity_statement_annual" not in sql and "equity_statement_matrix" not in sql
+        assert re.search(r"\b(\w)\.freq = '\$freq'", sql), p["title"]
+        # Trends and tables show the periods the tables do: since `since`.
+        if p["type"] != "stat":
+            assert "period_end >= '$since'" in sql, p["title"]
 
 
 def test_highlights_compare_with_the_year_before(panels: list[dict[str, Any]]) -> None:
@@ -85,12 +153,18 @@ def test_highlights_compare_with_the_year_before(panels: list[dict[str, Any]]) -
         ), name
         # The baseline sorts before the latest year.
         assert "SELECT COALESCE(p.period_end, c.period_end - 365)::timestamptz" in sql, name
+        # A quarter is compared with the same quarter of the fiscal year
+        # before; a fiscal year (no quarter) with the year before.
+        assert "ORDER BY l.period_end DESC LIMIT 1), " in sql, name
+        assert (
+            "AND COALESCE(a.fiscal_quarter, 0) = COALESCE((SELECT fq FROM latest), 0)"
+        ) in sql, name
         assert p["options"]["showPercentChange"] is True, name
         assert p["options"]["reduceOptions"]["calcs"] == ["lastNotNull"], name
         assert p["options"]["graphMode"] == "none", name  # the baseline is no data point
 
 
-def test_statement_tables_latest_year_first_in_millions(panels: list[dict[str, Any]]) -> None:
+def test_statement_tables_latest_period_first_in_millions(panels: list[dict[str, Any]]) -> None:
     tables = {p["title"]: p for p in panels if p["type"] == "table"}
     assert set(tables) == {
         "Income statement — $display_currency millions",
@@ -100,14 +174,32 @@ def test_statement_tables_latest_year_first_in_millions(panels: list[dict[str, A
     }
     for title, p in tables.items():
         sql = _sql(p)
-        assert sql.endswith("ORDER BY m.ord, m.fiscal_year DESC"), title
+        assert sql.endswith("ORDER BY m.ord, m.period_end DESC"), title
+        assert "m.period AS period" in sql, title
+        assert "FROM equity_statement_period_matrix m" in sql, title
         if title.endswith("millions"):
-            assert "AS value FROM equity_statement_matrix m" in sql
             assert "/ 1e6 AS value" in sql, title
+        grouping = next(t for t in p["transformations"] if t["id"] == "groupingToMatrix")
+        assert grouping["options"] == {
+            "columnField": "period",
+            "rowField": "line",
+            "valueField": "value",
+        }
     # Per-share lines live in their own table; share counts are in millions there.
     assert "m.ord < 500" in _sql(tables["Income statement — $display_currency millions"])
     per_share = _sql(tables["Per share — $display_currency"])
     assert "m.ord > 500" in per_share and "m.value / 1e6" in per_share
+
+
+def test_trend_charts_are_bars_over_period_labels(panels: list[dict[str, Any]]) -> None:
+    # A trend panel needs a numeric x axis, which can't label "2025 Q3".
+    charts = [p for p in panels if p["type"] in ("barchart", "trend", "timeseries")]
+    assert {p["type"] for p in charts} == {"barchart"}
+    for p in charts:
+        assert p["options"]["xField"] == "Period", p["title"]
+        sql = _sql(p)
+        assert 'SELECT period AS "Period", ' in sql, p["title"]
+        assert sql.endswith("FROM a GROUP BY period ORDER BY max(period_end)"), p["title"]
 
 
 def test_charts_use_the_validated_palette(panels: list[dict[str, Any]]) -> None:

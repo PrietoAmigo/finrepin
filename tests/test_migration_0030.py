@@ -88,7 +88,8 @@ def test_fx_usd_rate_parameters_do_not_shadow_columns(rev0030: ModuleType) -> No
 
 def _queries(dashboard: dict[str, Any]) -> Iterator[tuple[str, str]]:
     for var in dashboard["templating"]["list"]:
-        yield f"variable {var['name']}", var["query"]
+        if var["type"] == "query":
+            yield f"variable {var['name']}", var["query"]
 
     def panels(ps: list[dict[str, Any]]) -> Iterator[dict[str, Any]]:
         for p in ps:
@@ -107,7 +108,7 @@ def test_dashboard_filters_by_instrument_id_and_converts_by_lookup() -> None:
         if "equity_statement_" in sql
     ]
     variables = [w for w, _ in statement_queries if w.startswith("variable")]
-    assert variables == ["variable fiscal_year", "variable latest_fy"]
+    assert variables == ["variable fiscal_year", "variable since", "variable heading"]
     assert len(statement_queries) > 4  # highlights, trends and the statement tables
     pushed_down = "instrument_id = (SELECT id FROM instruments WHERE symbol = '$ticker')"
     for where, sql in statement_queries:
