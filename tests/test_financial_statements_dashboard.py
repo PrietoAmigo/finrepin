@@ -59,7 +59,7 @@ def test_sections_in_reading_order(panels: list[dict[str, Any]]) -> None:
     ]
 
 
-def test_period_picker_defaults_to_annual(dashboard: dict[str, Any]) -> None:
+def test_period_picker_defaults_to_quarterly(dashboard: dict[str, Any]) -> None:
     variables = _variables(dashboard)
     assert list(variables) == [
         "ticker",
@@ -73,16 +73,18 @@ def test_period_picker_defaults_to_annual(dashboard: dict[str, Any]) -> None:
     freq = variables["freq"]
     assert freq["type"] == "custom" and freq["label"] == "Period"
     assert freq["query"] == "Annual : annual,Quarterly : quarterly"
-    assert freq["current"]["value"] == "annual"
+    assert freq["current"]["value"] == "quarterly"
+    assert [o["value"] for o in freq["options"] if o["selected"]] == ["quarterly"]
     assert [o["value"] for o in freq["options"]] == ["annual", "quarterly"]
 
 
-def test_quarterly_view_shows_the_latest_twelve_quarters_by_default(
+def test_quarterly_view_shows_the_latest_eight_quarters_by_default(
     dashboard: dict[str, Any],
 ) -> None:
     variables = _variables(dashboard)
     quarters = variables["quarters"]
-    assert quarters["current"]["value"] == "12"
+    assert quarters["current"]["value"] == "8"
+    assert [o["value"] for o in quarters["options"] if o["selected"]] == ["8"]
     # All is no LIMIT: the hidden `since` variable casts it to LIMIT NULL.
     assert quarters["includeAll"] is True and quarters["allValue"] == "NULL"
     since = variables["since"]
