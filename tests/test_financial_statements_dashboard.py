@@ -176,8 +176,9 @@ def test_statement_tables_latest_period_first_in_millions(panels: list[dict[str,
     }
     for title, p in tables.items():
         sql = _sql(p)
-        assert sql.endswith("ORDER BY m.ord, m.period_end DESC"), title
-        assert "m.period AS period" in sql, title
+        # Each period's value, then its YoY.
+        assert sql.endswith("ORDER BY g.ord, g.period_end DESC, r.k"), title
+        assert "r.period AS period" in sql, title
         assert "FROM equity_statement_period_matrix m" in sql, title
         if title.endswith("millions"):
             assert "/ 1e6 AS value" in sql, title
@@ -191,6 +192,54 @@ def test_statement_tables_latest_period_first_in_millions(panels: list[dict[str,
     assert "m.ord < 500" in _sql(tables["Income statement — $display_currency millions"])
     per_share = _sql(tables["Per share — $display_currency"])
     assert "m.ord > 500" in per_share and "m.value / 1e6" in per_share
+
+
+def test_statement_tables_follow_each_period_with_its_yoy(panels: list[dict[str, Any]]) -> None:
+    """Each period column is followed by a YoY column: the % change from the
+    same quarter of the fiscal year before (Annual: the fiscal year before),
+    blank when that period isn't reported or wasn't positive, as under the
+    Highlights tiles. The query reads the year before the selected periods
+    too, so the oldest period shown still has a YoY."""
+    tables = [p for p in panels if p["type"] == "table"]
+    assert len(tables) == 4
+    for p in tables:
+        sql = _sql(p)
+        title = p["title"]
+        assert (
+            "AND (m.fiscal_year::text IN ($fiscal_year)"
+            " OR (m.fiscal_year + 1)::text IN ($fiscal_year)))"
+        ) in sql, title
+        assert (
+            "WINDOW w AS (PARTITION BY c.line, c.fiscal_quarter"
+            " ORDER BY c.fiscal_year, c.period_end)"
+        ) in sql, title
+        assert (
+            "CASE WHEN LAG(c.fiscal_year) OVER w = c.fiscal_year - 1 AND LAG(c.value) OVER w > 0"
+            " THEN (c.value / LAG(c.value) OVER w - 1) * 100 END AS yoy"
+        ) in sql, title
+        # Only the selected periods are shown; the year before is only read.
+        assert (
+            "WHERE g.fiscal_year::text IN ($fiscal_year) AND g.period_end >= '$since'"
+        ) in sql, title
+        # Every YoY header reads "YoY", told apart by trailing spaces (one
+        # more per period): Grafana 12's table keys rows by header text, so
+        # equal headers would show one column's values in all of them.
+        assert "DENSE_RANK() OVER (ORDER BY c.fiscal_year, c.fiscal_quarter) AS n" in sql, title
+        assert (
+            "CROSS JOIN LATERAL (VALUES (g.period, g.value, 0),"
+            " ('YoY' || repeat(' ', g.n::int), g.yoy, 1)) AS r(period, value, k)"
+        ) in sql, title
+        yoy = [o for o in p["fieldConfig"]["overrides"] if o["matcher"]["id"] == "byRegexp"]
+        assert len(yoy) == 1, title
+        # Slashes, or Grafana anchors the pattern at both ends.
+        assert yoy[0]["matcher"]["options"] == "/^YoY/", title
+        props = {prop["id"]: prop["value"] for prop in yoy[0]["properties"]}
+        assert props["unit"] == "percent" and props["decimals"] == 1, title
+        assert props["custom.cellOptions"] == {"type": "color-text"}, title
+        assert [s["color"] for s in props["thresholds"]["steps"]] == ["red", "green"], title
+        # Narrower than a period column, so 8 quarters fit a 1920 px screen.
+        assert props["custom.minWidth"] < p["fieldConfig"]["defaults"]["custom"]["minWidth"]
+        assert "YoY" in p["description"], title
 
 
 def test_trend_charts_are_bars_over_period_labels(panels: list[dict[str, Any]]) -> None:
