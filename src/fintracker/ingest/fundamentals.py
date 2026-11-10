@@ -25,6 +25,7 @@ from fintracker.config import get_settings
 from fintracker.db import session_scope
 from fintracker.ingest.sec_client import SecClient
 from fintracker.models import Filing, Fundamental, Instrument
+from fintracker.screener import refresh_screener
 
 log = logging.getLogger(__name__)
 
@@ -447,3 +448,6 @@ def ingest_fundamentals() -> None:
             except Exception:
                 log.exception("Fundamentals ingest failed for %s", inst.symbol)
                 session.rollback()
+
+    # The Screener reads a materialized view of these facts.
+    refresh_screener()

@@ -39,6 +39,7 @@ from fintracker.ingest.quote_units import normalize_quote_currency, scale_price_
 from fintracker.ingest.sec_client import SecClient
 from fintracker.ingest.yahoo_fundamentals import ingest_instrument_yahoo_facts
 from fintracker.models import Instrument, TickerRequest
+from fintracker.screener import refresh_screener
 
 log = logging.getLogger(__name__)
 
@@ -336,6 +337,7 @@ def process_ticker_requests() -> None:
     if not pending_ids:
         return
 
+    ingested = False
     for req_id in pending_ids:
         # One transaction per request so a failure can't poison the others.
         with session_scope() as session:
@@ -355,3 +357,9 @@ def process_ticker_requests() -> None:
             req.note = note
             req.processed_at = dt.datetime.now(dt.UTC)
             log.info("Ticker request %r -> %s (%s)", req.symbol, status, note)
+            ingested = ingested or status == "done"
+
+    # A new stock joins the Screener now rather than at the next daily
+    # fundamentals ingest (it reads a materialized view of the facts).
+    if ingested:
+        refresh_screener()

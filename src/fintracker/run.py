@@ -12,6 +12,7 @@ from fintracker.housing.seed import seed_housing
 from fintracker.ingest.market import ingest_market_data
 from fintracker.migrate import run_migrations
 from fintracker.scheduler import build_scheduler
+from fintracker.screener import refresh_screener
 from fintracker.seed import seed_instruments
 
 log = logging.getLogger(__name__)
@@ -32,6 +33,9 @@ def main() -> None:
     seed_instruments()
     seed_housing()  # regions + indicators (reference data only)
     heartbeat.beat()  # pass the healthcheck while the first ingest runs
+    # The Screener's fundamentals, recomputed in case a migration changed the
+    # views they are built from.
+    refresh_screener()
 
     if settings.run_on_start:
         log.info("RUN_ON_START=true — running one market ingest now.")
