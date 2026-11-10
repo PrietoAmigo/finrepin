@@ -255,6 +255,15 @@ thing runs under Docker Compose and schedules itself — no external cron.
   right below the table; and a 52-week-high ranking and upcoming earnings. See
   [Watchlist dashboard](#watchlist-dashboard) below.
 
+- **Screener (Grafana)** — a *Screener* dashboard with every tracked stock in
+  one table: market cap, P/E, P/FCF, P/B, EV/EBITDA, revenue and EPS growth,
+  share count change, margins, ROE, debt-to-equity, debt / EBITDA, price
+  moves and next earnings. Pick holdings, the watchlist or neither, sectors,
+  regions and a minimum market cap at the top, sort by any figure, filter any
+  column from its header, and choose which groups of columns show. The ratios
+  are the Valuation dashboard's on each stock's latest close. See
+  [Screener dashboard](#screener-dashboard) below.
+
 All core features are in. What remains is **M7/M8 polish**: richer
 dashboards and deeper observability.
 
@@ -605,6 +614,81 @@ dashboard (the *Edit the watchlist* link at the top right) or with
   ranking, and each watched company's next report with a countdown in days
   (orange within a week).
 
+## Screener dashboard
+
+The *Screener* dashboard puts every tracked stock (`kind = 'equity'`) side by
+side, to compare them and find the ones worth a closer look. Add stocks to it
+from the *Manage* dashboard (the *Add tickers* link at the top right).
+
+### Selectors
+
+- **List** — every stock, your holdings (an open position in the portfolio
+  ledger), the watchlist, or the stocks on neither.
+- **Sector**, **Region** — Yahoo Finance's classification; a ticker added
+  today is *Unclassified* until the daily ingest classifies it.
+- **Market cap** — the smallest market cap shown, in the selected currency.
+- **Currency** — the currency market caps are shown in. Nothing else on the
+  dashboard depends on it.
+- **Sort by** — the table's order, with stocks that don't have the figure
+  last. Clicking a column header sorts by it instead (blanks then sort first
+  when ascending, as Grafana sorts them).
+- **Columns** — which groups of columns the table shows: *Overview* (the
+  default: a few of each), *Valuation*, *Growth*, *Profitability*, *Debt*,
+  *Price* and *Details*, or *All*. Symbol, name, sector and market cap always
+  show.
+
+### Panels
+
+- **Summary** — how many stocks the selectors pick, and their median P/E,
+  EV/EBITDA, revenue growth, operating margin and one-year return.
+- **Stocks** — one row per stock. Every column header has a filter (the
+  funnel): pick an operator such as `<` or `>` and a value, or an expression
+  like `$ >= 10 && $ <= 30`, tick *Select all*, and untick *(Blanks)* to drop
+  stocks without the figure. The count under the table follows the filters.
+  Click a symbol for its *Valuation* or *Financial Statements* dashboard. The
+  panel's description (the ⓘ next to its title) says how each column is
+  computed.
+- **Sectors** — the same stocks by sector: how many, their combined market
+  cap, and the median of the main figures.
+
+### How the numbers are computed
+
+Fundamentals are the latest reported, as on the *Valuation* dashboard: TTM
+means the last four quarters, or the fiscal year as filed. P/E, P/FCF, P/B
+and EV/EBITDA are exactly that dashboard's values on the stock's latest close,
+the close converted into the currency the company reports in; a figure is
+blank when its report ended more than about 15 months before that close, and
+where a multiple means nothing (of a loss, negative equity or negative cash
+flow). Revenue and EPS growth compare a TTM figure with the one closest to a
+year earlier, at the latest report that has one (as the Valuation growth
+chart pairs them), in the reporting currency so that exchange-rate moves
+don't count as growth. ROE is TTM net income over book equity; the share
+count change is diluted shares against a year earlier (negative: buybacks).
+Price moves follow the Watchlist and the weekly email; *5Y/yr* is the price
+return over five years, per year, without dividends. Market caps are
+converted at the close's exchange rate, and are blank, not unconverted, while
+a currency's rate isn't stored yet, so they never sort or filter as if they
+were in the selected currency.
+
+Computing every company's TTM figures through the Valuation views takes
+seconds, so migration 0037 splits the work. `screener_fundamentals` is a
+materialized view of the series built from the statements (TTM revenue, EPS,
+net income, free cash flow and EBITDA, margins, ROE, diluted shares, book
+equity, cash, debt and the leverage ratios), read from the same views
+Valuation reads. `equity_screener` gives one row per stock: the latest close
+and the price moves come straight from `prices`, so they are always current,
+and each fundamentals figure is the series' point the Valuation windows
+would pick for that close. Reading the whole view takes tens of
+milliseconds.
+
+The app refreshes `screener_fundamentals` after the daily SEC and Yahoo
+fundamentals ingests, after an on-demand ticker is ingested, and when it
+starts (which also applies any change a migration made to the views it is
+built from). The refresh runs `CONCURRENTLY`, so the dashboard keeps working
+during it. A refresh that fails is logged and the Screener keeps the previous
+fundamentals; run one by hand with
+`docker compose exec app python -m fintracker.screener`.
+
 ## Configuration
 
 All configuration is environment-driven; see `.env.example` for the full list.
@@ -628,6 +712,11 @@ one, and `tests/test_dashboard_queries.py` checks both:
   handful of lookups. Where a join on the view is the better fit (the
   Portfolio functions convert every daily close), narrow it to the
   currencies it can match, as migration 0033 does.
+
+The Screener is the one dashboard that shows every company at once. It reads
+`equity_screener` (migration 0037), whose fundamentals come from the
+`screener_fundamentals` materialized view instead of the per-instrument
+views; see [Screener dashboard](#screener-dashboard).
 
 ### Security note
 
@@ -766,6 +855,9 @@ docker compose exec app python -m fintracker.housing.seed           # regions + 
 
 # Portfolio allocation buckets (sector/region) for newly added tickers:
 docker compose exec app python -m fintracker.ingest.classify
+
+# The Screener's fundamentals (refreshed after each fundamentals ingest anyway):
+docker compose exec app python -m fintracker.screener
 ```
 
 (On the server these run against the container the deploy timer manages; prefix
@@ -805,6 +897,7 @@ Schedule that command from host cron if you want periodic backups.
 │   ├── scheduler.py            # APScheduler jobs
 │   ├── manage.py               # CLI: add tickers, edit the weekly-email watchlist (no holdings)
 │   ├── portfolio.py            # CLI: accounts, trades, positions (average-cost walk)
+│   ├── screener.py             # refreshes the Screener's materialized fundamentals
 │   ├── heartbeat.py / healthcheck.py
 │   ├── run.py                  # entrypoint
 │   ├── ingest/                 # prices, forex, crypto, metals, market orchestrator,

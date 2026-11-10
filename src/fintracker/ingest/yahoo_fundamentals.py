@@ -37,6 +37,7 @@ from fintracker.db import session_scope
 from fintracker.ingest.fundamentals import _upsert_facts
 from fintracker.ingest.quote_units import normalize_quote_currency
 from fintracker.models import Fundamental, Instrument
+from fintracker.screener import refresh_screener
 
 log = logging.getLogger(__name__)
 
@@ -377,3 +378,6 @@ def ingest_yahoo_fundamentals() -> None:
             except Exception:
                 log.exception("Yahoo fundamentals ingest failed for %s", inst.symbol)
                 session.rollback()
+
+    # The Screener reads a materialized view of these facts.
+    refresh_screener()

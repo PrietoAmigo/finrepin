@@ -1,0 +1,1864 @@
+{
+  "uid": "fintracker-screener",
+  "title": "Screener",
+  "description": "Every tracked stock at once: valuation, growth, margins, leverage and price moves, filtered by holdings, sector, region and size, and sorted by any of them. Fundamentals come from the screener_fundamentals view (refreshed after each fundamentals ingest), prices are live.",
+  "tags": [
+    "fintracker"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "",
+  "graphTooltip": 0,
+  "time": {
+    "from": "now-1y",
+    "to": "now"
+  },
+  "timepicker": {
+    "hidden": true
+  },
+  "links": [
+    {
+      "title": "Add tickers",
+      "type": "link",
+      "url": "/d/fintracker-manage/manage",
+      "icon": "plus",
+      "targetBlank": false,
+      "keepTime": false,
+      "includeVars": false,
+      "tooltip": "Track another stock (or edit the watchlist) on the Manage dashboard"
+    }
+  ],
+  "annotations": {
+    "list": []
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "universe",
+        "label": "List",
+        "description": "Every tracked stock, only your holdings, only the watchlist, or the stocks on neither.",
+        "type": "custom",
+        "query": "All : all, Holdings : held, Watchlist : watchlist, Neither : other",
+        "multi": false,
+        "includeAll": false,
+        "allowCustomValue": false,
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "all"
+        },
+        "options": [
+          {
+            "selected": true,
+            "text": "All",
+            "value": "all"
+          },
+          {
+            "selected": false,
+            "text": "Holdings",
+            "value": "held"
+          },
+          {
+            "selected": false,
+            "text": "Watchlist",
+            "value": "watchlist"
+          },
+          {
+            "selected": false,
+            "text": "Neither",
+            "value": "other"
+          }
+        ]
+      },
+      {
+        "name": "sector",
+        "label": "Sector",
+        "description": "Yahoo Finance's sector; Unclassified until the daily ingest classifies a new ticker.",
+        "type": "query",
+        "datasource": {
+          "type": "postgres",
+          "uid": "fintracker-pg"
+        },
+        "query": "SELECT DISTINCT COALESCE(sector, 'Unclassified') FROM instruments WHERE kind = 'equity' ORDER BY 1",
+        "definition": "SELECT DISTINCT COALESCE(sector, 'Unclassified') FROM instruments WHERE kind = 'equity' ORDER BY 1",
+        "refresh": 1,
+        "sort": 0,
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        }
+      },
+      {
+        "name": "region",
+        "label": "Region",
+        "description": "Where the company is based.",
+        "type": "query",
+        "datasource": {
+          "type": "postgres",
+          "uid": "fintracker-pg"
+        },
+        "query": "SELECT DISTINCT COALESCE(region, 'Unclassified') FROM instruments WHERE kind = 'equity' ORDER BY 1",
+        "definition": "SELECT DISTINCT COALESCE(region, 'Unclassified') FROM instruments WHERE kind = 'equity' ORDER BY 1",
+        "refresh": 1,
+        "sort": 0,
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        }
+      },
+      {
+        "name": "min_mcap",
+        "label": "Market cap",
+        "description": "Smallest market cap shown, in the selected currency.",
+        "type": "custom",
+        "query": "Any : 0, 300M or more : 300000000, 2B or more : 2000000000, 10B or more : 10000000000, 50B or more : 50000000000, 200B or more : 200000000000",
+        "multi": false,
+        "includeAll": false,
+        "allowCustomValue": false,
+        "current": {
+          "selected": true,
+          "text": "Any",
+          "value": "0"
+        },
+        "options": [
+          {
+            "selected": true,
+            "text": "Any",
+            "value": "0"
+          },
+          {
+            "selected": false,
+            "text": "300M or more",
+            "value": "300000000"
+          },
+          {
+            "selected": false,
+            "text": "2B or more",
+            "value": "2000000000"
+          },
+          {
+            "selected": false,
+            "text": "10B or more",
+            "value": "10000000000"
+          },
+          {
+            "selected": false,
+            "text": "50B or more",
+            "value": "50000000000"
+          },
+          {
+            "selected": false,
+            "text": "200B or more",
+            "value": "200000000000"
+          }
+        ]
+      },
+      {
+        "name": "display_currency",
+        "label": "Currency",
+        "description": "The currency market caps are shown in. Ratios, margins and returns don't depend on it.",
+        "type": "query",
+        "datasource": {
+          "type": "postgres",
+          "uid": "fintracker-pg"
+        },
+        "query": "SELECT 'USD' AS currency UNION SELECT split_part(symbol, '/', 1) FROM instruments WHERE kind = 'forex' AND symbol LIKE '%/USD' ORDER BY 1",
+        "definition": "SELECT 'USD' AS currency UNION SELECT split_part(symbol, '/', 1) FROM instruments WHERE kind = 'forex' AND symbol LIKE '%/USD' ORDER BY 1",
+        "refresh": 1,
+        "sort": 0,
+        "multi": false,
+        "includeAll": false,
+        "current": {
+          "selected": true,
+          "text": "USD",
+          "value": "USD"
+        }
+      },
+      {
+        "name": "sort",
+        "label": "Sort by",
+        "description": "The table's order; stocks without the figure go last. Clicking a column header sorts by it instead.",
+        "type": "custom",
+        "query": "Market cap (largest first) : mcap, P/E (lowest first) : pe, P/FCF (lowest first) : pfcf, EV/EBITDA (lowest first) : ev_ebitda, Revenue growth (highest first) : revenue_growth, EPS growth (highest first) : eps_growth, Operating margin (highest first) : op_margin, ROE (highest first) : roe, 1Y return (highest first) : chg_1y, Below 52-week high (furthest first) : below_high_52w, Next earnings (soonest first) : next_earnings, Symbol (A to Z) : symbol",
+        "multi": false,
+        "includeAll": false,
+        "allowCustomValue": false,
+        "current": {
+          "selected": true,
+          "text": "Market cap (largest first)",
+          "value": "mcap"
+        },
+        "options": [
+          {
+            "selected": true,
+            "text": "Market cap (largest first)",
+            "value": "mcap"
+          },
+          {
+            "selected": false,
+            "text": "P/E (lowest first)",
+            "value": "pe"
+          },
+          {
+            "selected": false,
+            "text": "P/FCF (lowest first)",
+            "value": "pfcf"
+          },
+          {
+            "selected": false,
+            "text": "EV/EBITDA (lowest first)",
+            "value": "ev_ebitda"
+          },
+          {
+            "selected": false,
+            "text": "Revenue growth (highest first)",
+            "value": "revenue_growth"
+          },
+          {
+            "selected": false,
+            "text": "EPS growth (highest first)",
+            "value": "eps_growth"
+          },
+          {
+            "selected": false,
+            "text": "Operating margin (highest first)",
+            "value": "op_margin"
+          },
+          {
+            "selected": false,
+            "text": "ROE (highest first)",
+            "value": "roe"
+          },
+          {
+            "selected": false,
+            "text": "1Y return (highest first)",
+            "value": "chg_1y"
+          },
+          {
+            "selected": false,
+            "text": "Below 52-week high (furthest first)",
+            "value": "below_high_52w"
+          },
+          {
+            "selected": false,
+            "text": "Next earnings (soonest first)",
+            "value": "next_earnings"
+          },
+          {
+            "selected": false,
+            "text": "Symbol (A to Z)",
+            "value": "symbol"
+          }
+        ]
+      },
+      {
+        "name": "columns",
+        "label": "Columns",
+        "description": "Which groups of columns the Stocks table shows; Symbol, Name, Sector and market cap always show.",
+        "type": "custom",
+        "query": "Overview : Symbol\\,Name\\,Sector\\,Mkt cap\\,List\\,P/E\\,EV/EBITDA\\,Rev growth\\,Op margin\\,ROE\\,Debt/EBITDA\\,1Y\\,Next earnings, Valuation : Symbol\\,Name\\,Sector\\,Mkt cap\\,P/E\\,P/FCF\\,P/B\\,EV/EBITDA, Growth : Symbol\\,Name\\,Sector\\,Mkt cap\\,Rev growth\\,EPS growth\\,Shares YoY, Profitability : Symbol\\,Name\\,Sector\\,Mkt cap\\,Gross margin\\,Op margin\\,Net margin\\,ROE, Debt : Symbol\\,Name\\,Sector\\,Mkt cap\\,Debt/Eq\\,Debt/EBITDA, Price : Symbol\\,Name\\,Sector\\,Mkt cap\\,Price\\,Ccy\\,1M\\,YTD\\,1Y\\,5Y/yr\\,vs 200d\\,Off 52w high, Details : Symbol\\,Name\\,Sector\\,Mkt cap\\,Region\\,List\\,Next earnings",
+        "multi": true,
+        "includeAll": true,
+        "allowCustomValue": false,
+        "current": {
+          "selected": true,
+          "text": [
+            "Overview"
+          ],
+          "value": [
+            "Symbol,Name,Sector,Mkt cap,List,P/E,EV/EBITDA,Rev growth,Op margin,ROE,Debt/EBITDA,1Y,Next earnings"
+          ]
+        },
+        "options": [
+          {
+            "selected": false,
+            "text": "All",
+            "value": "$__all"
+          },
+          {
+            "selected": true,
+            "text": "Overview",
+            "value": "Symbol,Name,Sector,Mkt cap,List,P/E,EV/EBITDA,Rev growth,Op margin,ROE,Debt/EBITDA,1Y,Next earnings"
+          },
+          {
+            "selected": false,
+            "text": "Valuation",
+            "value": "Symbol,Name,Sector,Mkt cap,P/E,P/FCF,P/B,EV/EBITDA"
+          },
+          {
+            "selected": false,
+            "text": "Growth",
+            "value": "Symbol,Name,Sector,Mkt cap,Rev growth,EPS growth,Shares YoY"
+          },
+          {
+            "selected": false,
+            "text": "Profitability",
+            "value": "Symbol,Name,Sector,Mkt cap,Gross margin,Op margin,Net margin,ROE"
+          },
+          {
+            "selected": false,
+            "text": "Debt",
+            "value": "Symbol,Name,Sector,Mkt cap,Debt/Eq,Debt/EBITDA"
+          },
+          {
+            "selected": false,
+            "text": "Price",
+            "value": "Symbol,Name,Sector,Mkt cap,Price,Ccy,1M,YTD,1Y,5Y/yr,vs 200d,Off 52w high"
+          },
+          {
+            "selected": false,
+            "text": "Details",
+            "value": "Symbol,Name,Sector,Mkt cap,Region,List,Next earnings"
+          }
+        ]
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Stocks",
+      "description": "How many of the stocks the selectors pick; the table's column filters can narrow it further.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 4,
+        "x": 0,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "value",
+        "orientation": "auto",
+        "showPercentChange": false,
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH s AS ( SELECT e.*, e.mcap * CASE WHEN e.currency = '$display_currency' THEN 1 ELSE fx_usd_rate(e.currency, e.price_date) / NULLIF(fx_usd_rate('$display_currency', e.price_date), 0) END AS mcap_ccy FROM equity_screener e WHERE e.sector IN ($sector) AND e.region IN ($region) AND ('$universe' = 'all' OR ('$universe' = 'held' AND e.held) OR ('$universe' = 'watchlist' AND e.watched) OR ('$universe' = 'other' AND NOT e.held AND NOT e.watched)) ), picked AS ( SELECT s.* FROM s WHERE $min_mcap = 0 OR s.mcap_ccy >= $min_mcap ) SELECT count(*) AS \"Stocks\" FROM picked s"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Median P/E",
+      "description": "The median P/E (TTM) of the stocks the selectors pick, among those with one.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 4,
+        "x": 4,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "value",
+        "orientation": "auto",
+        "showPercentChange": false,
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH s AS ( SELECT e.*, e.mcap * CASE WHEN e.currency = '$display_currency' THEN 1 ELSE fx_usd_rate(e.currency, e.price_date) / NULLIF(fx_usd_rate('$display_currency', e.price_date), 0) END AS mcap_ccy FROM equity_screener e WHERE e.sector IN ($sector) AND e.region IN ($region) AND ('$universe' = 'all' OR ('$universe' = 'held' AND e.held) OR ('$universe' = 'watchlist' AND e.watched) OR ('$universe' = 'other' AND NOT e.held AND NOT e.watched)) ), picked AS ( SELECT s.* FROM s WHERE $min_mcap = 0 OR s.mcap_ccy >= $min_mcap ) SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY s.pe) AS \"Median P/E\" FROM picked s"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Median EV/EBITDA",
+      "description": "The median EV/EBITDA (TTM) of the stocks the selectors pick, among those with one.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 4,
+        "x": 8,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "value",
+        "orientation": "auto",
+        "showPercentChange": false,
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH s AS ( SELECT e.*, e.mcap * CASE WHEN e.currency = '$display_currency' THEN 1 ELSE fx_usd_rate(e.currency, e.price_date) / NULLIF(fx_usd_rate('$display_currency', e.price_date), 0) END AS mcap_ccy FROM equity_screener e WHERE e.sector IN ($sector) AND e.region IN ($region) AND ('$universe' = 'all' OR ('$universe' = 'held' AND e.held) OR ('$universe' = 'watchlist' AND e.watched) OR ('$universe' = 'other' AND NOT e.held AND NOT e.watched)) ), picked AS ( SELECT s.* FROM s WHERE $min_mcap = 0 OR s.mcap_ccy >= $min_mcap ) SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY s.ev_ebitda) AS \"Median EV/EBITDA\" FROM picked s"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Median rev growth",
+      "description": "The median TTM revenue growth of the stocks the selectors pick, year on year.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 4,
+        "x": 12,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "value",
+        "orientation": "auto",
+        "showPercentChange": false,
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH s AS ( SELECT e.*, e.mcap * CASE WHEN e.currency = '$display_currency' THEN 1 ELSE fx_usd_rate(e.currency, e.price_date) / NULLIF(fx_usd_rate('$display_currency', e.price_date), 0) END AS mcap_ccy FROM equity_screener e WHERE e.sector IN ($sector) AND e.region IN ($region) AND ('$universe' = 'all' OR ('$universe' = 'held' AND e.held) OR ('$universe' = 'watchlist' AND e.watched) OR ('$universe' = 'other' AND NOT e.held AND NOT e.watched)) ), picked AS ( SELECT s.* FROM s WHERE $min_mcap = 0 OR s.mcap_ccy >= $min_mcap ) SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY s.revenue_growth) AS \"Median rev growth\" FROM picked s"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Median op margin",
+      "description": "The median TTM operating margin of the stocks the selectors pick.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 4,
+        "x": 16,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "text",
+                "value": 0
+              }
+            ]
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "value",
+        "orientation": "auto",
+        "showPercentChange": false,
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH s AS ( SELECT e.*, e.mcap * CASE WHEN e.currency = '$display_currency' THEN 1 ELSE fx_usd_rate(e.currency, e.price_date) / NULLIF(fx_usd_rate('$display_currency', e.price_date), 0) END AS mcap_ccy FROM equity_screener e WHERE e.sector IN ($sector) AND e.region IN ($region) AND ('$universe' = 'all' OR ('$universe' = 'held' AND e.held) OR ('$universe' = 'watchlist' AND e.watched) OR ('$universe' = 'other' AND NOT e.held AND NOT e.watched)) ), picked AS ( SELECT s.* FROM s WHERE $min_mcap = 0 OR s.mcap_ccy >= $min_mcap ) SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY s.op_margin) AS \"Median op margin\" FROM picked s"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Median 1Y return",
+      "description": "The median price return over the last year of the stocks the selectors pick.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 4,
+        "x": 20,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "value",
+        "orientation": "auto",
+        "showPercentChange": false,
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH s AS ( SELECT e.*, e.mcap * CASE WHEN e.currency = '$display_currency' THEN 1 ELSE fx_usd_rate(e.currency, e.price_date) / NULLIF(fx_usd_rate('$display_currency', e.price_date), 0) END AS mcap_ccy FROM equity_screener e WHERE e.sector IN ($sector) AND e.region IN ($region) AND ('$universe' = 'all' OR ('$universe' = 'held' AND e.held) OR ('$universe' = 'watchlist' AND e.watched) OR ('$universe' = 'other' AND NOT e.held AND NOT e.watched)) ), picked AS ( SELECT s.* FROM s WHERE $min_mcap = 0 OR s.mcap_ccy >= $min_mcap ) SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY s.chg_1y) AS \"Median 1Y return\" FROM picked s"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "table",
+      "title": "Stocks",
+      "description": "Every tracked stock the selectors at the top pick, one row each.\n\n- **Sort** with *Sort by* (stocks without the figure go last), or click a column header.\n- **Filter** a column with the funnel in its header: pick an operator such as `<` or `>`, type a value, tick *Select all*, untick *(Blanks)* to drop stocks without the figure, then *Ok*. The count at the bottom follows.\n- **Columns** at the top picks which groups of columns show.\n- Click a **symbol** for its Valuation or Financial Statements dashboard.\n\nFundamentals are the latest reported, as on the Valuation dashboard: TTM means the last four quarters, or the fiscal year as filed. A figure is blank when its report ended more than about 15 months before the latest close, and where it means nothing (a multiple of a loss, of negative equity or of negative cash flow).\n\n- **Mkt cap**: latest close × diluted shares, at that day's exchange rate; blank until the rate is stored.\n- **P/E**: latest close over TTM diluted EPS, with the close in the currency the company reports in. **P/FCF** and **P/B**: market cap over TTM free cash flow (operating cash flow less capex) and over book equity. **EV/EBITDA**: market cap plus debt less cash, over TTM operating income plus D&A.\n- **Rev growth**, **EPS growth**: TTM against the TTM closest to a year earlier, in the reporting currency, at the latest report that has one. **Shares YoY**: diluted shares against a year earlier; green is buybacks, red dilution.\n- **Gross**, **Op** and **Net margin**: TTM gross profit, operating income and net income over revenue. **ROE**: TTM net income over book equity.\n- **Debt/Eq**, **Debt/EBITDA**: total debt over book equity, and over TTM EBITDA.\n- **Price**: latest close, in the listing currency (**Ccy**). **1M**, **YTD**, **1Y**: against the last close at least that long ago (YTD: last year's last close). **5Y/yr**: price return over five years, per year, dividends not included. **vs 200d**: against the average of the last 200 closes. **Off 52w high**: below the highest close of the last year.\n- **List**: *Holding* is an open position in the portfolio, *Watchlist* is on the watchlist.\n",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 26,
+        "w": 24,
+        "x": 0,
+        "y": 3
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Symbol"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 90
+              },
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Valuation",
+                    "url": "/d/fintracker-ticker-fundamentals/valuation?var-ticker=${__value.raw}&var-display_currency=${display_currency}"
+                  },
+                  {
+                    "title": "Financial Statements",
+                    "url": "/d/fintracker-financial-statements/financial-statements?var-ticker=${__value.raw}&var-display_currency=${display_currency}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Name"
+            },
+            "properties": [
+              {
+                "id": "custom.minWidth",
+                "value": 160
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Sector"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 150
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Region"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 125
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "List"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 92
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Mkt cap"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Mkt cap ($display_currency)"
+              },
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 145
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "P/E"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 72
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "P/FCF"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 82
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "P/B"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 72
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "EV/EBITDA"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 112
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Rev growth"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 115
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 0
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "EPS growth"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 115
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 0
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Shares YoY"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 115
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "text",
+                      "value": -0.05
+                    },
+                    {
+                      "color": "red",
+                      "value": 0.05
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Gross margin"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 128
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "text",
+                      "value": 0
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Op margin"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 108
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "text",
+                      "value": 0
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Net margin"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 112
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "text",
+                      "value": 0
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ROE"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 72
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "text",
+                      "value": 0
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Debt/Eq"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              },
+              {
+                "id": "custom.width",
+                "value": 92
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Debt/EBITDA"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 122
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Price"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              },
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Ccy"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 66
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "1M"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 64
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 0
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "YTD"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 70
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 0
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "1Y"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 64
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 0
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "5Y/yr"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 80
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 0
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "vs 200d"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 92
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 0
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Off 52w high"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 128
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Next earnings"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 145
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": true,
+          "countRows": true,
+          "reducer": [
+            "count"
+          ],
+          "fields": ""
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH s AS ( SELECT e.*, e.mcap * CASE WHEN e.currency = '$display_currency' THEN 1 ELSE fx_usd_rate(e.currency, e.price_date) / NULLIF(fx_usd_rate('$display_currency', e.price_date), 0) END AS mcap_ccy FROM equity_screener e WHERE e.sector IN ($sector) AND e.region IN ($region) AND ('$universe' = 'all' OR ('$universe' = 'held' AND e.held) OR ('$universe' = 'watchlist' AND e.watched) OR ('$universe' = 'other' AND NOT e.held AND NOT e.watched)) ), picked AS ( SELECT s.* FROM s WHERE $min_mcap = 0 OR s.mcap_ccy >= $min_mcap ) SELECT s.symbol AS \"Symbol\", s.name AS \"Name\", s.sector AS \"Sector\", s.region AS \"Region\", CASE WHEN s.held THEN 'Holding' WHEN s.watched THEN 'Watchlist' END AS \"List\", s.mcap_ccy AS \"Mkt cap\", s.pe AS \"P/E\", s.pfcf AS \"P/FCF\", s.pb AS \"P/B\", s.ev_ebitda AS \"EV/EBITDA\", s.revenue_growth AS \"Rev growth\", s.eps_growth AS \"EPS growth\", s.shares_change AS \"Shares YoY\", s.gross_margin AS \"Gross margin\", s.op_margin AS \"Op margin\", s.net_margin AS \"Net margin\", s.roe AS \"ROE\", s.debt_to_equity AS \"Debt/Eq\", s.debt_to_ebitda AS \"Debt/EBITDA\", s.close AS \"Price\", s.currency AS \"Ccy\", s.chg_1m AS \"1M\", s.chg_ytd AS \"YTD\", s.chg_1y AS \"1Y\", s.chg_5y_annual AS \"5Y/yr\", s.vs_ma200 AS \"vs 200d\", s.below_high_52w AS \"Off 52w high\", to_char(s.next_earnings, 'YYYY-MM-DD') || CASE WHEN s.next_earnings_estimated THEN ' (est.)' ELSE '' END AS \"Next earnings\" FROM picked s ORDER BY CASE '$sort' WHEN 'pe' THEN s.pe WHEN 'pfcf' THEN s.pfcf WHEN 'ev_ebitda' THEN s.ev_ebitda END ASC NULLS LAST, CASE '$sort' WHEN 'mcap' THEN s.mcap_ccy WHEN 'revenue_growth' THEN s.revenue_growth WHEN 'eps_growth' THEN s.eps_growth WHEN 'op_margin' THEN s.op_margin WHEN 'roe' THEN s.roe WHEN 'chg_1y' THEN s.chg_1y WHEN 'below_high_52w' THEN s.below_high_52w END DESC NULLS LAST, CASE WHEN '$sort' = 'next_earnings' THEN s.next_earnings END ASC NULLS LAST, s.symbol"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "byVariable": true,
+            "include": {
+              "variable": "$columns"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "table",
+      "title": "Sectors",
+      "description": "The stocks the selectors pick, by sector: how many, their combined market cap, and the median of each figure among the stocks that have it.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "fintracker-pg"
+      },
+      "gridPos": {
+        "h": 14,
+        "w": 24,
+        "x": 0,
+        "y": 29
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Sector"
+            },
+            "properties": [
+              {
+                "id": "custom.minWidth",
+                "value": 170
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Stocks"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 80
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Mkt cap"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Mkt cap ($display_currency)"
+              },
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 150
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Median P/E"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 110
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Median EV/EBITDA"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 150
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Median revenue growth"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 185
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 0
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Median op margin"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 155
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "text",
+                      "value": 0
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Median ROE"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 115
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "text",
+                      "value": 0
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Median 1Y"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 110
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 0
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "fintracker-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH s AS ( SELECT e.*, e.mcap * CASE WHEN e.currency = '$display_currency' THEN 1 ELSE fx_usd_rate(e.currency, e.price_date) / NULLIF(fx_usd_rate('$display_currency', e.price_date), 0) END AS mcap_ccy FROM equity_screener e WHERE e.sector IN ($sector) AND e.region IN ($region) AND ('$universe' = 'all' OR ('$universe' = 'held' AND e.held) OR ('$universe' = 'watchlist' AND e.watched) OR ('$universe' = 'other' AND NOT e.held AND NOT e.watched)) ), picked AS ( SELECT s.* FROM s WHERE $min_mcap = 0 OR s.mcap_ccy >= $min_mcap ) SELECT s.sector AS \"Sector\", count(*) AS \"Stocks\", sum(s.mcap_ccy) AS \"Mkt cap\", percentile_cont(0.5) WITHIN GROUP (ORDER BY s.pe) AS \"Median P/E\", percentile_cont(0.5) WITHIN GROUP (ORDER BY s.ev_ebitda) AS \"Median EV/EBITDA\", percentile_cont(0.5) WITHIN GROUP (ORDER BY s.revenue_growth) AS \"Median revenue growth\", percentile_cont(0.5) WITHIN GROUP (ORDER BY s.op_margin) AS \"Median op margin\", percentile_cont(0.5) WITHIN GROUP (ORDER BY s.roe) AS \"Median ROE\", percentile_cont(0.5) WITHIN GROUP (ORDER BY s.chg_1y) AS \"Median 1Y\" FROM picked s GROUP BY s.sector ORDER BY 3 DESC NULLS LAST, 1"
+        }
+      ]
+    }
+  ]
+}
